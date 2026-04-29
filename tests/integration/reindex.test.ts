@@ -70,3 +70,58 @@ describe("reindex", () => {
     expect(tokens["concept-foo"].body.length).toBeGreaterThan(0);
   });
 });
+
+import { mkdtempSync as mkdtempSyncV15, mkdirSync as mkdirSyncV15, writeFileSync as writeFileSyncV15, rmSync, existsSync as existsSyncV15, readFileSync as readFileSyncV15 } from "node:fs";
+import { afterEach } from "vitest";
+
+describe("v1.5 — reindex profiles + aliases sidecars", () => {
+  let vaultPath: string;
+
+  beforeEach(() => {
+    vaultPath = mkdtempSyncV15(join(tmpdir(), "vault-reindex-v15-"));
+    // Minimal vault: _agents wiki with a profile
+    mkdirSyncV15(join(vaultPath, "wikis", "_agents", "profiles"), { recursive: true });
+    mkdirSyncV15(join(vaultPath, "_index"), { recursive: true });
+
+    writeFileSyncV15(join(vaultPath, "wikis", "_agents", "profiles", "profile-charmander.md"),
+      `---
+id: profile-charmander
+type: profile
+title: Charmander
+created: 2026-04-29
+wiki: _agents
+status: active
+summary: Backend
+pokemon_type: fire
+evolution_stage: basic
+moveset: []
+applies_to: [claude-code]
+---
+
+# Charmander
+`);
+  });
+
+  afterEach(() => {
+    rmSync(vaultPath, { recursive: true, force: true });
+  });
+
+  it("creates _index/profiles.json with profile rollup", () => {
+    reindex(vaultPath);
+    const path = join(vaultPath, "_index", "profiles.json");
+    expect(existsSyncV15(path)).toBe(true);
+    const data = JSON.parse(readFileSyncV15(path, "utf8"));
+    expect(data["profile-charmander"]).toBeDefined();
+    expect(data["profile-charmander"].pokemon_type).toBe("fire");
+    expect(data["profile-charmander"].evolution_stage).toBe("basic");
+    expect(data["profile-charmander"].tasks_completed).toBe(0);
+  });
+
+  it("ensures _index/aliases.json exists (empty if no renames)", () => {
+    reindex(vaultPath);
+    const path = join(vaultPath, "_index", "aliases.json");
+    expect(existsSyncV15(path)).toBe(true);
+    const data = JSON.parse(readFileSyncV15(path, "utf8"));
+    expect(data).toEqual({});
+  });
+});
