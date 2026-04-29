@@ -14,10 +14,21 @@ import { agentJournalTool } from "./agent-journal.js";
 import { channelPostTool } from "./channel-post.js";
 import { taskClaimTool } from "./task-claim.js";
 
+// v1.5 — substrate tools
+import { bootstrapRepoTool } from "./bootstrap-repo.js";
+import { syncSkillsTool } from "./sync-skills.js";
+import { startTool } from "./start.js";
+import { taskCreateTool } from "./task-create.js";
+import { taskListTool } from "./task-list.js";
+import { taskUpdateTool } from "./task-update.js";
+
 export const allTools = [
   recallTool, readTool, listWikisTool, lintTool, channelTailTool,
   inboxTool, processInboxTool, newTool, newWikiTool, setActiveTool,
-  synthesizeTool, reindexTool, agentJournalTool, channelPostTool, taskClaimTool
+  synthesizeTool, reindexTool, agentJournalTool, channelPostTool, taskClaimTool,
+  // v1.5
+  bootstrapRepoTool, syncSkillsTool, startTool,
+  taskCreateTool, taskListTool, taskUpdateTool
 ];
 
 export type ToolDefinition = (typeof allTools)[number];
