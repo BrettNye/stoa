@@ -1,0 +1,143 @@
+import { z } from "zod";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { syncMoveset } from "../core/skills.js";
+import { readProfile, ProfileNotFoundError } from "../core/profiles.js";
+
+const Input = z.object({
+  repo_path: z.string(),
+  wiki: z.string(),
+  pokemon: z.string().optional(),
+  channels: z.array(z.string()).optional()
+});
+
+const BOOTSTRAP_MARKER_START = "<!-- vault-mcp v1.5 bootstrap:start -->";
+const BOOTSTRAP_MARKER_END = "<!-- /vault-mcp-bootstrap -->";
+
+function buildClaudeMdFragment(args: {
+  wiki: string;
+  pokemon?: string;
+  channels?: string[];
+  profile?: { name: string; pokemon_type: string; evolution_stage: string };
+}): string {
+  const lines: string[] = [];
+  lines.push(BOOTSTRAP_MARKER_START);
+  lines.push("");
+  lines.push(`## Vault context — wiki: \`${args.wiki}\``);
+  lines.push("");
+  lines.push("This repo is bootstrapped to the knowledge vault. On every session start:");
+  lines.push("");
+  lines.push("1. Run `/start` (calls `vault.start`) — reads the wiki map, tails active channels, runs `/recall` on the repo's primary topic, returns a context brief.");
+  lines.push("2. Journal at end-of-task: `/agent-journal \"<summary>\"` with `moves_used:` populated when applicable.");
+  if (args.channels && args.channels.length > 0) {
+    lines.push(`3. Tail and post on these channels: ${args.channels.map(c => `\`${c}\``).join(", ")}.`);
+  }
+  if (args.profile) {
+    lines.push("");
+    lines.push(`### Operating as: **${args.profile.name}** (${args.profile.pokemon_type} / ${args.profile.evolution_stage})`);
+    lines.push("");
+    lines.push(`Skills are deployed under \`.claude/skills/${args.profile.name}/\`. Read the moveset's SKILL.md files for behavioral guidance.`);
+  }
+  lines.push("");
+  lines.push(BOOTSTRAP_MARKER_END);
+  return lines.join("\n");
+}
+
+function mergeOrAppendClaudeMd(repoPath: string, fragment: string): string {
+  const path = join(repoPath, "CLAUDE.md");
+  if (!existsSync(path)) {
+    writeFileSync(path, fragment + "\n");
+    return path;
+  }
+  const existing = readFileSync(path, "utf8");
+  if (existing.includes(BOOTSTRAP_MARKER_START)) {
+    // Replace existing block
+    const before = existing.split(BOOTSTRAP_MARKER_START)[0];
+    const after = existing.split(BOOTSTRAP_MARKER_END)[1] ?? "";
+    writeFileSync(path, before + fragment + after);
+  } else {
+    // Append
+    const sep = existing.endsWith("\n") ? "\n" : "\n\n";
+    writeFileSync(path, existing + sep + fragment + "\n");
+  }
+  return path;
+}
+
+function buildMcpJson(vaultPath: string, wiki: string): string {
+  const config = {
+    mcpServers: {
+      vault: {
+        command: "npx",
+        args: [
+          "tsx",
+          join(vaultPath, "vault-mcp", "src", "bin.ts").replace(/\\/g, "/"),
+          "--mcp",
+          `--vault=${vaultPath.replace(/\\/g, "/")}`,
+          `--default-wiki=${wiki}`
+        ]
+      }
+    }
+  };
+  return JSON.stringify(config, null, 2);
+}
+
+export const bootstrapRepoTool = {
+  name: "vault.bootstrap-repo",
+  description: "Wire a repo to the vault MCP: writes .mcp.json + CLAUDE.md fragment; optionally deploys a Pokemon's moveset.",
+  inputSchema: Input,
+  handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
+    mkdirSync(input.repo_path, { recursive: true });
+
+    // Write .mcp.json
+    const mcpJsonPath = join(input.repo_path, ".mcp.json");
+    writeFileSync(mcpJsonPath, buildMcpJson(ctx.vaultPath, input.wiki) + "\n");
+
+    // Resolve profile if given
+    let profileSummary: { name: string; pokemon_type: string; evolution_stage: string } | undefined;
+    if (input.pokemon) {
+      try {
+        const p = readProfile(ctx.vaultPath, input.pokemon);
+        profileSummary = {
+          name: input.pokemon.startsWith("profile-") ? input.pokemon.slice("profile-".length) : input.pokemon,
+          pokemon_type: String(p.frontmatter.pokemon_type ?? "normal"),
+          evolution_stage: String(p.frontmatter.evolution_stage ?? "basic")
+        };
+      } catch (e) {
+        if (e instanceof ProfileNotFoundError) {
+          throw new Error(`PROFILE_NOT_FOUND: ${input.pokemon}`);
+        }
+        throw e;
+      }
+    }
+
+    // Build + write CLAUDE.md
+    const fragment = buildClaudeMdFragment({
+      wiki: input.wiki,
+      pokemon: input.pokemon,
+      channels: input.channels,
+      profile: profileSummary
+    });
+    const claudeMdPath = mergeOrAppendClaudeMd(input.repo_path, fragment);
+
+    const filesWritten = [mcpJsonPath, claudeMdPath];
+
+    // Optionally sync moveset
+    let movesetSynced: { skills_dir: string; moves: string[] } | null = null;
+    if (input.pokemon) {
+      const sync = syncMoveset({
+        vaultPath: ctx.vaultPath,
+        repoPath: input.repo_path,
+        pokemon_id: input.pokemon,
+        target: "claude-code",
+        mode: "symlink"
+      });
+      movesetSynced = { skills_dir: sync.skills_dir, moves: sync.moves_synced };
+    }
+
+    return {
+      files_written: filesWritten,
+      moveset_synced: movesetSynced,
+      channels_configured: input.channels ?? []
+    };
+  }
+};
