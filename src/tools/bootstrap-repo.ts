@@ -18,7 +18,7 @@ function buildClaudeMdFragment(args: {
   wiki: string;
   pokemon?: string;
   channels?: string[];
-  profile?: { name: string; pokemon_type: string; evolution_stage: string };
+  profile?: { name: string; title: string; pokemon_type: string; evolution_stage: string };
 }): string {
   const lines: string[] = [];
   lines.push(BOOTSTRAP_MARKER_START);
@@ -34,7 +34,7 @@ function buildClaudeMdFragment(args: {
   }
   if (args.profile) {
     lines.push("");
-    lines.push(`### Operating as: **${args.profile.name}** (${args.profile.pokemon_type} / ${args.profile.evolution_stage})`);
+    lines.push(`### Operating as: **${args.profile.title}** (${args.profile.pokemon_type} / ${args.profile.evolution_stage})`);
     lines.push("");
     lines.push(`Skills are deployed under \`.claude/skills/${args.profile.name}/\`. Read the moveset's SKILL.md files for behavioral guidance.`);
   }
@@ -93,12 +93,14 @@ export const bootstrapRepoTool = {
     writeFileSync(mcpJsonPath, buildMcpJson(ctx.vaultPath, input.wiki) + "\n");
 
     // Resolve profile if given
-    let profileSummary: { name: string; pokemon_type: string; evolution_stage: string } | undefined;
+    let profileSummary: { name: string; title: string; pokemon_type: string; evolution_stage: string } | undefined;
     if (input.pokemon) {
       try {
         const p = readProfile(ctx.vaultPath, input.pokemon);
+        const slug = input.pokemon.startsWith("profile-") ? input.pokemon.slice("profile-".length) : input.pokemon;
         profileSummary = {
-          name: input.pokemon.startsWith("profile-") ? input.pokemon.slice("profile-".length) : input.pokemon,
+          name: slug,
+          title: String(p.frontmatter.title ?? slug),
           pokemon_type: String(p.frontmatter.pokemon_type ?? "normal"),
           evolution_stage: String(p.frontmatter.evolution_stage ?? "basic")
         };
