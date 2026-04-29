@@ -4,28 +4,23 @@ import { listInbox, promoteInboxItem } from "../core/inbox.js";
 import { NoteType } from "../core/frontmatter.js";
 import { resolveWiki } from "./_resolve-wiki.js";
 
-const ProposalInput = z.object({
-  wiki: z.string().optional(),
-  commit: z.literal(false).default(false),
-  item_id: z.string().optional()
+const Item = z.object({
+  inbox_path: z.string(),
+  type: NoteType,
+  id: z.string(),
+  title: z.string().optional()
 });
 
-const CommitInput = z.object({
+const Input = z.object({
   wiki: z.string().optional(),
-  commit: z.literal(true),
-  items: z.array(z.object({
-    inbox_path: z.string(),
-    type: NoteType,
-    id: z.string(),
-    title: z.string().optional()
-  }))
+  commit: z.boolean().default(false),
+  item_id: z.string().optional(),
+  items: z.array(Item).optional()
 });
-
-const Input = z.union([ProposalInput, CommitInput]);
 
 export const processInboxTool = {
   name: "vault.process-inbox",
-  description: "Two-phase: (1) commit:false returns proposed type+id+title for each inbox item; (2) commit:true with confirmed items moves and adds frontmatter.",
+  description: "Two-phase: (1) commit:false returns proposed type+id+title for each inbox item; (2) commit:true with items[] moves and adds frontmatter.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string; defaultWiki?: string }) => {
     const wiki = resolveWiki(input.wiki, ctx.defaultWiki, ctx.vaultPath);
@@ -39,6 +34,9 @@ export const processInboxTool = {
           rationale: "default heuristic: untyped capture promoted as idea"
         }))
       };
+    }
+    if (!input.items || input.items.length === 0) {
+      throw new Error("commit=true requires items[]");
     }
     const promoted = input.items.map(it => promoteInboxItem(ctx.vaultPath, {
       inbox_path: it.inbox_path,

@@ -34,15 +34,13 @@ afterAll(async () => {
 });
 
 describe("MCP e2e", () => {
-  // NOTE: client.listTools() currently fails because vault.process-inbox uses
-  // a top-level z.union(), which zod-to-json-schema renders as `{ anyOf: [...] }`
-  // with no top-level `type: "object"`. The MCP SDK's client-side validation
-  // strictly requires inputSchema.type === "object" for every tool. Filed as a
-  // follow-up: refactor process-inbox to a single schema with a discriminator
-  // field so its JSON Schema renders as a plain object. The three tool calls
-  // below still exercise the live stdio transport end-to-end, satisfying §9.6
-  // ("at least one e2e test confirms the binary boots and three tools work
-  // over real stdio MCP").
+  it("lists 15 tools", { timeout: 30000 }, async () => {
+    const r = await client.listTools();
+    expect(r.tools).toHaveLength(15);
+    const names = r.tools.map(t => t.name).sort();
+    expect(names).toContain("vault.recall");
+    expect(names).toContain("vault.task-claim");
+  });
 
   it("vault.recall returns hits from fixture", { timeout: 30000 }, async () => {
     const r = await client.callTool({ name: "vault.recall", arguments: { topic: "foo" } });
