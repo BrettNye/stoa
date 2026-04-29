@@ -30,7 +30,7 @@ function extractWikilinks(body: string): string[] {
   return out;
 }
 
-const TYPE_FOLDERS = ["concepts","guides","decisions","specs","synthesis","ideas","questions","sources","journal","tasks"];
+const TYPE_FOLDERS = ["concepts","guides","decisions","specs","synthesis","ideas","questions","sources","journal","tasks","profiles"];
 
 function discoverPages(vaultPath: string, wiki: string): IndexedPage[] {
   const pages: IndexedPage[] = [];
@@ -53,6 +53,19 @@ function discoverPages(vaultPath: string, wiki: string): IndexedPage[] {
       try {
         const { frontmatter, body } = parseFrontmatter(readFileSync(p, "utf8"));
         pages.push(buildIndexedPage(frontmatter, body, p, vaultPath));
+      } catch { /* skip malformed */ }
+    }
+  }
+  // v1.5 — moves use a directory layout: moves/<move-id>/SKILL.md
+  const movesDir = join(wikiDir, "moves");
+  if (existsSync(movesDir)) {
+    for (const entry of readdirSync(movesDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const skillPath = join(movesDir, entry.name, "SKILL.md");
+      if (!existsSync(skillPath)) continue;
+      try {
+        const { frontmatter, body } = parseFrontmatter(readFileSync(skillPath, "utf8"));
+        pages.push(buildIndexedPage(frontmatter, body, skillPath, vaultPath));
       } catch { /* skip malformed */ }
     }
   }

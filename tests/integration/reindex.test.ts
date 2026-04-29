@@ -125,3 +125,82 @@ applies_to: [claude-code]
     expect(data).toEqual({});
   });
 });
+
+describe("v1.5 — discoverPages indexes profiles + moves into pages.json", () => {
+  let vaultPath: string;
+
+  beforeEach(() => {
+    vaultPath = mkdtempSyncV15(join(tmpdir(), "vault-discover-v15-"));
+    mkdirSyncV15(join(vaultPath, "wikis", "_agents", "profiles"), { recursive: true });
+    mkdirSyncV15(join(vaultPath, "wikis", "_agents", "moves", "move-tdd-cycle"), { recursive: true });
+    mkdirSyncV15(join(vaultPath, "_index"), { recursive: true });
+
+    writeFileSyncV15(join(vaultPath, "wikis", "_agents", "profiles", "profile-charmander.md"),
+      `---
+id: profile-charmander
+type: profile
+title: Charmander
+created: 2026-04-29
+wiki: _agents
+status: active
+summary: Backend
+pokemon_type: fire
+evolution_stage: basic
+moveset: []
+applies_to: [claude-code]
+---
+
+# Charmander
+`);
+
+    writeFileSyncV15(join(vaultPath, "wikis", "_agents", "moves", "move-tdd-cycle", "SKILL.md"),
+      `---
+id: move-tdd-cycle
+type: move
+title: "TDD cycle"
+created: 2026-04-29
+wiki: _agents
+status: active
+summary: "Red-green-refactor"
+name: tdd-cycle
+description: "Use when implementing any feature or bugfix"
+move_type: process
+applies_to: [claude-code]
+pokemon_type: ghost
+---
+
+# TDD cycle
+`);
+  });
+
+  afterEach(() => {
+    rmSync(vaultPath, { recursive: true, force: true });
+  });
+
+  it("indexes profile pages into _index/pages.json", () => {
+    reindex(vaultPath);
+    const pages = JSON.parse(readFileSyncV15(join(vaultPath, "_index", "pages.json"), "utf8"));
+    const ids = pages.pages.map((p: any) => p.id);
+    expect(ids).toContain("profile-charmander");
+    const profile = pages.pages.find((p: any) => p.id === "profile-charmander");
+    expect(profile.type).toBe("profile");
+    expect(profile.wiki).toBe("_agents");
+  });
+
+  it("indexes move SKILL.md pages into _index/pages.json with type=move", () => {
+    reindex(vaultPath);
+    const pages = JSON.parse(readFileSyncV15(join(vaultPath, "_index", "pages.json"), "utf8"));
+    const move = pages.pages.find((p: any) => p.id === "move-tdd-cycle");
+    expect(move).toBeDefined();
+    expect(move.type).toBe("move");
+    expect(move.wiki).toBe("_agents");
+  });
+
+  it("skips move directories that have no SKILL.md", () => {
+    mkdirSyncV15(join(vaultPath, "wikis", "_agents", "moves", "move-empty"), { recursive: true });
+    reindex(vaultPath);
+    const pages = JSON.parse(readFileSyncV15(join(vaultPath, "_index", "pages.json"), "utf8"));
+    const ids = pages.pages.map((p: any) => p.id);
+    expect(ids).not.toContain("move-empty");
+  });
+});
