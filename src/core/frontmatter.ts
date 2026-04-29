@@ -84,3 +84,16 @@ export function validateAtTier(
     throw new FrontmatterError(`accepted decision requires confidence`);
   }
 }
+
+/**
+ * Normalize a frontmatter date-ish value to an ISO date string ("YYYY-MM-DD").
+ *
+ * gray-matter parses unquoted YAML dates (e.g. `created: 2026-04-28`) into JS
+ * Date objects. Use this anywhere you need to compare/serialize a frontmatter
+ * date as a string. Returns `""` for null/undefined.
+ */
+export function toIsoDate(value: unknown): string {
+  if (value === undefined || value === null) return "";
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value);
+}

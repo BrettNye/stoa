@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { NoteType } from "./frontmatter.js";
-import { parseFrontmatter, serializeFrontmatter } from "./frontmatter.js";
+import { parseFrontmatter, serializeFrontmatter, toIsoDate } from "./frontmatter.js";
 import { typeFolder } from "./ids.js";
 
 export class PageNotFoundError extends Error {
@@ -28,12 +28,6 @@ export interface ReadPageResult {
   frontmatter: Record<string, any>;
   body: string;
   updated: string;
-}
-
-function toIsoDate(value: unknown): string {
-  if (value === undefined || value === null) return "";
-  if (value instanceof Date) return value.toISOString().slice(0, 10);
-  return String(value);
 }
 
 export function pathForPage(
