@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync, existsSync, appendFileSync, readFileSync } fr
 import { join } from "node:path";
 import { loadIndex, queryWikis, type IndexedWiki } from "./index.js";
 
-const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const KEBAB = /^_?[a-z0-9]+(-[a-z0-9]+)*$/;
 const VALID_MODES = ["idea-map", "project-doc", "learning", "mixed"] as const;
 type WikiMode = typeof VALID_MODES[number];
 
