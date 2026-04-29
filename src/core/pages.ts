@@ -1,8 +1,8 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import type { NoteType } from "./frontmatter.js";
 import { parseFrontmatter, serializeFrontmatter, toIsoDate } from "./frontmatter.js";
-import { typeFolder } from "./ids.js";
+import { isMoveDirectoryLayout, typeFolder } from "./ids.js";
 
 export class PageNotFoundError extends Error {
   constructor(public id: string) {
@@ -37,14 +37,29 @@ export function pathForPage(
   wiki: string
 ): string {
   if (type === "map") return join(vaultPath, "wikis", wiki, "map.md");
-  return join(vaultPath, "wikis", wiki, typeFolder(type), `${id}.md`);
+  const folder = typeFolder(type);
+  if (isMoveDirectoryLayout(type)) {
+    return join(vaultPath, "wikis", wiki, folder, id, "SKILL.md");
+  }
+  return join(vaultPath, "wikis", wiki, folder, `${id}.md`);
 }
 
 export function readPage(vaultPath: string, id: string, wiki: string): ReadPageResult {
-  // Search standard type folders for this id.
+  // v1.5: moves use directory layout
+  const movePath = join(vaultPath, "wikis", wiki, "moves", id, "SKILL.md");
+  if (existsSync(movePath)) {
+    const raw = readFileSync(movePath, "utf8");
+    const { frontmatter, body } = parseFrontmatter(raw);
+    return {
+      id, path: movePath, frontmatter, body,
+      updated: toIsoDate(frontmatter.updated ?? frontmatter.created)
+    };
+  }
+
   const candidates = [
     "concepts", "guides", "decisions", "specs", "synthesis",
-    "ideas", "questions", "sources", "journal", "tasks"
+    "ideas", "questions", "sources", "journal", "tasks",
+    "profiles" // v1.5
   ];
   for (const folder of candidates) {
     const path = join(vaultPath, "wikis", wiki, folder, `${id}.md`);
@@ -52,15 +67,12 @@ export function readPage(vaultPath: string, id: string, wiki: string): ReadPageR
       const raw = readFileSync(path, "utf8");
       const { frontmatter, body } = parseFrontmatter(raw);
       return {
-        id,
-        path,
-        frontmatter,
-        body,
+        id, path, frontmatter, body,
         updated: toIsoDate(frontmatter.updated ?? frontmatter.created)
       };
     }
   }
-  // Map case
+
   if (id === `map-${wiki}` || id === "map") {
     const mapPath = join(vaultPath, "wikis", wiki, "map.md");
     if (existsSync(mapPath)) {
@@ -99,6 +111,7 @@ export function writePage(vaultPath: string, input: WritePageInput): WritePageRe
   }
   const today = new Date().toISOString().slice(0, 10);
   const fm = { ...input.frontmatter, updated: today };
+  mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, serializeFrontmatter(fm, input.body));
   return { id: input.id, path, updated: today };
 }
