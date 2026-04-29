@@ -15,6 +15,14 @@ import { registerAgentJournal } from "./commands/agent-journal.js";
 import { registerChannelPost } from "./commands/channel-post.js";
 import { registerClaimTask } from "./commands/claim-task.js";
 
+// v1.5 — substrate commands
+import { registerBootstrapRepo } from "./commands/bootstrap-repo.js";
+import { registerSyncSkills } from "./commands/sync-skills.js";
+import { registerStart } from "./commands/start.js";
+import { registerTaskCreate } from "./commands/task-create.js";
+import { registerTaskList } from "./commands/task-list.js";
+import { registerTaskUpdate } from "./commands/task-update.js";
+
 export function buildCli(): Command {
   const program = new Command()
     .name("vault")
@@ -35,6 +43,14 @@ export function buildCli(): Command {
   registerAgentJournal(program);
   registerChannelPost(program);
   registerClaimTask(program);
+
+  // v1.5
+  registerBootstrapRepo(program);
+  registerSyncSkills(program);
+  registerStart(program);
+  registerTaskCreate(program);
+  registerTaskList(program);
+  registerTaskUpdate(program);
 
   return program;
 }
