@@ -63,11 +63,10 @@ describe("reindex", () => {
     expect(links["concept-bar"].inbound).toContain("concept-foo");
   });
 
-  it("includes stemmed token sets in pages.json", () => {
+  it("creates _index/tokens.json with stemmed tokens per page", () => {
     reindex(vault);
-    const pages = JSON.parse(readFileSync(join(vault, "_index", "pages.json"), "utf8"));
-    const foo = pages.pages.find((p: any) => p.id === "concept-foo");
-    expect(foo.tokens.title.length).toBeGreaterThan(0);
-    expect(foo.tokens.body.length).toBeGreaterThan(0);
+    const tokens = JSON.parse(readFileSync(join(vault, "_index", "tokens.json"), "utf8"));
+    expect(tokens["concept-foo"].title.length).toBeGreaterThan(0);
+    expect(tokens["concept-foo"].body.length).toBeGreaterThan(0);
   });
 });

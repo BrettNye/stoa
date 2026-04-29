@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, writeFileSync, statSync, existsSync } from "
 import { join, relative } from "node:path";
 import natural from "natural";
 import { parseFrontmatter, toIsoDate } from "./frontmatter.js";
-import type { IndexedPage, IndexedWiki } from "./index.js";
+import type { IndexedPage, IndexedWiki, PageTokens } from "./index.js";
 
 const stemmer = natural.PorterStemmer;
 const STOP_WORDS = new Set(["the","and","of","a","an","in","to","is","for","on","with","as","at","by","or","be","this","that","it","from","are","was","were","not","but","if"]);
@@ -144,14 +144,21 @@ export function reindex(vaultPath: string, scopeWiki?: string): ReindexResult {
     }
   }
 
-  // Strip hidden fields before write
+  // Build tokens sidecar map keyed by page id
+  const tokensMap: Record<string, PageTokens> = {};
+  for (const p of allPages) {
+    if (p.tokens) tokensMap[p.id] = p.tokens;
+  }
+
+  // Strip hidden fields and tokens before write — tokens live in tokens.json
   const sanitized = allPages.map(p => {
-    const { __outbound, ...rest } = p as any;
+    const { __outbound, tokens, ...rest } = p as any;
     return rest;
   });
 
   writeFileSync(join(vaultPath, "_index", "wikis.json"), JSON.stringify({ wikis: wikiSummaries }, null, 2));
   writeFileSync(join(vaultPath, "_index", "pages.json"), JSON.stringify({ pages: sanitized }, null, 2));
+  writeFileSync(join(vaultPath, "_index", "tokens.json"), JSON.stringify(tokensMap, null, 2));
   writeFileSync(join(vaultPath, "_index", "links.json"), JSON.stringify(links, null, 2));
 
   return {

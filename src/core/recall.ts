@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import natural from "natural";
-import { loadIndex, queryPages } from "./index.js";
+import { loadIndex, loadTokens, queryPages } from "./index.js";
 import type { IndexedPage, VaultIndex } from "./index.js";
 
 const STOP_WORDS = new Set(["the","and","of","a","an","in","to","is","for","on","with","as","at","by","or","be","this","that","it","from","are","was","were","not","but","if"]);
@@ -63,6 +63,7 @@ export interface RecallResult {
 
 export function recall(vaultPath: string, input: RecallInput): RecallResult {
   const idx: VaultIndex = loadIndex(vaultPath);
+  const tokensById = loadTokens(vaultPath);
   const layer = input.layer ?? "knowledge";
   const limit = input.limit ?? 20;
   const queryTokens = new Set(tokenize(input.topic));
@@ -70,7 +71,8 @@ export function recall(vaultPath: string, input: RecallInput): RecallResult {
     return { hits: [], synthesis_inline: [], total_candidates: 0, segmented: { knowledge: 0, execution: 0, archive: 0 } };
   }
 
-  const candidates = queryPages(idx, { wiki: input.wiki, layer });
+  const candidates = queryPages(idx, { wiki: input.wiki, layer })
+    .map(p => ({ ...p, tokens: tokensById[p.id] }));
   const scored = candidates
     .map(p => ({ page: p, score: score(p, queryTokens) }))
     .filter(({ score: s }) => s > 0);

@@ -46,6 +46,19 @@ export function loadIndex(vaultPath: string): VaultIndex {
   return idx;
 }
 
+export interface PageTokens {
+  title: string[];
+  summary: string[];
+  body: string[];
+  tags: string[];
+}
+
+export function loadTokens(vaultPath: string): Record<string, PageTokens> {
+  const path = join(vaultPath, "_index", "tokens.json");
+  if (!existsSync(path)) return {};
+  return JSON.parse(readFileSync(path, "utf8"));
+}
+
 export interface PageFilter {
   wiki?: string;
   type?: NoteType;
