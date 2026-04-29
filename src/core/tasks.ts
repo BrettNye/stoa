@@ -1,4 +1,7 @@
 import { readPage, writePage } from "./pages.js";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { parseFrontmatter } from "./frontmatter.js";
 
 export class AlreadyClaimedError extends Error {
   constructor(public taskId: string, public claimedBy: string) {
@@ -48,5 +51,173 @@ export function claimTask(vaultPath: string, input: ClaimInput): ClaimResult {
     claimed_by: requesterAgent,
     claimed_at,
     updated: result.updated
+  };
+}
+
+export interface CreateTaskInput {
+  title: string;
+  wiki: string;
+  description?: string;
+  segregation?: string[];
+  blocking?: string[];
+  channel?: string;
+  required_pokemon_type?: string;
+  estimate_minutes?: number;
+}
+
+export interface CreateTaskResult {
+  id: string;
+  path: string;
+  updated: string;
+}
+
+function slugify(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+}
+
+export function createTask(vaultPath: string, input: CreateTaskInput): CreateTaskResult {
+  const slug = slugify(input.title);
+  const id = `task-${slug}`;
+  const today = new Date().toISOString().slice(0, 10);
+
+  const fm: Record<string, any> = {
+    id,
+    title: input.title,
+    type: "task",
+    wiki: input.wiki,
+    status: "pending",
+    created: today,
+    updated: today,
+    summary: input.title
+  };
+  if (input.description) fm.description = input.description;
+  if (input.segregation) fm.segregation = input.segregation;
+  if (input.blocking) fm.blocking = input.blocking;
+  if (input.channel) fm.channel = input.channel;
+  if (input.required_pokemon_type) fm.required_pokemon_type = input.required_pokemon_type;
+  if (input.estimate_minutes) fm.estimate_minutes = input.estimate_minutes;
+
+  const result = writePage(vaultPath, {
+    id, type: "task", wiki: input.wiki,
+    frontmatter: fm,
+    body: input.description ?? `# ${input.title}\n\n(no description)`
+  });
+
+  return { id, path: result.path, updated: result.updated };
+}
+
+export interface ListTasksInput {
+  wiki?: string;
+  status?: "pending" | "claimed" | "in_progress" | "completed" | "failed" | "blocked";
+  claimed_by?: string;
+  channel?: string;
+  pokemon_type?: string;
+  limit?: number;
+}
+
+export interface TaskSummary {
+  id: string;
+  title: string;
+  status: string;
+  claimed_by?: string;
+  pokemon_type?: string;
+  segregation?: string[];
+  blocking?: string[];
+  channel?: string;
+  wiki: string;
+}
+
+export function listTasks(vaultPath: string, input: ListTasksInput = {}): TaskSummary[] {
+  const wikis = input.wiki ? [input.wiki] : listWikiNames(vaultPath);
+  const out: TaskSummary[] = [];
+
+  for (const wiki of wikis) {
+    const dir = join(vaultPath, "wikis", wiki, "tasks");
+    if (!existsSync(dir)) continue;
+    for (const file of readdirSync(dir)) {
+      if (!file.endsWith(".md")) continue;
+      const path = join(dir, file);
+      try {
+        const raw = readFileSync(path, "utf8");
+        const { frontmatter: fm } = parseFrontmatter(raw);
+        if (input.status && fm.status !== input.status) continue;
+        if (input.claimed_by && fm.claimed_by !== input.claimed_by) continue;
+        if (input.channel && fm.channel !== input.channel) continue;
+        if (input.pokemon_type) {
+          if (fm.required_pokemon_type && fm.required_pokemon_type !== input.pokemon_type) {
+            continue;
+          }
+        }
+        out.push({
+          id: String(fm.id),
+          title: String(fm.title ?? ""),
+          status: String(fm.status ?? "pending"),
+          claimed_by: fm.claimed_by ? String(fm.claimed_by) : undefined,
+          pokemon_type: fm.required_pokemon_type ? String(fm.required_pokemon_type) : undefined,
+          segregation: Array.isArray(fm.segregation) ? fm.segregation : undefined,
+          blocking: Array.isArray(fm.blocking) ? fm.blocking : undefined,
+          channel: fm.channel ? String(fm.channel) : undefined,
+          wiki
+        });
+      } catch {
+        // skip malformed
+      }
+    }
+  }
+
+  const limit = input.limit ?? 50;
+  return out.slice(0, limit);
+}
+
+function listWikiNames(vaultPath: string): string[] {
+  const wikisDir = join(vaultPath, "wikis");
+  if (!existsSync(wikisDir)) return [];
+  return readdirSync(wikisDir, { withFileTypes: true })
+    .filter(d => d.isDirectory())
+    .map(d => d.name);
+}
+
+export interface UpdateTaskInput {
+  task_id: string;
+  wiki: string;
+  expected_updated: string;
+  status?: "pending" | "claimed" | "in_progress" | "completed" | "failed" | "blocked";
+  notes?: string;
+  segregation?: string[];
+  agent_id?: string;
+}
+
+export interface UpdateTaskResult {
+  task_id: string;
+  updated: string;
+  status: string;
+}
+
+export function updateTask(vaultPath: string, input: UpdateTaskInput): UpdateTaskResult {
+  const page = readPage(vaultPath, input.task_id, input.wiki);
+  const fm = { ...page.frontmatter };
+  if (input.status) fm.status = input.status;
+  if (input.segregation) fm.segregation = input.segregation;
+
+  let body = page.body;
+  if (input.notes) {
+    const stamp = new Date().toISOString();
+    const author = input.agent_id ?? "agent:unknown";
+    body = `${body.trimEnd()}\n\n## ${stamp} — ${author}\n${input.notes}\n`;
+  }
+
+  const result = writePage(vaultPath, {
+    id: input.task_id,
+    type: "task",
+    wiki: input.wiki,
+    frontmatter: fm,
+    body,
+    expectedUpdated: input.expected_updated
+  });
+
+  return {
+    task_id: input.task_id,
+    updated: result.updated,
+    status: String(fm.status ?? "pending")
   };
 }
