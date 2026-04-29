@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { typeFolder, slugify, generateId, parseId } from "../../src/core/ids.js";
+import { typeFolder, slugify, generateId, parseId, isMoveDirectoryLayout } from "../../src/core/ids.js";
 
 describe("typeFolder", () => {
   it("maps types to folder names", () => {
@@ -49,5 +49,29 @@ describe("parseId", () => {
     expect(parseId("concept-foo").type).toBe("concept");
     expect(parseId("decision-2026-04-28-bar").type).toBe("decision");
     expect(parseId("journal-2026-04-28-1530-baz").type).toBe("journal");
+  });
+});
+
+describe("v1.5 — type folder mapping", () => {
+  it("maps 'move' type to 'moves' folder", () => {
+    expect(typeFolder("move")).toBe("moves");
+  });
+
+  it("maps 'profile' type to 'profiles' folder", () => {
+    expect(typeFolder("profile")).toBe("profiles");
+  });
+});
+
+describe("v1.5 — move directory layout detection", () => {
+  it("returns true for move type", () => {
+    expect(isMoveDirectoryLayout("move")).toBe(true);
+  });
+
+  it("returns false for profile type", () => {
+    expect(isMoveDirectoryLayout("profile")).toBe(false);
+  });
+
+  it("returns false for concept type", () => {
+    expect(isMoveDirectoryLayout("concept")).toBe(false);
   });
 });

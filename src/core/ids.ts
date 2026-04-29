@@ -11,6 +11,8 @@ const TYPE_FOLDERS: Record<NoteType, string> = {
   source: "sources",
   journal: "journal",
   task: "tasks",
+  move: "moves",       // v1.5
+  profile: "profiles", // v1.5
   map: ""
 };
 
@@ -46,4 +48,13 @@ export function parseId(id: string): { type: string; rest: string } {
   const dashIdx = id.indexOf("-");
   if (dashIdx === -1) return { type: id, rest: "" };
   return { type: id.slice(0, dashIdx), rest: id.slice(dashIdx + 1) };
+}
+
+/**
+ * v1.5 — moves use a directory layout (<id>/SKILL.md) rather than a single
+ * .md file, to ship optional references/ and scripts/ subdirectories per the
+ * SKILL.md spec. All other types use the single-file convention.
+ */
+export function isMoveDirectoryLayout(type: NoteType): boolean {
+  return type === "move";
 }
