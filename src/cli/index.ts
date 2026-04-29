@@ -1,0 +1,40 @@
+import { Command } from "commander";
+import { registerRecall } from "./commands/recall.js";
+import { registerRead } from "./commands/read.js";
+import { registerListWikis } from "./commands/list-wikis.js";
+import { registerLint } from "./commands/lint.js";
+import { registerChannelTail } from "./commands/channel-tail.js";
+import { registerInbox } from "./commands/inbox.js";
+import { registerProcessInbox } from "./commands/process-inbox.js";
+import { registerNew } from "./commands/new.js";
+import { registerNewWiki } from "./commands/new-wiki.js";
+import { registerSetActive } from "./commands/set-active.js";
+import { registerSynthesize } from "./commands/synthesize.js";
+import { registerReindex } from "./commands/reindex.js";
+import { registerAgentJournal } from "./commands/agent-journal.js";
+import { registerChannelPost } from "./commands/channel-post.js";
+import { registerClaimTask } from "./commands/claim-task.js";
+
+export function buildCli(): Command {
+  const program = new Command()
+    .name("vault")
+    .description("Vault CLI — manage the knowledge vault from any directory");
+
+  registerRecall(program);
+  registerRead(program);
+  registerListWikis(program);
+  registerLint(program);
+  registerChannelTail(program);
+  registerInbox(program);
+  registerProcessInbox(program);
+  registerNew(program);
+  registerNewWiki(program);
+  registerSetActive(program);
+  registerSynthesize(program);
+  registerReindex(program);
+  registerAgentJournal(program);
+  registerChannelPost(program);
+  registerClaimTask(program);
+
+  return program;
+}
