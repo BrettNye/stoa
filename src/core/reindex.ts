@@ -93,10 +93,11 @@ function buildIndexedPage(fm: any, body: string, path: string, vaultPath: string
 }
 
 // Wikis whose names start with `_` are reserved/system. Most are skipped from
-// reindex (e.g. _archive, _agents, _agent_scratch). `_meta` is the exception:
-// vault-meta documents (the schema spec, MCP design spec, implementation plans)
-// must be queryable via /recall, so we include it.
-const RESERVED_INCLUDED = new Set(["_meta"]);
+// reindex (e.g. _archive, _agent_scratch). `_meta` and `_agents` are the
+// exceptions: vault-meta docs (schema spec, MCP design spec, plans) and the
+// v1.5 agent substrate (profiles, moves, journals, tasks) must be queryable
+// via /recall, so we include them.
+const RESERVED_INCLUDED = new Set(["_meta", "_agents"]);
 
 function discoverWikis(vaultPath: string): string[] {
   const wikisDir = join(vaultPath, "wikis");
