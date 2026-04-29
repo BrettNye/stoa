@@ -1,15 +1,16 @@
 // vault-mcp/src/tools/list-wikis.ts
 import { z } from "zod";
-import { loadIndex, queryWikis } from "../core/index.js";
+import { listWikis } from "../core/wikis.js";
 
-const Input = z.object({});
+const Input = z.object({
+  include_reserved: z.boolean().default(false)
+});
 
 export const listWikisTool = {
   name: "vault.list-wikis",
-  description: "List all wikis in the vault with their mode, scope, page counts, and last-touched timestamp.",
+  description: "List all visible wikis (always includes _agents; pass include_reserved for _archive etc.).",
   inputSchema: Input,
-  handler: async (_input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
-    const idx = loadIndex(ctx.vaultPath);
-    return { wikis: queryWikis(idx) };
+  handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
+    return { wikis: listWikis(ctx.vaultPath, { include_reserved: input.include_reserved }) };
   }
 };

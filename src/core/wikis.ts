@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync, existsSync, appendFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { loadIndex, queryWikis, type IndexedWiki } from "./index.js";
 
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const VALID_MODES = ["idea-map", "project-doc", "learning", "mixed"] as const;
@@ -7,6 +8,19 @@ type WikiMode = typeof VALID_MODES[number];
 
 export class WikiExistsError extends Error {
   constructor(public name: string) { super(`wiki exists: ${name}`); this.name = "WikiExistsError"; }
+}
+
+export interface ListWikisOptions {
+  include_reserved?: boolean;
+}
+
+export function listWikis(vaultPath: string, opts: ListWikisOptions = {}): IndexedWiki[] {
+  const all = queryWikis(loadIndex(vaultPath));
+  return all.filter(w => {
+    if (!w.name.startsWith("_")) return true;
+    if (w.name === "_agents") return true; // always visible per v1.5
+    return !!opts.include_reserved;
+  });
 }
 
 const SUBFOLDERS = [
