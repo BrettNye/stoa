@@ -63,22 +63,39 @@ function mergeOrAppendClaudeMd(repoPath: string, fragment: string): string {
   return path;
 }
 
-function buildMcpJson(vaultPath: string, wiki: string): string {
-  const config = {
-    mcpServers: {
-      vault: {
-        command: "npx",
-        args: [
-          "tsx",
-          join(vaultPath, "vault-mcp", "src", "bin.ts").replace(/\\/g, "/"),
-          "--mcp",
-          `--vault=${vaultPath.replace(/\\/g, "/")}`,
-          `--default-wiki=${wiki}`
-        ]
-      }
-    }
+function mergeOrCreateMcpJson(repoPath: string, vaultPath: string, wiki: string): string {
+  const mcpJsonPath = join(repoPath, ".mcp.json");
+  const vaultEntry = {
+    command: "npx",
+    args: [
+      "tsx",
+      join(vaultPath, "vault-mcp", "src", "bin.ts").replace(/\\/g, "/"),
+      "--mcp",
+      `--vault=${vaultPath.replace(/\\/g, "/")}`,
+      `--default-wiki=${wiki}`
+    ]
   };
-  return JSON.stringify(config, null, 2);
+
+  if (!existsSync(mcpJsonPath)) {
+    writeFileSync(mcpJsonPath, JSON.stringify({ mcpServers: { vault: vaultEntry } }, null, 2) + "\n");
+    return mcpJsonPath;
+  }
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(readFileSync(mcpJsonPath, "utf8"));
+  } catch (e) {
+    throw new Error(`existing .mcp.json at ${mcpJsonPath} is not valid JSON: ${(e as Error).message}`);
+  }
+
+  if (typeof parsed !== "object" || parsed === null) parsed = {};
+  if (typeof parsed.mcpServers !== "object" || parsed.mcpServers === null) {
+    parsed.mcpServers = {};
+  }
+  parsed.mcpServers.vault = vaultEntry;
+
+  writeFileSync(mcpJsonPath, JSON.stringify(parsed, null, 2) + "\n");
+  return mcpJsonPath;
 }
 
 export const bootstrapRepoTool = {
@@ -88,9 +105,8 @@ export const bootstrapRepoTool = {
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
     mkdirSync(input.repo_path, { recursive: true });
 
-    // Write .mcp.json
-    const mcpJsonPath = join(input.repo_path, ".mcp.json");
-    writeFileSync(mcpJsonPath, buildMcpJson(ctx.vaultPath, input.wiki) + "\n");
+    // Write .mcp.json (merge — preserves existing mcpServers entries)
+    const mcpJsonPath = mergeOrCreateMcpJson(input.repo_path, ctx.vaultPath, input.wiki);
 
     // Resolve profile if given
     let profileSummary: { name: string; title: string; pokemon_type: string; evolution_stage: string } | undefined;
