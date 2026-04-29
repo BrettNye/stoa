@@ -90,11 +90,17 @@ function buildIndexedPage(fm: any, body: string, path: string, vaultPath: string
   } as any;
 }
 
+// Wikis whose names start with `_` are reserved/system. Most are skipped from
+// reindex (e.g. _archive, _agents, _agent_scratch). `_meta` is the exception:
+// vault-meta documents (the schema spec, MCP design spec, implementation plans)
+// must be queryable via /recall, so we include it.
+const RESERVED_INCLUDED = new Set(["_meta"]);
+
 function discoverWikis(vaultPath: string): string[] {
   const wikisDir = join(vaultPath, "wikis");
   if (!existsSync(wikisDir)) return [];
   return readdirSync(wikisDir)
-    .filter(name => !name.startsWith("_"))
+    .filter(name => !name.startsWith("_") || RESERVED_INCLUDED.has(name))
     .filter(name => statSync(join(wikisDir, name)).isDirectory());
 }
 

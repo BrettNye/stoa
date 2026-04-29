@@ -54,7 +54,7 @@ For per-repo default wiki, drop `.mcp.json` at the repo root with
 
 ## Tools (15)
 
-See [the v1 spec](../docs/superpowers/specs/2026-04-28-vault-mcp-v1-design.md) §5
+See [the v1 spec](../wikis/_meta/specs/2026-04-28-vault-mcp-v1-design.md) §5
 for full input/output schemas. Quick reference:
 
 - **Read:** `vault.recall`, `vault.read`, `vault.list-wikis`, `vault.lint`, `vault.channel-tail`
