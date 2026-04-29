@@ -10,9 +10,26 @@ export class FrontmatterError extends Error {
 
 export const NoteType = z.enum([
   "idea", "question", "spec", "decision", "concept",
-  "guide", "synthesis", "source", "map", "journal", "task"
+  "guide", "synthesis", "source", "map", "journal", "task",
+  "move", "profile"
 ]);
 export type NoteType = z.infer<typeof NoteType>;
+
+export const PokemonType = z.enum([
+  "normal", "fire", "water", "electric", "grass", "ice", "fighting",
+  "poison", "ground", "flying", "psychic", "bug", "rock", "ghost",
+  "dragon", "dark", "steel", "fairy"
+]);
+export type PokemonType = z.infer<typeof PokemonType>;
+
+export const EvolutionStage = z.enum(["basic", "stage1", "stage2"]);
+export type EvolutionStage = z.infer<typeof EvolutionStage>;
+
+export const AutonomyLevel = z.enum(["restricted", "feature-branch", "main-branch"]);
+export type AutonomyLevel = z.infer<typeof AutonomyLevel>;
+
+export const MoveCategory = z.enum(["process", "capability", "domain", "support"]);
+export type MoveCategory = z.infer<typeof MoveCategory>;
 
 export const PageStatus = z.enum([
   "draft", "active", "accepted", "superseded", "archived"
@@ -82,6 +99,38 @@ export function validateAtTier(
   }
   if (tier === "accepted" && frontmatter.type === "decision" && !frontmatter.confidence) {
     throw new FrontmatterError(`accepted decision requires confidence`);
+  }
+
+  // v1.5 — move type validation
+  if (frontmatter.type === "move") {
+    if (tier === "draft" || tier === "active" || tier === "accepted") {
+      if (!frontmatter.name || typeof frontmatter.name !== "string") {
+        throw new FrontmatterError(`move requires 'name' field (SKILL.md spec)`);
+      }
+    }
+    if (tier === "active" || tier === "accepted") {
+      if (!frontmatter.description || typeof frontmatter.description !== "string") {
+        throw new FrontmatterError(`active move requires 'description' field (SKILL.md spec)`);
+      }
+      if (frontmatter.pokemon_type && !PokemonType.safeParse(frontmatter.pokemon_type).success) {
+        throw new FrontmatterError(`move pokemon_type must be one of 18 canonical types`);
+      }
+    }
+  }
+
+  // v1.5 — profile type validation
+  if (frontmatter.type === "profile") {
+    if (tier === "active" || tier === "accepted") {
+      if (!PokemonType.safeParse(frontmatter.pokemon_type).success) {
+        throw new FrontmatterError(`active profile requires valid pokemon_type (18-canon)`);
+      }
+      if (!EvolutionStage.safeParse(frontmatter.evolution_stage).success) {
+        throw new FrontmatterError(`active profile requires evolution_stage in [basic,stage1,stage2]`);
+      }
+      if (!Array.isArray(frontmatter.moveset)) {
+        throw new FrontmatterError(`active profile requires moveset array`);
+      }
+    }
   }
 }
 

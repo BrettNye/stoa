@@ -3,7 +3,8 @@ import {
   parseFrontmatter,
   serializeFrontmatter,
   validateAtTier,
-  FrontmatterError
+  FrontmatterError,
+  NoteType
 } from "../../src/core/frontmatter.js";
 
 describe("parseFrontmatter", () => {
@@ -70,5 +71,72 @@ describe("validateAtTier", () => {
       channel: "Bad_Channel"
     };
     expect(() => validateAtTier(fm, "draft")).toThrow(/channel/);
+  });
+});
+
+describe("v1.5 — note types move and profile", () => {
+  it("accepts 'move' as a NoteType", () => {
+    expect(NoteType.safeParse("move").success).toBe(true);
+  });
+
+  it("accepts 'profile' as a NoteType", () => {
+    expect(NoteType.safeParse("profile").success).toBe(true);
+  });
+
+  it("validates a draft move with required SKILL.md fields", () => {
+    expect(() =>
+      validateAtTier({
+        id: "move-tdd-cycle", type: "move", title: "TDD cycle",
+        created: "2026-04-29",
+        name: "tdd-cycle",
+        description: "Use when implementing any feature or bugfix"
+      }, "draft")
+    ).not.toThrow();
+  });
+
+  it("rejects a move missing description at active status", () => {
+    expect(() =>
+      validateAtTier({
+        id: "move-tdd-cycle", type: "move", title: "TDD cycle",
+        created: "2026-04-29", wiki: "_agents", status: "active",
+        summary: "Red-green-refactor", updated: "2026-04-29",
+        name: "tdd-cycle"
+        // description missing
+      }, "active")
+    ).toThrow(FrontmatterError);
+  });
+
+  it("validates a draft profile with pokemon metadata", () => {
+    expect(() =>
+      validateAtTier({
+        id: "profile-charmander", type: "profile", title: "Charmander",
+        created: "2026-04-29"
+      }, "draft")
+    ).not.toThrow();
+  });
+
+  it("rejects a profile with invalid pokemon_type at active status", () => {
+    expect(() =>
+      validateAtTier({
+        id: "profile-x", type: "profile", title: "X",
+        created: "2026-04-29", wiki: "_agents", status: "active",
+        summary: "test", updated: "2026-04-29",
+        pokemon_type: "lava",  // not in 18-canon
+        evolution_stage: "basic", moveset: []
+      }, "active")
+    ).toThrow(FrontmatterError);
+  });
+
+  it("rejects a profile with invalid evolution_stage", () => {
+    expect(() =>
+      validateAtTier({
+        id: "profile-x", type: "profile", title: "X",
+        created: "2026-04-29", wiki: "_agents", status: "active",
+        summary: "test", updated: "2026-04-29",
+        pokemon_type: "fire",
+        evolution_stage: "level5",  // invalid
+        moveset: []
+      }, "active")
+    ).toThrow(FrontmatterError);
   });
 });
