@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import "./silence-dotenv.js"; // MUST be first — see comment in that file
 import { parseConfig, ConfigError } from "./config.js";
 import { setCtx } from "./cli/_ctx.js";
 import { buildCli } from "./cli/index.js";
