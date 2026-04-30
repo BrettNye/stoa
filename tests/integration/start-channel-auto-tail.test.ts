@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { startTool } from "../../src/tools/start.js";
 import { postToChannel } from "../../src/core/channel.js";
+import { reindex } from "../../src/core/reindex.js";
 
 function writeProfile(vaultPath: string, channelsTailed: string[]): void {
   const inline = channelsTailed.map(c => `"${c}"`).join(", ");
@@ -68,6 +69,9 @@ describe("integration — start auto-tails channels declared on the active profi
     writeProfile(vaultPath, ["foo"]);
     postToChannel(vaultPath, { channel: "foo", content: "first", wiki: "alpha", agent_id: "charmander" });
     postToChannel(vaultPath, { channel: "foo", content: "second", wiki: "alpha", agent_id: "charmander" });
+    // Channel writes don't auto-reindex (Plan B Tier-2 friction; surfaced by UC3).
+    // tailChannel reads from _index/pages.json, so a manual reindex is required for posts to appear.
+    reindex(vaultPath);
 
     const r = await startTool.handler(
       { wiki: "alpha", pokemon: "charmander" },
@@ -111,6 +115,8 @@ describe("integration — start auto-tails channels declared on the active profi
       body: "new entry — should count",
       idSuffix: "2026-04-30-1200-new"
     });
+    // Direct journal writes also don't auto-reindex; same friction.
+    reindex(vaultPath);
 
     const r = await startTool.handler(
       {
