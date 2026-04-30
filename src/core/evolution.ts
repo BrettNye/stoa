@@ -7,6 +7,7 @@ import {
   defaultAutonomyForStage,
   thresholdFor
 } from "./pokemon.js";
+import type { EvolutionThresholds } from "./thresholds.js";
 
 export interface ProfileForProposal {
   id: string;
@@ -51,8 +52,28 @@ export interface EvolutionProposal {
 const MOVESET_ADDITION_THRESHOLD = 10;
 const MOVESET_ADDITION_CAP = 2;
 
-export function proposeEvolution(input: { profile: ProfileForProposal; stats: StatsForProposal; memory_page_id?: string }): EvolutionProposal {
+export function proposeEvolution(input: { profile: ProfileForProposal; stats: StatsForProposal; memory_page_id?: string; thresholds?: EvolutionThresholds }): EvolutionProposal {
   const { profile, stats } = input;
+
+  // Resolve effective thresholds. When `thresholds` is supplied (v1.6 §4.4),
+  // it overrides the hard-coded defaults that `meetsThreshold`/`thresholdFor`
+  // pull from `pokemon.ts`. The override is local to this proposal — the
+  // shared `pokemon.ts` table is unchanged, so other callers still see v1.5
+  // defaults.
+  function effectiveThreshold(transition: "basic-to-stage1" | "stage1-to-stage2"): { tasks_completed: number; success_rate: number } {
+    if (input.thresholds) {
+      return transition === "basic-to-stage1"
+        ? input.thresholds.basic_to_stage1
+        : input.thresholds.stage1_to_stage2;
+    }
+    return thresholdFor(transition);
+  }
+  function effectiveMeetsThreshold(stage: EvolutionStage, s: { tasks_completed: number; success_rate: number }): boolean {
+    const nx = nextStage(stage);
+    if (nx === null) return false;
+    const t = effectiveThreshold(`${stage}-to-${nx}` as "basic-to-stage1" | "stage1-to-stage2");
+    return s.tasks_completed >= t.tasks_completed && s.success_rate >= t.success_rate;
+  }
 
   const current: EvolutionProposalCurrent = {
     name: profile.title,
@@ -78,9 +99,9 @@ export function proposeEvolution(input: { profile: ProfileForProposal; stats: St
     };
   }
 
-  if (!meetsThreshold(profile.evolution_stage, stats)) {
+  if (!effectiveMeetsThreshold(profile.evolution_stage, stats)) {
     const transition = `${profile.evolution_stage}-to-${next}` as "basic-to-stage1" | "stage1-to-stage2";
-    const t = thresholdFor(transition);
+    const t = effectiveThreshold(transition);
     const tasksGap = Math.max(0, t.tasks_completed - stats.tasks_completed);
     const reasonParts: string[] = [];
     if (stats.tasks_completed < t.tasks_completed) {
@@ -114,7 +135,7 @@ export function proposeEvolution(input: { profile: ProfileForProposal; stats: St
 
   const removalCandidates = profile.moveset.filter(id => (stats.moves_used_freq[id] ?? 0) === 0);
 
-  const t = thresholdFor(`${profile.evolution_stage}-to-${next}` as "basic-to-stage1" | "stage1-to-stage2");
+  const t = effectiveThreshold(`${profile.evolution_stage}-to-${next}` as "basic-to-stage1" | "stage1-to-stage2");
   const baseRationale = `eligible for ${profile.evolution_stage} → ${next}: ${stats.tasks_completed} tasks completed at ${stats.success_rate.toFixed(2)} success rate (threshold: ${t.tasks_completed} tasks, ${t.success_rate.toFixed(2)} rate)`;
   const rationale = input.memory_page_id
     ? `${baseRationale}; memory: [[${input.memory_page_id}]]`
