@@ -1,10 +1,23 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
+export type DeployMode = "copy" | "symlink";
+
+/**
+ * v1.6 Phase 1 schema delta (additive only):
+ *  - `actual_mode` records what actually landed on disk after `deployMove`.
+ *    On Windows, a `requested: "symlink"` deploy may fall back to copy
+ *    without admin privilege; `actual_mode` reflects the truth, while
+ *    `mode` preserves the operator's request. Spec §3.1, §5.4.
+ *
+ * v1.5 entries (which lack `actual_mode`) are read with a graceful
+ * default: `actual_mode = mode`. Plan A Notes #8.
+ */
 export interface DeploymentEntry {
   repo_path: string;
   target: "claude-code" | "openclaw" | "codex";
-  mode: "copy" | "symlink";
+  mode: DeployMode;
+  actual_mode?: DeployMode;
   synced_at: string;
 }
 
@@ -18,7 +31,15 @@ export function readDeployments(vaultPath: string): DeploymentRegistry {
   const p = regPath(vaultPath);
   if (!existsSync(p)) return {};
   try {
-    return JSON.parse(readFileSync(p, "utf8")) as DeploymentRegistry;
+    const raw = JSON.parse(readFileSync(p, "utf8")) as DeploymentRegistry;
+    // Back-compat: v1.5 entries lack actual_mode. Default to mode.
+    for (const id of Object.keys(raw)) {
+      raw[id] = (raw[id] ?? []).map(e => ({
+        ...e,
+        actual_mode: e.actual_mode ?? e.mode
+      }));
+    }
+    return raw;
   } catch {
     return {};
   }

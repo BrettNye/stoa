@@ -1,8 +1,9 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync, cpSync, symlinkSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { readProfile } from "./profiles.js";
 import { parseFrontmatter } from "./frontmatter.js";
-import { recordDeployment } from "./deployments.js";
+import { recordDeployment, type DeploymentEntry } from "./deployments.js";
+import * as skillsPlatform from "./skills-platform.js";
 
 export type SyncTarget = "claude-code" | "openclaw" | "codex";
 export type SyncMode = "copy" | "symlink";
@@ -49,6 +50,11 @@ export function syncMoveset(input: SyncInput): SyncResult {
   const synced: string[] = [];
   const skipped: string[] = [];
 
+  // Track the actual_mode that lands on disk. If any move falls back to copy,
+  // the registry entry's actual_mode degrades to "copy". A single all-symlink
+  // run reports actual_mode === requested.
+  let actualMode: SyncMode = input.mode;
+
   for (const moveId of moveset) {
     const moveSrcDir = join(input.vaultPath, "wikis", "_agents", "moves", moveId);
     const skillPath = join(moveSrcDir, "SKILL.md");
@@ -68,21 +74,14 @@ export function syncMoveset(input: SyncInput): SyncResult {
 
     const destDir = join(skillsDir, moveId);
     if (existsSync(destDir)) {
-      // Replace
-      try {
-        cpSync(moveSrcDir, destDir, { recursive: true, force: true });
-      } catch {
-        // ignore — overwrite of symlink target may fail
-      }
-    } else if (input.mode === "symlink") {
-      try {
-        symlinkSync(moveSrcDir, destDir, "junction");
-      } catch {
-        // fall back to copy on platforms / permissions where symlinks fail
-        cpSync(moveSrcDir, destDir, { recursive: true });
-      }
-    } else {
-      cpSync(moveSrcDir, destDir, { recursive: true });
+      // Re-deploy: clear existing dest first so deployMove sees a clean slate.
+      // rmSync(force: true) tolerates both real dirs and symlink/junction targets.
+      rmSync(destDir, { recursive: true, force: true });
+    }
+    const result = skillsPlatform.deployMove(moveSrcDir, destDir, input.mode);
+    if (result.actual_mode === "copy") {
+      // Any single fallback degrades the run-level actual_mode.
+      actualMode = "copy";
     }
     synced.push(moveId);
   }
@@ -102,6 +101,7 @@ export function syncMoveset(input: SyncInput): SyncResult {
     repo_path: input.repoPath,
     target: input.target,
     mode: input.mode,
+    actual_mode: actualMode,
     synced_at: new Date().toISOString()
   });
 
@@ -110,4 +110,27 @@ export function syncMoveset(input: SyncInput): SyncResult {
     moves_synced: synced,
     moves_skipped_unsupported: skipped
   };
+}
+
+/**
+ * Remove the deployed skills directory for a given deployment entry.
+ *
+ * Used by `vault.evolve-profile` (Wave 3 Task 3-1) when
+ * `cleanup_old_skills_dir: true` to remove the pre-rename directory before
+ * re-deploying under the new pokemon name. Spec §6.3.
+ *
+ * The deployed path is reconstructed via the same `resolveSkillsDir`
+ * convention `syncMoveset` uses to write — using `repo_path` + `target` from
+ * the entry plus the bare pokemon name derived from the `pokemonId` argument.
+ * The bare name is NOT stored on the entry (Plan A: schema delta is purely
+ * additive, only `actual_mode`); the caller is the registry and already knows
+ * the keying id.
+ *
+ * Idempotent: `fs.rmSync(..., { force: true })` tolerates a missing target,
+ * so a second call (or a call when the dir was never created) is a no-op.
+ */
+export function removeOldDeployment(deployment: DeploymentEntry, pokemonId: string): void {
+  const bareName = pokemonNameFromId(pokemonId);
+  const skillsDir = resolveSkillsDir(deployment.repo_path, deployment.target, bareName);
+  rmSync(skillsDir, { recursive: true, force: true });
 }
