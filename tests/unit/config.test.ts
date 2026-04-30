@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest";
+import { resolve } from "node:path";
 import { parseConfig, ConfigError } from "../../src/config.js";
 
 describe("parseConfig", () => {
   it("returns vault path from --vault flag", () => {
     const cfg = parseConfig(["--vault=/tmp/vault"]);
-    expect(cfg.vaultPath).toBe("/tmp/vault");
+    expect(cfg.vaultPath).toBe(resolve("/tmp/vault"));
     expect(cfg.mcpMode).toBe(false);
     expect(cfg.defaultWiki).toBeUndefined();
   });
@@ -21,10 +22,26 @@ describe("parseConfig", () => {
 
   it("falls back to VAULT_PATH env var when --vault is missing", () => {
     const cfg = parseConfig([], { VAULT_PATH: "/env/vault" });
-    expect(cfg.vaultPath).toBe("/env/vault");
+    expect(cfg.vaultPath).toBe(resolve("/env/vault"));
   });
 
   it("throws ConfigError when no vault path is found", () => {
     expect(() => parseConfig([], {})).toThrow(ConfigError);
+  });
+
+  it("resolves relative --vault path to absolute", () => {
+    const cfg = parseConfig(["--vault=."]);
+    // path.resolve(".") returns the current working directory as absolute
+    expect(cfg.vaultPath).not.toBe(".");
+    // Sanity: it should be absolute (Windows: drive letter; Unix: starts with /)
+    const isAbsolute = /^([A-Za-z]:[\\/]|\/)/.test(cfg.vaultPath);
+    expect(isAbsolute).toBe(true);
+  });
+
+  it("resolves relative VAULT_PATH env var to absolute", () => {
+    const cfg = parseConfig([], { VAULT_PATH: "./relative/sub" });
+    expect(cfg.vaultPath).not.toBe("./relative/sub");
+    const isAbsolute = /^([A-Za-z]:[\\/]|\/)/.test(cfg.vaultPath);
+    expect(isAbsolute).toBe(true);
   });
 });

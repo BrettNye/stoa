@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 export class ConfigError extends Error {
   constructor(message: string) {
     super(message);
@@ -32,6 +34,8 @@ export function parseConfig(
       "vault path required: pass --vault=<path> or set VAULT_PATH"
     );
   }
+
+  vaultPath = resolve(vaultPath);
 
   return { vaultPath, mcpMode, defaultWiki };
 }
