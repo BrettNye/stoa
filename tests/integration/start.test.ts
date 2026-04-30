@@ -80,4 +80,14 @@ moveset: []
     expect(r.pokemon_state).toBeDefined();
     expect(r.pokemon_state?.active_tasks.length).toBeGreaterThan(0);
   });
+
+  it("with --pokemon=<bare-name> normalizes to profile id and returns pokemon_state", async () => {
+    const r = await startTool.handler(
+      { wiki: "alpha", pokemon: "charmander" },
+      { vaultPath }
+    );
+    expect(r.pokemon_state).toBeDefined();
+    expect(r.pokemon_state?.name).toBe("charmander");
+    expect(r.pokemon_state?.pokemon_type).toBe("fire");
+  });
 });

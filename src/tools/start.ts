@@ -84,10 +84,11 @@ export const startTool = {
     let pokemonState: any = undefined;
     if (input.pokemon) {
       try {
-        const p = readProfile(ctx.vaultPath, input.pokemon);
-        const name = input.pokemon.startsWith("profile-")
-          ? input.pokemon.slice("profile-".length)
-          : input.pokemon;
+        const profileId = input.pokemon.startsWith("profile-")
+          ? input.pokemon
+          : `profile-${input.pokemon}`;
+        const p = readProfile(ctx.vaultPath, profileId);
+        const name = profileId.slice("profile-".length);
         const claimedTasks = listTasks(ctx.vaultPath, {
           claimed_by: `agent:${name}`,
           status: "in_progress"
