@@ -2,7 +2,7 @@ import { writeFileSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { serializeFrontmatter, parseFrontmatter } from "./frontmatter.js";
 import { slugify } from "./ids.js";
-import { loadIndex, queryPages } from "./index.js";
+import { loadIndex, queryPages, upsertPage } from "./index.js";
 import { resolveCurrent } from "./aliases.js";
 
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -43,6 +43,7 @@ export function postToChannel(vaultPath: string, input: PostInput): PostResult {
   };
   if (input.session_id) fm.session_id = input.session_id;
   writeFileSync(path, serializeFrontmatter(fm, input.content));
+  upsertPage(vaultPath, path);
   return { id, path, created: fm.created, channel: input.channel };
 }
 

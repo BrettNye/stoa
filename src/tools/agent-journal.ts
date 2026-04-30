@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { serializeFrontmatter } from "../core/frontmatter.js";
 import { slugify } from "../core/ids.js";
 import { resolveWiki } from "./_resolve-wiki.js";
+import { upsertPage } from "../core/index.js";
 
 const Input = z.object({
   entry: z.string().min(1),
@@ -35,6 +36,7 @@ export const agentJournalTool = {
     if (input.channel) fm.channel = input.channel;
     if (input.duration_minutes !== undefined) fm.duration_minutes = input.duration_minutes;
     writeFileSync(path, serializeFrontmatter(fm, input.entry));
+    upsertPage(ctx.vaultPath, path);
     return { id, path, created: fm.created };
   }
 };

@@ -5,6 +5,7 @@ import { serializeFrontmatter } from "../../core/frontmatter.js";
 import { slugify } from "../../core/ids.js";
 import { resolveWiki } from "../../tools/_resolve-wiki.js";
 import { getCtx } from "../_ctx.js";
+import { upsertPage } from "../../core/index.js";
 
 export function registerAgentJournal(p: Command) {
   p.command("agent-journal <entry...>")
@@ -30,6 +31,7 @@ export function registerAgentJournal(p: Command) {
       if (opts.channel) fm.channel = opts.channel;
       const path = join(ctx.vaultPath, "wikis", wiki, "journal", `${id}.md`);
       writeFileSync(path, serializeFrontmatter(fm, text));
+      upsertPage(ctx.vaultPath, path);
       console.log(`logged: ${id}`);
     });
 }
