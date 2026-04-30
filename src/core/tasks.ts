@@ -2,11 +2,19 @@ import { readPage, writePage } from "./pages.js";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseFrontmatter } from "./frontmatter.js";
+import { readProfile, ProfileNotFoundError } from "./profiles.js";
 
 export class AlreadyClaimedError extends Error {
   constructor(public taskId: string, public claimedBy: string) {
     super(`task ${taskId} already claimed by ${claimedBy}`);
     this.name = "AlreadyClaimedError";
+  }
+}
+
+export class WrongTypeError extends Error {
+  constructor(public taskId: string, public requiredType: string, public actualType: string) {
+    super(`WRONG_TYPE: task ${taskId} requires pokemon_type=${requiredType}, but agent's profile has type=${actualType}`);
+    this.name = "WrongTypeError";
   }
 }
 
@@ -25,9 +33,34 @@ export interface ClaimResult {
 }
 
 export function claimTask(vaultPath: string, input: ClaimInput): ClaimResult {
-  const wiki = input.wiki ?? "alpha"; // resolved by caller normally
+  const wiki = input.wiki ?? "alpha"; // resolved by caller normally; fallback for tests
   const page = readPage(vaultPath, input.task_id, wiki);
   const requesterAgent = `agent:${input.agent_id}`;
+
+  // Type restriction (spec §6.2 modification)
+  const requiredType = page.frontmatter.required_pokemon_type;
+  if (requiredType) {
+    let agentType: string = "normal";  // default for agents without a profile
+    let agentSecondaryType: string | undefined;
+    try {
+      // The profile id is `profile-<agent_id>` per the v1.5 convention.
+      const profileId = input.agent_id.startsWith("profile-")
+        ? input.agent_id
+        : `profile-${input.agent_id}`;
+      const profile = readProfile(vaultPath, profileId);
+      agentType = String(profile.frontmatter.pokemon_type ?? "normal");
+      agentSecondaryType = profile.frontmatter.secondary_pokemon_type
+        ? String(profile.frontmatter.secondary_pokemon_type)
+        : undefined;
+    } catch (e) {
+      if (!(e instanceof ProfileNotFoundError)) throw e;
+      // ProfileNotFoundError → agentType stays "normal"
+    }
+    if (agentType !== requiredType && agentSecondaryType !== requiredType) {
+      throw new WrongTypeError(input.task_id, String(requiredType), agentType);
+    }
+  }
+
   if (page.frontmatter.claimed_by && page.frontmatter.claimed_by !== requesterAgent) {
     throw new AlreadyClaimedError(input.task_id, page.frontmatter.claimed_by);
   }

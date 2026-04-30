@@ -1,6 +1,7 @@
 // vault-mcp/src/tools/task-claim.ts
 import { z } from "zod";
 import { claimTask } from "../core/tasks.js";
+import { resolveWiki } from "./_resolve-wiki.js";
 
 const Input = z.object({
   task_id: z.string(),
@@ -11,9 +12,10 @@ const Input = z.object({
 
 export const taskClaimTool = {
   name: "vault.task-claim",
-  description: "Atomic claim on a pending task via mtime optimistic concurrency.",
+  description: "Atomic claim on a pending task via mtime optimistic concurrency. If the task has required_pokemon_type, the claimant's profile must match.",
   inputSchema: Input,
-  handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
-    return claimTask(ctx.vaultPath, input);
+  handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string; defaultWiki?: string }) => {
+    const wiki = resolveWiki(input.wiki, ctx.defaultWiki, ctx.vaultPath);
+    return claimTask(ctx.vaultPath, { ...input, wiki });
   }
 };

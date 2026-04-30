@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { taskCreateTool } from "../../src/tools/task-create.js";
@@ -13,6 +13,26 @@ describe("integration — task lifecycle: create → list → claim → update �
   beforeEach(() => {
     vaultPath = mkdtempSync(join(tmpdir(), "vault-int-tl-"));
     mkdirSync(join(vaultPath, "wikis", "alpha", "tasks"), { recursive: true });
+    // Create a fire-type charmander profile so type-restriction checks pass
+    const profilesDir = join(vaultPath, "wikis", "_agents", "profiles");
+    mkdirSync(profilesDir, { recursive: true });
+    writeFileSync(join(profilesDir, "profile-charmander.md"),
+      `---
+id: profile-charmander
+title: Charmander
+type: profile
+wiki: _agents
+status: active
+created: 2026-04-29
+updated: 2026-04-29
+summary: Backend
+pokemon_type: fire
+evolution_stage: basic
+autonomy_level: restricted
+moveset: []
+applies_to: [claude-code]
+---
+`);
   });
 
   afterEach(() => {
