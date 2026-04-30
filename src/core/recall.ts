@@ -3,6 +3,8 @@ import { join } from "node:path";
 import natural from "natural";
 import { loadIndex, loadTokens, queryPages } from "./index.js";
 import type { IndexedPage, VaultIndex } from "./index.js";
+import { parseFrontmatter } from "./frontmatter.js";
+import { expandAliases } from "./aliases.js";
 
 const STOP_WORDS = new Set(["the","and","of","a","an","in","to","is","for","on","with","as","at","by","or","be","this","that","it","from","are","was","were","not","but","if"]);
 const stemmer = natural.PorterStemmer;
@@ -40,6 +42,7 @@ export interface RecallInput {
   layer?: "knowledge" | "execution" | "all";
   include_archive?: boolean;
   limit?: number;
+  by_agent?: string;
 }
 
 export interface RecallHit {
@@ -85,7 +88,31 @@ export function recall(vaultPath: string, input: RecallInput): RecallResult {
     return b.page.updated.localeCompare(a.page.updated);
   });
 
-  const top = scored.slice(0, limit);
+  let top = scored.slice(0, limit);
+
+  if (input.by_agent) {
+    const profileId = input.by_agent.startsWith("profile-")
+      ? input.by_agent
+      : `profile-${input.by_agent}`;
+    const expandedProfileIds = expandAliases(vaultPath, profileId);
+    const targetAuthors = new Set<string>();
+    for (const pid of expandedProfileIds) {
+      const bare = pid.startsWith("profile-") ? pid.slice("profile-".length) : pid;
+      targetAuthors.add(`agent:${bare}`);
+    }
+    top = top.filter(({ page }) => {
+      try {
+        const raw = readFileSync(join(vaultPath, page.path), "utf8");
+        const { frontmatter: fm } = parseFrontmatter(raw);
+        if (fm.author && targetAuthors.has(String(fm.author))) return true;
+        if (fm.claimed_by && targetAuthors.has(String(fm.claimed_by))) return true;
+        return false;
+      } catch {
+        return false;
+      }
+    });
+  }
+
   const hits: RecallHit[] = top.map(({ page, score: s }) => ({
     id: page.id,
     title: page.title,

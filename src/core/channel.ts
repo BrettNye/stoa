@@ -1,8 +1,9 @@
 import { writeFileSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { serializeFrontmatter } from "./frontmatter.js";
+import { serializeFrontmatter, parseFrontmatter } from "./frontmatter.js";
 import { slugify } from "./ids.js";
 import { loadIndex, queryPages } from "./index.js";
+import { resolveCurrent } from "./aliases.js";
 
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
@@ -59,6 +60,7 @@ export interface TailEntry {
   created: string;
   body: string;
   session_id?: string;
+  current_alias?: string;
 }
 
 export interface TailResult {
@@ -76,15 +78,31 @@ export function tailChannel(vaultPath: string, input: TailInput): TailResult {
     .slice(0, limit);
   const entries: TailEntry[] = candidates.map(p => {
     const raw = readFileSync(join(vaultPath, p.path), "utf8");
-    const bodyStart = raw.indexOf("\n---\n", 4);
-    const body = bodyStart === -1 ? "" : raw.slice(bodyStart + 5);
-    return {
+    const { frontmatter: fm, body: parsedBody } = parseFrontmatter(raw);
+    const author = String(fm.author ?? "unknown");
+
+    let current_alias: string | undefined;
+    if (author.startsWith("agent:")) {
+      const bare = author.slice("agent:".length);
+      const profileId = `profile-${bare}`;
+      const current = resolveCurrent(vaultPath, profileId);
+      if (current !== profileId) {
+        current_alias = current.startsWith("profile-")
+          ? current.slice("profile-".length)
+          : current;
+      }
+    }
+
+    const entry: TailEntry = {
       id: p.id,
       wiki: p.wiki,
-      author: (p as any).author ?? "unknown",
+      author,
       created: p.created,
-      body
+      body: parsedBody
     };
+    if (current_alias) entry.current_alias = current_alias;
+    if (fm.session_id) entry.session_id = String(fm.session_id);
+    return entry;
   });
   const cursor = entries.length > 0 ? entries[entries.length - 1].created : since;
   return { entries, cursor };

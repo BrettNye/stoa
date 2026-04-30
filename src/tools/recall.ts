@@ -7,7 +7,8 @@ const Input = z.object({
   wiki: z.string().optional(),
   layer: z.enum(["knowledge", "execution", "all"]).default("knowledge"),
   include_archive: z.boolean().default(false),
-  limit: z.number().int().positive().default(20)
+  limit: z.number().int().positive().default(20),
+  by_agent: z.string().optional()
 });
 
 export const recallTool = {
