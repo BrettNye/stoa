@@ -71,4 +71,50 @@ moveset: []
     expect(r.pokemon_state?.name).toBe("charmander");
     expect(r.pokemon_state?.evolution_stage).toBe("basic");
   });
+
+  it("resolves wiki from defaultWiki ctx when input.wiki is omitted", async () => {
+    // Set up a non-alpha wiki and confirm defaultWiki picks it up
+    mkdirSync(join(vaultPath, "wikis", "gamma"), { recursive: true });
+    writeFileSync(join(vaultPath, "wikis", "gamma", "map.md"),
+      `---
+id: map-gamma
+type: map
+title: gamma
+created: 2026-04-29
+wiki: gamma
+status: active
+summary: gamma map
+updated: 2026-04-29
+---
+
+# gamma map
+`);
+    const r = await startTool.handler({}, { vaultPath, defaultWiki: "gamma" });
+    expect(r.map_summary).toContain("gamma map");
+  });
+
+  it("prefers explicit input.wiki over defaultWiki ctx", async () => {
+    // Create a second wiki to disambiguate
+    mkdirSync(join(vaultPath, "wikis", "beta"), { recursive: true });
+    writeFileSync(join(vaultPath, "wikis", "beta", "map.md"),
+      `---
+id: map-beta
+type: map
+title: beta
+created: 2026-04-29
+wiki: beta
+status: active
+summary: beta map
+updated: 2026-04-29
+---
+
+# beta map
+`);
+    const r = await startTool.handler(
+      { wiki: "alpha" },
+      { vaultPath, defaultWiki: "beta" }
+    );
+    expect(r.map_summary).toContain("alpha map");
+    expect(r.map_summary).not.toContain("beta map");
+  });
 });

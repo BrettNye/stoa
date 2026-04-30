@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { parseFrontmatter } from "../core/frontmatter.js";
 import { readProfile, ProfileNotFoundError } from "../core/profiles.js";
 import { listTasks } from "../core/tasks.js";
+import { resolveWiki } from "./_resolve-wiki.js";
 
 const Input = z.object({
   wiki: z.string().optional(),
@@ -16,8 +17,8 @@ export const startTool = {
   name: "vault.start",
   description: "Cold-session bootstrap: reads wiki map, tails active channels, runs recall on primary topics, returns a context brief.",
   inputSchema: Input,
-  handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
-    const wiki = input.wiki ?? "alpha"; // resolution typically done by caller; this fallback is for unit tests
+  handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string; defaultWiki?: string }) => {
+    const wiki = resolveWiki(input.wiki, ctx.defaultWiki, ctx.vaultPath);
     const sinceCutoff = input.since ?? new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
     // 1. Map summary
