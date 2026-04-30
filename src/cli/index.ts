@@ -23,6 +23,7 @@ import { registerTaskCreate } from "./commands/task-create.js";
 import { registerTaskList } from "./commands/task-list.js";
 import { registerTaskUpdate } from "./commands/task-update.js";
 import { registerProfileStats } from "./commands/profile-stats.js";
+import { registerEvolveProfile } from "./commands/evolve-profile.js";
 
 export function buildCli(): Command {
   const program = new Command()
@@ -53,6 +54,7 @@ export function buildCli(): Command {
   registerTaskList(program);
   registerTaskUpdate(program);
   registerProfileStats(program);
+  registerEvolveProfile(program);
 
   return program;
 }
