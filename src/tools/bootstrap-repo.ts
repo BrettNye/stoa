@@ -16,6 +16,7 @@ const BOOTSTRAP_MARKER_START = "<!-- vault-mcp v1.5 bootstrap:start -->";
 const BOOTSTRAP_MARKER_END = "<!-- /vault-mcp-bootstrap -->";
 
 function buildClaudeMdFragment(args: {
+  repoPath: string;
   wiki: string;
   serverName: string;
   pokemon?: string;
@@ -26,6 +27,8 @@ function buildClaudeMdFragment(args: {
   lines.push(BOOTSTRAP_MARKER_START);
   lines.push("");
   lines.push(`## Vault context — wiki: \`${args.wiki}\``);
+  lines.push("");
+  lines.push(`Working directory: \`${args.repoPath}\` (verify your CWD matches before tool calls).`);
   lines.push("");
   lines.push(`This repo is bootstrapped to the knowledge vault. The MCP server is registered under the name \`${args.serverName}\`; vault tools are exposed as \`mcp__${args.serverName}__vault_*\` (e.g. \`mcp__${args.serverName}__vault_start\`).`);
   lines.push("");
@@ -139,6 +142,7 @@ export const bootstrapRepoTool = {
 
     // Build + write CLAUDE.md
     const fragment = buildClaudeMdFragment({
+      repoPath: input.repo_path,
       wiki: input.wiki,
       serverName,
       pokemon: input.pokemon,

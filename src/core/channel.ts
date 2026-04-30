@@ -71,7 +71,12 @@ export interface TailResult {
 
 export function tailChannel(vaultPath: string, input: TailInput): TailResult {
   const idx = loadIndex(vaultPath);
-  const since = input.since ?? new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const sinceRaw = input.since;
+  const since = typeof sinceRaw === "string"
+    ? sinceRaw
+    : (sinceRaw && typeof (sinceRaw as any).toISOString === "function"
+        ? (sinceRaw as any).toISOString()
+        : new Date(Date.now() - 24 * 3600 * 1000).toISOString());
   const limit = input.limit ?? 50;
   const candidates = queryPages(idx, { channel: input.channel, wiki: input.wiki })
     .filter(p => (p.type === "journal" || p.type === "task") && p.created >= since)
