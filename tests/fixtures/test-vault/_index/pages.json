@@ -1,0 +1,308 @@
+{
+  "pages": [
+    {
+      "id": "map-alpha",
+      "type": "map",
+      "wiki": "alpha",
+      "title": "alpha map",
+      "summary": "Map of the alpha wiki for fixture testing.",
+      "tags": [],
+      "status": "active",
+      "updated": "2026-04-28",
+      "created": "2026-04-01",
+      "path": "wikis/alpha/map.md",
+      "tokens": {
+        "title": [
+          "alpha",
+          "map"
+        ],
+        "summary": [
+          "map",
+          "alpha",
+          "wiki",
+          "fixtur",
+          "test"
+        ],
+        "body": [
+          "alpha",
+          "fixtur",
+          "wiki",
+          "content",
+          "auto",
+          "start",
+          "auto",
+          "end"
+        ],
+        "tags": []
+      }
+    },
+    {
+      "id": "concept-bar",
+      "type": "concept",
+      "wiki": "alpha",
+      "title": "Bar concept",
+      "summary": "The bar entity.",
+      "tags": [
+        "bar",
+        "testing"
+      ],
+      "status": "active",
+      "updated": "2026-04-28",
+      "created": "2026-04-01",
+      "path": "wikis/alpha/concepts/concept-bar.md",
+      "tokens": {
+        "title": [
+          "bar",
+          "concept"
+        ],
+        "summary": [
+          "bar",
+          "entiti"
+        ],
+        "body": [
+          "bar",
+          "depend",
+          "foo"
+        ],
+        "tags": [
+          "bar",
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "concept-foo",
+      "type": "concept",
+      "wiki": "alpha",
+      "title": "Foo concept",
+      "summary": "The foo entity.",
+      "tags": [
+        "foo",
+        "testing"
+      ],
+      "status": "active",
+      "updated": "2026-04-28",
+      "created": "2026-04-01",
+      "path": "wikis/alpha/concepts/concept-foo.md",
+      "tokens": {
+        "title": [
+          "foo",
+          "concept"
+        ],
+        "summary": [
+          "foo",
+          "entiti"
+        ],
+        "body": [
+          "foo",
+          "concept",
+          "fundament",
+          "bar",
+          "typescript",
+          "snippet",
+          "foo",
+          "helper",
+          "export",
+          "function",
+          "foohelp",
+          "return",
+          "foo"
+        ],
+        "tags": [
+          "foo",
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "decision-2026-04-01-pick-foo",
+      "type": "decision",
+      "wiki": "alpha",
+      "title": "Pick foo over baz",
+      "summary": "We chose foo because it's simpler.",
+      "tags": [
+        "foo",
+        "testing"
+      ],
+      "status": "accepted",
+      "confidence": "high",
+      "updated": "2026-04-01",
+      "created": "2026-04-01",
+      "path": "wikis/alpha/decisions/decision-2026-04-01-pick-foo.md",
+      "tokens": {
+        "title": [
+          "pick",
+          "foo",
+          "over",
+          "baz"
+        ],
+        "summary": [
+          "we",
+          "chose",
+          "foo",
+          "becaus",
+          "simpler"
+        ],
+        "body": [
+          "after",
+          "compar",
+          "option",
+          "we",
+          "pick",
+          "foo"
+        ],
+        "tags": [
+          "foo",
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "synthesis-foo-vs-bar",
+      "type": "synthesis",
+      "wiki": "alpha",
+      "title": "Foo vs bar synthesis",
+      "summary": "Comparison of foo and bar approaches.",
+      "tags": [
+        "foo",
+        "bar",
+        "testing"
+      ],
+      "status": "active",
+      "updated": "2026-03-15",
+      "created": "2026-03-15",
+      "path": "wikis/alpha/synthesis/synthesis-foo-vs-bar.md",
+      "tokens": {
+        "title": [
+          "foo",
+          "vs",
+          "bar",
+          "synthesi"
+        ],
+        "summary": [
+          "comparison",
+          "foo",
+          "bar",
+          "approach"
+        ],
+        "body": [
+          "compar",
+          "foo",
+          "bar",
+          "foo",
+          "win",
+          "simplic",
+          "bar",
+          "win",
+          "power"
+        ],
+        "tags": [
+          "foo",
+          "bar",
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "task-implement-baz",
+      "type": "task",
+      "wiki": "alpha",
+      "title": "Implement baz handler",
+      "summary": "Implement the baz request handler.",
+      "tags": [],
+      "status": "pending",
+      "updated": "2026-04-28",
+      "created": "2026-04-28",
+      "path": "wikis/alpha/tasks/task-implement-baz.md",
+      "tokens": {
+        "title": [
+          "implement",
+          "baz",
+          "handler"
+        ],
+        "summary": [
+          "implement",
+          "baz",
+          "request",
+          "handler"
+        ],
+        "body": [
+          "add",
+          "handler",
+          "baz",
+          "request"
+        ],
+        "tags": []
+      }
+    },
+    {
+      "id": "map-beta",
+      "type": "map",
+      "wiki": "beta",
+      "title": "beta map",
+      "summary": "Map of the beta wiki.",
+      "tags": [],
+      "status": "active",
+      "updated": "2026-04-28",
+      "created": "2026-04-01",
+      "path": "wikis/beta/map.md",
+      "tokens": {
+        "title": [
+          "beta",
+          "map"
+        ],
+        "summary": [
+          "map",
+          "beta",
+          "wiki"
+        ],
+        "body": [
+          "beta",
+          "auto",
+          "start",
+          "auto",
+          "end"
+        ],
+        "tags": []
+      }
+    },
+    {
+      "id": "concept-quux",
+      "type": "concept",
+      "wiki": "beta",
+      "title": "Quux concept",
+      "summary": "Quux is a downstream concept; alpha cites this.",
+      "tags": [
+        "quux",
+        "testing"
+      ],
+      "status": "active",
+      "updated": "2026-04-28",
+      "created": "2026-04-01",
+      "path": "wikis/beta/concepts/concept-quux.md",
+      "tokens": {
+        "title": [
+          "quux",
+          "concept"
+        ],
+        "summary": [
+          "quux",
+          "downstream",
+          "concept",
+          "alpha",
+          "cite"
+        ],
+        "body": [
+          "quux",
+          "extend",
+          "foo",
+          "bar"
+        ],
+        "tags": [
+          "quux",
+          "test"
+        ]
+      }
+    }
+  ]
+}

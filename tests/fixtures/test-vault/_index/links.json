@@ -1,0 +1,45 @@
+{
+  "map-alpha": {
+    "outbound": [],
+    "inbound": []
+  },
+  "concept-bar": {
+    "outbound": [],
+    "inbound": [
+      "concept-foo"
+    ]
+  },
+  "concept-foo": {
+    "outbound": [
+      "concept-bar",
+      "concept-quux"
+    ],
+    "inbound": [
+      "decision-2026-04-01-pick-foo"
+    ]
+  },
+  "concept-quux": {
+    "outbound": [],
+    "inbound": [
+      "concept-foo"
+    ]
+  },
+  "decision-2026-04-01-pick-foo": {
+    "outbound": [
+      "concept-foo"
+    ],
+    "inbound": []
+  },
+  "synthesis-foo-vs-bar": {
+    "outbound": [],
+    "inbound": []
+  },
+  "task-implement-baz": {
+    "outbound": [],
+    "inbound": []
+  },
+  "map-beta": {
+    "outbound": [],
+    "inbound": []
+  }
+}

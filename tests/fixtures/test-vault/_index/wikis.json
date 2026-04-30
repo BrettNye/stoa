@@ -1,0 +1,27 @@
+{
+  "wikis": [
+    {
+      "name": "alpha",
+      "mode": "mixed",
+      "scope": "",
+      "page_counts": {
+        "map": 1,
+        "concept": 2,
+        "decision": 1,
+        "synthesis": 1,
+        "task": 1
+      },
+      "last_touched": "2026-04-28"
+    },
+    {
+      "name": "beta",
+      "mode": "mixed",
+      "scope": "",
+      "page_counts": {
+        "map": 1,
+        "concept": 1
+      },
+      "last_touched": "2026-04-28"
+    }
+  ]
+}
