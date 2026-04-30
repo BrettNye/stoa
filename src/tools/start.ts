@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { parseFrontmatter } from "../core/frontmatter.js";
 import { readProfile, ProfileNotFoundError } from "../core/profiles.js";
 import { listTasks } from "../core/tasks.js";
-import { computeChannelActivity } from "../core/start.js";
+import { computeChannelActivity, loadAsciiHeader } from "../core/start.js";
 import { resolveWiki } from "./_resolve-wiki.js";
 
 const Input = z.object({
@@ -132,13 +132,19 @@ export const startTool = {
       wiki
     });
 
+    let asciiHeader: string | undefined = undefined;
+    if (pokemonState) {
+      const unreadTotal = channelActivity.reduce((sum, c) => sum + c.unread_count, 0);
+      asciiHeader = loadAsciiHeader(ctx.vaultPath, pokemonState, { unread_total: unreadTotal });
+    }
+
     return {
       map_summary: mapSummary,
       active_pages_summary: activePages.slice(0, 20),
       recall_hits: [],
       channel_activity: channelActivity,
       pokemon_state: pokemonState,
-      ascii_header: undefined
+      ascii_header: asciiHeader
     };
   }
 };
