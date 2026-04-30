@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { readPage, writePage } from "./pages.js";
 import { parseFrontmatter } from "./frontmatter.js";
 import { readFileSync } from "node:fs";
-import { recordRename } from "./aliases.js";
+import { recordRename, resolveCurrent } from "./aliases.js";
 
 export class ProfileNotFoundError extends Error {
   constructor(public id: string) {
@@ -39,10 +39,41 @@ export interface ProfileSummary {
 
 export function readProfile(vaultPath: string, id: string): { frontmatter: Record<string, any>; body: string; updated: string; path: string } {
   const profilesDir = join(vaultPath, "wikis", "_agents", "profiles");
-  const path = join(profilesDir, `${id}.md`);
-  if (!existsSync(path)) {
-    throw new ProfileNotFoundError(id);
+
+  // Three-step resolution chain (v1.6 §7.5):
+  //   1. raw id            (e.g. "profile-charmeleon")
+  //   2. profile-<id>      (bare-name normalization, e.g. "charmeleon")
+  //   3. alias overlay     (historical id → current id, then retry steps 1-2)
+  //
+  // The alias index (core/aliases.ts) is keyed by historical id with
+  // value.current = current canonical id. resolveCurrent() returns the
+  // input unchanged if no alias entry exists.
+  const candidates = [id, `profile-${id}`];
+  for (const cand of candidates) {
+    const path = join(profilesDir, `${cand}.md`);
+    if (existsSync(path)) {
+      return loadProfileAt(path);
+    }
   }
+
+  // Alias overlay: try to resolve via the alias index using both id forms
+  // as lookup keys, then retry the candidate chain with each resolved id.
+  for (const lookupKey of candidates) {
+    const current = resolveCurrent(vaultPath, lookupKey);
+    if (current === lookupKey) continue; // no alias entry for this key
+    const aliasCandidates = [current, `profile-${current}`];
+    for (const cand of aliasCandidates) {
+      const path = join(profilesDir, `${cand}.md`);
+      if (existsSync(path)) {
+        return loadProfileAt(path);
+      }
+    }
+  }
+
+  throw new ProfileNotFoundError(id);
+}
+
+function loadProfileAt(path: string): { frontmatter: Record<string, any>; body: string; updated: string; path: string } {
   const raw = readFileSync(path, "utf8");
   const { frontmatter, body } = parseFrontmatter(raw);
   return {
