@@ -180,81 +180,120 @@ describe("skills-platform", () => {
   });
 
   describe("detectDriftAt", () => {
+    let vaultPath: string;
     let skillsDir: string;
 
+    // Helper: build a canonical move source under
+    // `<vaultPath>/wikis/_agents/moves/<moveId>/SKILL.md`.
+    function writeCanonical(moveId: string, body: string): void {
+      const dir = join(vaultPath, "wikis", "_agents", "moves", moveId);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, "SKILL.md"), body);
+    }
+
+    // Helper: build a deployed move under `<skillsDir>/<moveId>/SKILL.md`.
+    function writeDeployed(moveId: string, body: string): void {
+      const dir = join(skillsDir, moveId);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, "SKILL.md"), body);
+    }
+
     beforeEach(() => {
+      vaultPath = join(tmp, "vault");
       skillsDir = join(tmp, "deployment");
-      mkdirSync(join(skillsDir, "move-tdd-cycle"), { recursive: true });
-      mkdirSync(join(skillsDir, "move-pr-create"), { recursive: true });
-      writeFileSync(join(skillsDir, "move-tdd-cycle", "SKILL.md"), "tdd body\n");
-      writeFileSync(join(skillsDir, "move-pr-create", "SKILL.md"), "pr body\n");
+      mkdirSync(vaultPath, { recursive: true });
+      mkdirSync(skillsDir, { recursive: true });
+
+      // Two canonical moves with stable bodies.
+      writeCanonical("move-tdd-cycle", "tdd body\n");
+      writeCanonical("move-pr-create", "pr body\n");
+
+      // Deployed copies starting clean (identical bytes).
+      writeDeployed("move-tdd-cycle", "tdd body\n");
+      writeDeployed("move-pr-create", "pr body\n");
     });
 
     it("empty deployment moves → []", () => {
-      const reports = detectDriftAt({ skills_dir: skillsDir, moves: [] }, tmp);
+      const reports = detectDriftAt({ skills_dir: skillsDir, moves: [] }, vaultPath);
       expect(reports).toEqual([]);
     });
 
-    it("clean (matching hashes) → []", () => {
-      const tddHash = computeFileHash(join(skillsDir, "move-tdd-cycle", "SKILL.md"));
-      const prHash = computeFileHash(join(skillsDir, "move-pr-create", "SKILL.md"));
-      const reports = detectDriftAt({
-        skills_dir: skillsDir,
-        moves: [
-          { id: "move-tdd-cycle", expected_hash: tddHash, relative_path: "move-tdd-cycle/SKILL.md" },
-          { id: "move-pr-create", expected_hash: prHash, relative_path: "move-pr-create/SKILL.md" }
-        ]
-      }, tmp);
+    it("clean (canonical + deployed identical) → []", () => {
+      const reports = detectDriftAt(
+        { skills_dir: skillsDir, moves: ["move-tdd-cycle", "move-pr-create"] },
+        vaultPath
+      );
       expect(reports).toEqual([]);
     });
 
-    it("tampered file → kind: 'hash-mismatch'", () => {
-      const expected = computeFileHash(join(skillsDir, "move-tdd-cycle", "SKILL.md"));
-      // tamper
-      writeFileSync(join(skillsDir, "move-tdd-cycle", "SKILL.md"), "tdd body MODIFIED\n");
-      const reports = detectDriftAt({
-        skills_dir: skillsDir,
-        moves: [
-          { id: "move-tdd-cycle", expected_hash: expected, relative_path: "move-tdd-cycle/SKILL.md" }
-        ]
-      }, tmp);
+    it("tampered deployed file → kind: 'hash-mismatch'", () => {
+      const canonicalSkill = join(vaultPath, "wikis", "_agents", "moves", "move-tdd-cycle", "SKILL.md");
+      const deployedSkill = join(skillsDir, "move-tdd-cycle", "SKILL.md");
+      const expected = computeFileHash(canonicalSkill);
+
+      // tamper deployed (canonical untouched)
+      writeFileSync(deployedSkill, "tdd body MODIFIED\n");
+
+      const reports = detectDriftAt(
+        { skills_dir: skillsDir, moves: ["move-tdd-cycle"] },
+        vaultPath
+      );
       expect(reports).toHaveLength(1);
       expect(reports[0].kind).toBe("hash-mismatch");
       expect(reports[0].move_id).toBe("move-tdd-cycle");
       expect(reports[0].expected_hash).toBe(expected);
       expect(reports[0].actual_hash).not.toBe(expected);
       expect(reports[0].actual_hash).toMatch(/^[a-f0-9]{64}$/);
-      expect(reports[0].deployment_path).toBe(skillsDir);
+      expect(reports[0].deployment_path).toBe(deployedSkill);
     });
 
-    it("missing file → kind: 'missing', actual_hash undefined", () => {
-      const reports = detectDriftAt({
-        skills_dir: skillsDir,
-        moves: [
-          { id: "move-ghost", expected_hash: "deadbeef".repeat(8), relative_path: "move-ghost/SKILL.md" }
-        ]
-      }, tmp);
+    it("missing deployed file → kind: 'missing', actual_hash undefined", () => {
+      // Canonical exists; deployed does not.
+      writeCanonical("move-ghost", "ghost body\n");
+      const expected = computeFileHash(
+        join(vaultPath, "wikis", "_agents", "moves", "move-ghost", "SKILL.md")
+      );
+      const deployedSkill = join(skillsDir, "move-ghost", "SKILL.md");
+
+      const reports = detectDriftAt(
+        { skills_dir: skillsDir, moves: ["move-ghost"] },
+        vaultPath
+      );
       expect(reports).toHaveLength(1);
       const r: DriftReport = reports[0];
       expect(r.kind).toBe("missing");
       expect(r.move_id).toBe("move-ghost");
       expect(r.actual_hash).toBeUndefined();
-      expect(r.expected_hash).toBe("deadbeef".repeat(8));
-      expect(r.deployment_path).toBe(skillsDir);
+      expect(r.expected_hash).toBe(expected);
+      expect(r.deployment_path).toBe(deployedSkill);
     });
 
-    it("mixed: one clean, one missing, one tampered", () => {
-      const tddHash = computeFileHash(join(skillsDir, "move-tdd-cycle", "SKILL.md"));
-      const prExpected = computeFileHash(join(skillsDir, "move-pr-create", "SKILL.md"));
+    it("missing canonical file (vault has no such move) → throws", () => {
+      // No `move-phantom` exists under wikis/_agents/moves/. Hashing the
+      // canonical path will hit ENOENT inside computeFileHash; per the
+      // contract the helper re-throws because a missing canonical file is a
+      // vault-integrity bug, not deployment drift.
+      expect(() =>
+        detectDriftAt(
+          { skills_dir: skillsDir, moves: ["move-phantom"] },
+          vaultPath
+        )
+      ).toThrow();
+    });
+
+    it("mixed: one clean, one missing-deployed, one tampered", () => {
+      // canonical for move-ghost exists, but no deployed copy.
+      writeCanonical("move-ghost", "ghost body\n");
+      // tamper deployed pr-create
       writeFileSync(join(skillsDir, "move-pr-create", "SKILL.md"), "pr body MODIFIED\n");
-      const reports = detectDriftAt({
-        skills_dir: skillsDir,
-        moves: [
-          { id: "move-tdd-cycle", expected_hash: tddHash, relative_path: "move-tdd-cycle/SKILL.md" },
-          { id: "move-pr-create", expected_hash: prExpected, relative_path: "move-pr-create/SKILL.md" },
-          { id: "move-ghost", expected_hash: "0".repeat(64), relative_path: "move-ghost/SKILL.md" }
-        ]
-      }, tmp);
+
+      const reports = detectDriftAt(
+        {
+          skills_dir: skillsDir,
+          moves: ["move-tdd-cycle", "move-pr-create", "move-ghost"]
+        },
+        vaultPath
+      );
       expect(reports).toHaveLength(2);
       const byMove = Object.fromEntries(reports.map(r => [r.move_id, r]));
       expect(byMove["move-pr-create"].kind).toBe("hash-mismatch");

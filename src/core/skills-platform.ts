@@ -126,6 +126,10 @@ export function computeFileHash(path: string): string {
 }
 
 export interface DriftReport {
+  /**
+   * Absolute path to the deployed file that was checked. Surfaces in operator
+   * diagnostics so the operator knows which on-disk file to inspect.
+   */
   deployment_path: string;
   move_id: string;
   kind: "missing" | "hash-mismatch";
@@ -133,78 +137,71 @@ export interface DriftReport {
   actual_hash?: string; // undefined when kind === "missing"
 }
 
-export interface DriftMoveExpectation {
-  /** The move's id (e.g. `move-tdd-cycle`). */
-  id: string;
-  /** SHA-256 hex digest of the canonical source file bytes (vault-side). */
-  expected_hash: string;
-  /**
-   * Path to the file under `deployment.skills_dir`, relative.
-   * Typically `<move-id>/SKILL.md`.
-   */
-  relative_path: string;
-}
-
 export interface DriftDeployment {
   /** Absolute path to the deployment's skills dir on the consumer side. */
   skills_dir: string;
-  moves: DriftMoveExpectation[];
+  /**
+   * Move IDs (e.g. `move-tdd-cycle`) recorded in the deployment registry.
+   * The registry stores ONLY ids — `detectDriftAt` resolves both canonical
+   * (vault-side) and deployed (consumer-side) bytes at check time.
+   */
+  moves: string[];
 }
 
 /**
- * Detect drift between a deployment's on-disk skill files and their expected hashes.
+ * Detect drift between a deployment's on-disk skill files and the canonical
+ * vault sources by hashing both ends at check time.
  *
- * For each move:
- *  - If the file at `<skills_dir>/<relative_path>` is missing, emit
- *    `{ kind: "missing", actual_hash: undefined }`.
- *  - If its SHA-256 differs from `expected_hash`, emit
- *    `{ kind: "hash-mismatch", actual_hash: <observed> }`.
- *  - Otherwise emit nothing.
+ * For each move id:
+ *  - canonical path: `<vaultPath>/wikis/_agents/moves/<moveId>/SKILL.md`
+ *  - deployed path:  `<deployment.skills_dir>/<moveId>/SKILL.md`
  *
- * NOTE on input shape: the v1.5 `_index/deployments.json` schema (per
- * `core/deployments.ts`) does NOT yet carry per-move `expected_hash` or
- * `relative_path`. Wave 2 (T2-2/T2-3) is responsible for extending
- * `DeploymentEntry` to record those fields at sync-time, and for assembling
- * the `DriftDeployment` input from the registry plus the vault's canonical
- * move sources. Until then this helper accepts a structurally explicit input
- * that callers build directly.
+ * Reporting rules:
+ *  - canonical missing  → throws (vault is the source of truth; a missing
+ *    canonical file is a vault-integrity bug, not deployment drift).
+ *  - deployed missing   → emit `{ kind: "missing", actual_hash: undefined }`.
+ *  - hashes differ      → emit `{ kind: "hash-mismatch", actual_hash }`.
+ *  - hashes match       → omit (no entry).
  *
- * `vaultPath` is accepted for forward compatibility (e.g. once consumers
- * resolve canonical hashes by path). It is not currently dereferenced by
- * this helper but is part of the contract so the call sites don't have to
- * change again in Wave 2.
+ * Input shape note: this aligns with v1.5 `_index/deployments.json`, which
+ * stores only move ids per deployment (no per-move `expected_hash` /
+ * `relative_path`). Hashing both ends here keeps the registry schema simple.
  */
 export function detectDriftAt(
   deployment: DriftDeployment,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   vaultPath: string
 ): DriftReport[] {
   const reports: DriftReport[] = [];
-  for (const move of deployment.moves) {
-    const filePath = join(deployment.skills_dir, move.relative_path);
+  for (const moveId of deployment.moves) {
+    const canonicalPath = join(vaultPath, "wikis", "_agents", "moves", moveId, "SKILL.md");
+    const deployedPath = join(deployment.skills_dir, moveId, "SKILL.md");
+
+    // canonical missing → throw (vault-integrity bug, not drift)
+    const expectedHash = computeFileHash(canonicalPath);
+
     let actualHash: string;
     try {
-      actualHash = computeFileHash(filePath);
+      actualHash = computeFileHash(deployedPath);
     } catch (err) {
       const code = (err as NodeJS.ErrnoException).code;
       if (code === "ENOENT") {
         reports.push({
-          deployment_path: deployment.skills_dir,
-          move_id: move.id,
+          deployment_path: deployedPath,
+          move_id: moveId,
           kind: "missing",
-          expected_hash: move.expected_hash,
+          expected_hash: expectedHash,
           actual_hash: undefined
         });
         continue;
       }
       throw err;
     }
-    if (actualHash !== move.expected_hash) {
+    if (actualHash !== expectedHash) {
       reports.push({
-        deployment_path: deployment.skills_dir,
-        move_id: move.id,
+        deployment_path: deployedPath,
+        move_id: moveId,
         kind: "hash-mismatch",
-        expected_hash: move.expected_hash,
+        expected_hash: expectedHash,
         actual_hash: actualHash
       });
     }
