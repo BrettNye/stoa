@@ -25,6 +25,7 @@ import { registerTaskUpdate } from "./commands/task-update.js";
 import { registerProfileStats } from "./commands/profile-stats.js";
 import { registerEvolveProfile } from "./commands/evolve-profile.js";
 import { registerRefreshProfileMemory } from "./commands/refresh-profile-memory.js";
+import { registerSuggestPokemon } from "./commands/suggest-pokemon.js";
 
 export function buildCli(): Command {
   const program = new Command()
@@ -57,6 +58,7 @@ export function buildCli(): Command {
   registerProfileStats(program);
   registerEvolveProfile(program);
   registerRefreshProfileMemory(program);
+  registerSuggestPokemon(program);
 
   return program;
 }
