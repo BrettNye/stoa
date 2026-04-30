@@ -10,10 +10,16 @@ import { zodToJsonSchema } from "zod-to-json-schema";
  * tools (vault.evolve-profile proposal phase, vault.suggest-pokemon) read
  * `fetcher` and silently fall back to non-PokeAPI behaviour when it's missing —
  * so this *must* be populated for production MCP calls. See spec §4.3, §7.4.
+ *
+ * v1.6 Phase 2 T3-6 — `defaultFamily` is symmetric to `defaultWiki`. Family-aware
+ * tools (recall, list-wikis, start; future Plan C lint checks) consume it via
+ * `core/family.resolveFamily`. Resolution order:
+ *   tool-arg `family:` > ctx.defaultFamily > vault-root `.active-family` > null.
  */
 export interface DispatchCtx {
   vaultPath: string;
   defaultWiki?: string;
+  defaultFamily?: string;
   fetcher: typeof fetch;
 }
 
@@ -25,6 +31,7 @@ export function buildCtx(config: VaultConfig): DispatchCtx {
   return {
     vaultPath: config.vaultPath,
     defaultWiki: config.defaultWiki,
+    defaultFamily: config.defaultFamily,
     fetcher: globalThis.fetch.bind(globalThis)
   };
 }
@@ -55,5 +62,5 @@ export async function startStdio(config: VaultConfig): Promise<void> {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  process.stderr.write(`vault-mcp stdio server ready (vault=${config.vaultPath}, default-wiki=${config.defaultWiki ?? "<unset>"})\n`);
+  process.stderr.write(`vault-mcp stdio server ready (vault=${config.vaultPath}, default-wiki=${config.defaultWiki ?? "<unset>"}, default-family=${config.defaultFamily ?? "<unset>"})\n`);
 }

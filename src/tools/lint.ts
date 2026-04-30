@@ -26,7 +26,7 @@ export const lintTool = {
   inputSchema: Input,
   handler: async (
     input: z.infer<typeof Input>,
-    ctx: { vaultPath: string; defaultWiki?: string; fetcher?: typeof fetch }
+    ctx: { vaultPath: string; defaultWiki?: string; defaultFamily?: string; fetcher?: typeof fetch }
   ) => {
     // Phase 1: existing inline checks live in core/lint.ts.
     const result = lint(ctx.vaultPath, input);
@@ -38,6 +38,7 @@ export const lintTool = {
     const lintCheckCtx: LintCheckCtx = {
       vaultPath: ctx.vaultPath,
       defaultWiki: ctx.defaultWiki,
+      defaultFamily: ctx.defaultFamily,
       fetcher: ctx.fetcher,
     };
     result.diagnostics.push(...runRegisteredChecks(lintCheckCtx, idx, input));

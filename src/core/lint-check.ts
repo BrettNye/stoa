@@ -6,10 +6,15 @@ import type { VaultIndex } from "./index.js";
  * (rather than positional args) so future checks — e.g. PokeAPI-aware checks
  * needing `fetcher`, or wiki-scoped checks needing `defaultWiki` — can grow
  * without back-patching every existing check.
+ *
+ * v1.6 Phase 2 T3-6 — `defaultFamily` is added forward-compat for Plan C and
+ * v1.7. Phase 2's only new lint check (`family-member-mode-drift`) does NOT
+ * read it — it scans every wiki and groups by family field.
  */
 export interface LintCheckCtx {
   vaultPath: string;
   defaultWiki?: string;
+  defaultFamily?: string;
   fetcher?: typeof fetch;
 }
 

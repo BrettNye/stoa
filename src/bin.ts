@@ -21,6 +21,7 @@ async function main() {
   const cliArgv = process.argv.filter(a =>
     !a.startsWith("--vault=") &&
     !a.startsWith("--default-wiki=") &&
+    !a.startsWith("--default-family=") &&
     a !== "--mcp"
   );
 

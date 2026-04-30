@@ -82,6 +82,29 @@ describe("MCP dispatch — fetcher threading (T0-1)", () => {
     expect(ctx.defaultWiki).toBe("alpha");
   });
 
+  it("buildCtx forwards defaultFamily when set (T3-6)", () => {
+    const ctx = buildCtx({ vaultPath, mcpMode: true, defaultFamily: "rastate" });
+    expect(ctx.defaultFamily).toBe("rastate");
+    // Sanity: defaultWiki and defaultFamily are independent fields
+    expect(ctx.defaultWiki).toBeUndefined();
+  });
+
+  it("buildCtx leaves ctx.defaultFamily undefined when config omits it", () => {
+    const ctx = buildCtx({ vaultPath, mcpMode: true });
+    expect(ctx.defaultFamily).toBeUndefined();
+  });
+
+  it("buildCtx forwards defaultWiki and defaultFamily together (T3-6)", () => {
+    const ctx = buildCtx({
+      vaultPath,
+      mcpMode: true,
+      defaultWiki: "rastate-core",
+      defaultFamily: "rastate"
+    });
+    expect(ctx.defaultWiki).toBe("rastate-core");
+    expect(ctx.defaultFamily).toBe("rastate");
+  });
+
   it("vault.evolve-profile proposal phase, dispatched through the production ctx, sets proposed.name from PokeAPI", async () => {
     seedEvolutionEligibleProfile(vaultPath);
 

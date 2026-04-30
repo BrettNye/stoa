@@ -20,6 +20,27 @@ describe("parseConfig", () => {
     expect(cfg.defaultWiki).toBe("mylib");
   });
 
+  it("captures --default-family", () => {
+    const cfg = parseConfig(["--vault=/tmp/vault", "--default-family=rastate"]);
+    expect(cfg.defaultFamily).toBe("rastate");
+    expect(cfg.defaultWiki).toBeUndefined();
+  });
+
+  it("captures both --default-wiki and --default-family independently", () => {
+    const cfg = parseConfig([
+      "--vault=/tmp/vault",
+      "--default-wiki=rastate-core",
+      "--default-family=rastate"
+    ]);
+    expect(cfg.defaultWiki).toBe("rastate-core");
+    expect(cfg.defaultFamily).toBe("rastate");
+  });
+
+  it("leaves defaultFamily undefined when --default-family is absent", () => {
+    const cfg = parseConfig(["--vault=/tmp/vault"]);
+    expect(cfg.defaultFamily).toBeUndefined();
+  });
+
   it("falls back to VAULT_PATH env var when --vault is missing", () => {
     const cfg = parseConfig([], { VAULT_PATH: "/env/vault" });
     expect(cfg.vaultPath).toBe(resolve("/env/vault"));
