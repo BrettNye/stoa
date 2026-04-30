@@ -98,6 +98,79 @@ describe("reindex", () => {
     expect(rastate).toBeDefined();
     expect(rastate.family).toBe("rastate");
   });
+
+  it("emits an empty families:{} object when no wiki declares a family", () => {
+    // Phase-2 T2-2 — Plan B locks: families key is ALWAYS present for shape
+    // stability. With no families declared, it must be the empty object.
+    reindex(vault);
+    const wikis = JSON.parse(readFileSync(join(vault, "_index", "wikis.json"), "utf8"));
+    expect(wikis.families).toBeDefined();
+    expect(wikis.families).toEqual({});
+  });
+
+  it("emits a families rollup grouping wikis that share a family", () => {
+    // Phase-2 T2-2 — two wikis with `family: rastate` plus the existing
+    // `alpha` wiki (no family) → families.rastate has both rastate-* wikis
+    // listed as members (sorted), total_pages sums their per-type page
+    // counts, modes_used is deduped + sorted, and alpha (no family)
+    // contributes nothing to the rollup.
+    mkdirSync(join(vault, "wikis", "rastate-core", "concepts"), { recursive: true });
+    writeFileSync(
+      join(vault, "wikis", "rastate-core", "CLAUDE.md"),
+      "# rastate-core — wiki conventions\n\n**Family:** rastate\n**Mode:** project-doc\n"
+    );
+    writeFileSync(
+      join(vault, "wikis", "rastate-core", "map.md"),
+      "---\nid: map-rastate-core\ntype: map\ntitle: Rastate Core\nwiki: rastate-core\nstatus: active\ncreated: 2026-04-30\nupdated: 2026-04-30\nsummary: m\n---\nMap.\n"
+    );
+    writeFileSync(
+      join(vault, "wikis", "rastate-core", "concepts", "concept-state.md"),
+      `---
+id: concept-state
+title: State
+type: concept
+wiki: rastate-core
+status: active
+created: 2026-04-30
+updated: 2026-04-30
+summary: state
+tags: [s]
+---
+Body.
+`
+    );
+
+    mkdirSync(join(vault, "wikis", "rastate-dev"), { recursive: true });
+    writeFileSync(
+      join(vault, "wikis", "rastate-dev", "CLAUDE.md"),
+      "# rastate-dev — wiki conventions\n\n**Family:** rastate\n**Mode:** idea-map\n"
+    );
+    writeFileSync(
+      join(vault, "wikis", "rastate-dev", "map.md"),
+      "---\nid: map-rastate-dev\ntype: map\ntitle: Rastate Dev\nwiki: rastate-dev\nstatus: active\ncreated: 2026-04-30\nupdated: 2026-04-30\nsummary: m\n---\nMap.\n"
+    );
+
+    reindex(vault);
+    const wikis = JSON.parse(readFileSync(join(vault, "_index", "wikis.json"), "utf8"));
+
+    expect(wikis.families).toBeDefined();
+    expect(wikis.families.rastate).toBeDefined();
+
+    // members sorted alphabetically; alpha (no family) excluded
+    expect(wikis.families.rastate.members).toEqual(["rastate-core", "rastate-dev"]);
+
+    // total_pages sums all entries from wikis' page_counts maps:
+    //   rastate-core: map-rastate-core (map) + concept-state (concept) = 2
+    //   rastate-dev:  map-rastate-dev  (map)                            = 1
+    // → 3 total
+    expect(wikis.families.rastate.total_pages).toBe(3);
+
+    // mode hardcode is currently "mixed" for every wiki (see TODO in
+    // core/reindex.ts), so modes_used dedups to just ["mixed"]. Once that
+    // hardcode is replaced this becomes a richer assertion; for now it
+    // locks the dedup behaviour.
+    expect(wikis.families.rastate.modes_used).toEqual(["mixed"]);
+  });
 });
 
 import { mkdtempSync as mkdtempSyncV15, mkdirSync as mkdirSyncV15, writeFileSync as writeFileSyncV15, rmSync, existsSync as existsSyncV15, readFileSync as readFileSyncV15 } from "node:fs";
@@ -152,6 +225,23 @@ applies_to: [claude-code]
     expect(existsSyncV15(path)).toBe(true);
     const data = JSON.parse(readFileSyncV15(path, "utf8"));
     expect(data).toEqual({});
+  });
+
+  it("Phase-2 T2-2 — pre-Phase-2 fixtures (no family fields) reindex without regression", () => {
+    // Plan B back-compat lock: an _agents-only vault with no `family:` in any
+    // CLAUDE.md must still reindex cleanly. The per-wiki entry must NOT gain
+    // a stray `family: null` (omitted only), AND the new top-level
+    // `families:` rollup must be emitted as the empty object for shape
+    // stability.
+    reindex(vaultPath);
+    const wikis = JSON.parse(
+      readFileSyncV15(join(vaultPath, "_index", "wikis.json"), "utf8")
+    );
+    const agents = wikis.wikis.find((w: any) => w.name === "_agents");
+    expect(agents).toBeDefined();
+    expect("family" in agents).toBe(false);
+    expect(wikis.families).toBeDefined();
+    expect(wikis.families).toEqual({});
   });
 });
 
