@@ -24,4 +24,26 @@ describe("Plan D recipes — UC2 + UC4", () => {
     expect(content).toMatch(/mcporter/);
     expect(content).toMatch(/aerodactyl/i);
   });
+
+  it("profile-bulbasaur + move-research-deposit exist and lint clean", () => {
+    const profilePath = join(VAULT, "wikis", "_agents", "profiles", "profile-bulbasaur.md");
+    const movePath = join(VAULT, "wikis", "_agents", "moves", "move-research-deposit", "SKILL.md");
+    expect(existsSync(profilePath)).toBe(true);
+    expect(existsSync(movePath)).toBe(true);
+    reindex(VAULT);
+    const result = lint(VAULT, { wiki: "_agents" });
+    const errors = result.diagnostics.filter(d =>
+      d.severity === "error" &&
+      (d.page_id === "profile-bulbasaur" || d.page_id === "move-research-deposit")
+    );
+    expect(errors).toHaveLength(0);
+  });
+
+  it("guide-research-deployment exists and references move-research-deposit", () => {
+    const path = join(VAULT, "wikis", "_meta", "guides", "guide-research-deployment.md");
+    expect(existsSync(path)).toBe(true);
+    const content = readFileSync(path, "utf8");
+    expect(content).toMatch(/bulbasaur/i);
+    expect(content).toMatch(/research-deposit/);
+  });
 });
