@@ -51,7 +51,7 @@ export interface EvolutionProposal {
 const MOVESET_ADDITION_THRESHOLD = 10;
 const MOVESET_ADDITION_CAP = 2;
 
-export function proposeEvolution(input: { profile: ProfileForProposal; stats: StatsForProposal }): EvolutionProposal {
+export function proposeEvolution(input: { profile: ProfileForProposal; stats: StatsForProposal; memory_page_id?: string }): EvolutionProposal {
   const { profile, stats } = input;
 
   const current: EvolutionProposalCurrent = {
@@ -115,7 +115,10 @@ export function proposeEvolution(input: { profile: ProfileForProposal; stats: St
   const removalCandidates = profile.moveset.filter(id => (stats.moves_used_freq[id] ?? 0) === 0);
 
   const t = thresholdFor(`${profile.evolution_stage}-to-${next}` as "basic-to-stage1" | "stage1-to-stage2");
-  const rationale = `eligible for ${profile.evolution_stage} → ${next}: ${stats.tasks_completed} tasks completed at ${stats.success_rate.toFixed(2)} success rate (threshold: ${t.tasks_completed} tasks, ${t.success_rate.toFixed(2)} rate)`;
+  const baseRationale = `eligible for ${profile.evolution_stage} → ${next}: ${stats.tasks_completed} tasks completed at ${stats.success_rate.toFixed(2)} success rate (threshold: ${t.tasks_completed} tasks, ${t.success_rate.toFixed(2)} rate)`;
+  const rationale = input.memory_page_id
+    ? `${baseRationale}; memory: [[${input.memory_page_id}]]`
+    : baseRationale;
 
   return {
     eligible: true,

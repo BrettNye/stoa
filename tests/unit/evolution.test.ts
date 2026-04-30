@@ -89,4 +89,25 @@ describe("proposeEvolution", () => {
     expect(prop.proposed.moveset_removals).toContain("move-unused-thing");
     expect(prop.proposed.moveset_removals).not.toContain("move-tdd-cycle");
   });
+
+  it("appends memory_page_id citation to rationale when supplied", () => {
+    const prop = proposeEvolution({
+      profile: baseProfile,
+      stats: { tasks_completed: 30, tasks_failed: 0, success_rate: 1.0, moves_used_freq: {} },
+      memory_page_id: "synthesis-charmander-memory"
+    });
+    expect(prop.eligible).toBe(true);
+    expect(prop.rationale).toMatch(/synthesis-charmander-memory/);
+    expect(prop.rationale).toMatch(/memory/i);
+  });
+
+  it("rationale unchanged when memory_page_id is omitted", () => {
+    const prop = proposeEvolution({
+      profile: baseProfile,
+      stats: { tasks_completed: 30, tasks_failed: 0, success_rate: 1.0, moves_used_freq: {} }
+    });
+    expect(prop.eligible).toBe(true);
+    expect(prop.rationale).not.toMatch(/synthesis-/);
+    expect(prop.rationale).not.toMatch(/memory/);
+  });
 });

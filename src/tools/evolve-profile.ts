@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { proposeEvolution } from "../core/evolution.js";
 import { readProfile, renameProfile, ProfileNotFoundError } from "../core/profiles.js";
@@ -46,6 +46,14 @@ export const evolveProfileTool = {
       // Proposal phase
       const profile = readProfile(ctx.vaultPath, input.pokemon_id);
       const stats = await profileStatsTool.handler({ pokemon_id: input.pokemon_id }, ctx);
+
+      // Look up per-agent memory synthesis if present (Plan C.1b)
+      const bare = input.pokemon_id.startsWith("profile-")
+        ? input.pokemon_id.slice("profile-".length)
+        : input.pokemon_id;
+      const memoryPath = join(ctx.vaultPath, "wikis", "_agents", "synthesis", `synthesis-${bare}-memory.md`);
+      const memoryPageId = existsSync(memoryPath) ? `synthesis-${bare}-memory` : undefined;
+
       const proposal = proposeEvolution({
         profile: {
           id: input.pokemon_id,
@@ -61,7 +69,8 @@ export const evolveProfileTool = {
           tasks_failed: stats.tasks_failed,
           success_rate: stats.success_rate,
           moves_used_freq: stats.moves_used_freq
-        }
+        },
+        memory_page_id: memoryPageId
       });
       return proposal;
     }

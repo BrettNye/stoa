@@ -166,4 +166,45 @@ describe("vault.evolve-profile", () => {
       )
     ).rejects.toThrow(/conflict|OCC|expected_updated/i);
   });
+
+  it("proposal phase cites memory_page_id in rationale when synthesis-<bare>-memory.md exists", async () => {
+    seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
+    const synthDir = join(vaultPath, "wikis", "_agents", "synthesis");
+    mkdirSync(synthDir, { recursive: true });
+    writeFileSync(join(synthDir, "synthesis-charmander-memory.md"),
+      `---
+id: synthesis-charmander-memory
+title: charmander memory — synthesis
+type: synthesis
+wiki: _agents
+status: draft
+created: 2026-04-30
+updated: 2026-04-30
+summary: charmander memory
+scope: memory
+by_agent: charmander
+---
+charmander has shown a pattern of refactoring during long sprints.
+`);
+
+    const r = await evolveProfileTool.handler(
+      { pokemon_id: "profile-charmander", commit: false },
+      { vaultPath }
+    );
+
+    expect(r.eligible).toBe(true);
+    expect(r.rationale).toMatch(/synthesis-charmander-memory/);
+  });
+
+  it("proposal phase falls back to base rationale when memory page does not exist", async () => {
+    seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
+    const r = await evolveProfileTool.handler(
+      { pokemon_id: "profile-charmander", commit: false },
+      { vaultPath }
+    );
+
+    expect(r.eligible).toBe(true);
+    expect(r.rationale).not.toMatch(/synthesis-charmander-memory/);
+    expect(r.rationale).toMatch(/30/);
+  });
 });
