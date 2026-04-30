@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { parseFrontmatter } from "../core/frontmatter.js";
 import { readProfile, ProfileNotFoundError } from "../core/profiles.js";
 import { listTasks } from "../core/tasks.js";
+import { computeChannelActivity } from "../core/start.js";
 import { resolveWiki } from "./_resolve-wiki.js";
 
 const Input = z.object({
@@ -13,11 +14,52 @@ const Input = z.object({
   since: z.string().datetime().optional()
 });
 
+const ChannelActivityItem = z.object({
+  channel: z.string(),
+  unread_count: z.number().int().nonnegative(),
+  last_entry_summary: z.string()
+});
+
+const ActivePageSummary = z.object({
+  id: z.string(),
+  title: z.string(),
+  status: z.string(),
+  summary: z.string()
+});
+
+const ActiveTaskSummary = z.object({
+  id: z.string(),
+  title: z.string(),
+  status: z.string()
+});
+
+const PokemonState = z.object({
+  name: z.string(),
+  pokemon_type: z.string(),
+  evolution_stage: z.string(),
+  active_tasks: z.array(ActiveTaskSummary)
+});
+
+const Output = z.object({
+  map_summary: z.string(),
+  active_pages_summary: z.array(ActivePageSummary),
+  recall_hits: z.array(z.unknown()),
+  channel_activity: z.array(ChannelActivityItem),
+  pokemon_state: PokemonState.optional(),
+  ascii_header: z.string().optional()
+});
+
+export type StartOutput = z.infer<typeof Output>;
+
 export const startTool = {
   name: "vault.start",
   description: "Cold-session bootstrap: reads wiki map, tails active channels, runs recall on primary topics, returns a context brief.",
   inputSchema: Input,
-  handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string; defaultWiki?: string }) => {
+  outputSchema: Output,
+  handler: async (
+    input: z.infer<typeof Input>,
+    ctx: { vaultPath: string; defaultWiki?: string }
+  ): Promise<StartOutput> => {
     const wiki = resolveWiki(input.wiki, ctx.defaultWiki, ctx.vaultPath);
     const sinceCutoff = input.since ?? new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
@@ -31,7 +73,7 @@ export const startTool = {
     }
 
     // 2. Active pages
-    const activePages: { id: string; title: string; status: string; summary: string }[] = [];
+    const activePages: z.infer<typeof ActivePageSummary>[] = [];
     const wikiDir = join(ctx.vaultPath, "wikis", wiki);
     if (existsSync(wikiDir)) {
       for (const folder of ["concepts", "decisions", "specs", "guides", "ideas", "questions"]) {
@@ -54,34 +96,9 @@ export const startTool = {
       }
     }
 
-    // 3. Channel activity (simple form: count journals/tasks per channel since cutoff)
-    const channelCounts: Record<string, { count: number; lastSummary: string }> = {};
-    const journalDir = join(wikiDir, "journal");
-    if (existsSync(journalDir)) {
-      for (const file of readdirSync(journalDir).filter(f => f.endsWith(".md"))) {
-        try {
-          const raw = readFileSync(join(journalDir, file), "utf8");
-          const { frontmatter: fm, body } = parseFrontmatter(raw);
-          const created = String(fm.created ?? "");
-          if (fm.channel && created >= sinceCutoff) {
-            const ch = String(fm.channel);
-            const prev = channelCounts[ch] ?? { count: 0, lastSummary: "" };
-            channelCounts[ch] = {
-              count: prev.count + 1,
-              lastSummary: body.slice(0, 120)
-            };
-          }
-        } catch { /* skip */ }
-      }
-    }
-    const channelActivity = Object.entries(channelCounts).map(([channel, v]) => ({
-      channel,
-      unread_count: v.count,
-      last_entry_summary: v.lastSummary
-    }));
-
-    // 4. Pokemon state
-    let pokemonState: any = undefined;
+    // 3. Pokemon state + channels_tailed lookup
+    let pokemonState: z.infer<typeof PokemonState> | undefined = undefined;
+    let channelsTailed: string[] = [];
     if (input.pokemon) {
       try {
         const profileId = input.pokemon.startsWith("profile-")
@@ -101,18 +118,27 @@ export const startTool = {
             id: t.id, title: t.title, status: t.status
           }))
         };
+        if (Array.isArray(p.frontmatter.channels_tailed)) {
+          channelsTailed = p.frontmatter.channels_tailed.map(String);
+        }
       } catch (e) {
         if (!(e instanceof ProfileNotFoundError)) throw e;
       }
     }
 
+    // 4. Channel activity — driven by profile.channels_tailed via core/start.ts
+    const channelActivity = computeChannelActivity(ctx.vaultPath, channelsTailed, {
+      since: sinceCutoff,
+      wiki
+    });
+
     return {
       map_summary: mapSummary,
       active_pages_summary: activePages.slice(0, 20),
-      recall_hits: [],   // populated by caller via vault.recall; v1.5 leaves empty (slash command can fill)
+      recall_hits: [],
       channel_activity: channelActivity,
       pokemon_state: pokemonState,
-      ascii_header: undefined  // Phase 4 polish
+      ascii_header: undefined
     };
   }
 };
