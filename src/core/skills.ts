@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, cpSync, symlinkSync
 import { join } from "node:path";
 import { readProfile } from "./profiles.js";
 import { parseFrontmatter } from "./frontmatter.js";
+import { recordDeployment } from "./deployments.js";
 
 export type SyncTarget = "claude-code" | "openclaw" | "codex";
 export type SyncMode = "copy" | "symlink";
@@ -96,6 +97,13 @@ export function syncMoveset(input: SyncInput): SyncResult {
     synced_at: new Date().toISOString()
   };
   writeFileSync(join(skillsDir, "_pokemon.json"), JSON.stringify(manifest, null, 2));
+
+  recordDeployment(input.vaultPath, input.pokemon_id, {
+    repo_path: input.repoPath,
+    target: input.target,
+    mode: input.mode,
+    synced_at: new Date().toISOString()
+  });
 
   return {
     skills_dir: skillsDir,

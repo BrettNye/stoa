@@ -6,6 +6,9 @@ import { readProfile, renameProfile, ProfileNotFoundError } from "../core/profil
 import { profileStatsTool } from "./profile-stats.js";
 import { parseFrontmatter, serializeFrontmatter } from "../core/frontmatter.js";
 import { EvolutionStage } from "../core/pokemon.js";
+import { readDeployments, migrateDeploymentKey } from "../core/deployments.js";
+import { syncMoveset } from "../core/skills.js";
+import { nextEvolution } from "../core/pokeapi.js";
 
 const ProposedShape = z.object({
   name: z.string().nullable(),
@@ -41,7 +44,7 @@ export const evolveProfileTool = {
   name: "vault.evolve-profile",
   description: "Two-phase profile evolution. commit:false returns a proposal (eligible? proposed shape, rationale). commit:true applies the proposal, optionally renaming the profile.",
   inputSchema: Input,
-  handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
+  handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string; fetcher?: typeof fetch }) => {
     if (!input.commit) {
       // Proposal phase
       const profile = readProfile(ctx.vaultPath, input.pokemon_id);
@@ -72,6 +75,18 @@ export const evolveProfileTool = {
         },
         memory_page_id: memoryPageId
       });
+
+      // PokeAPI-driven naming (Plan C.1c) — only when a fetcher is explicitly provided
+      if (proposal.eligible && proposal.proposed.name === null && ctx.fetcher) {
+        try {
+          const next = await nextEvolution(ctx.vaultPath, bare, { fetcher: ctx.fetcher });
+          if (next) {
+            proposal.proposed.name = `profile-${next.name}`;
+          }
+        } catch {
+          // Network failure or invalid Pokemon — keep name: null, fall back to no rename.
+        }
+      }
       return proposal;
     }
 
@@ -123,11 +138,33 @@ export const evolveProfileTool = {
 
     writeFileSync(targetPath, serializeFrontmatter(newFm, body));
 
+    // Auto-resync deployed repos (Plan C.1c)
+    const filesResynced: { repo: string; skills_dir: string }[] = [];
+    if (oldId !== newId) {
+      migrateDeploymentKey(ctx.vaultPath, oldId, newId);
+    }
+    const deployments = readDeployments(ctx.vaultPath);
+    const entries = deployments[newId] ?? [];
+    for (const e of entries) {
+      try {
+        const result = syncMoveset({
+          vaultPath: ctx.vaultPath,
+          repoPath: e.repo_path,
+          pokemon_id: newId,
+          target: e.target,
+          mode: e.mode
+        });
+        filesResynced.push({ repo: e.repo_path, skills_dir: result.skills_dir });
+      } catch {
+        // Best-effort resync; surface failures via lint or future sync-skills --reverify (v1.6)
+      }
+    }
+
     return {
       old_id: oldId,
       new_id: newId,
       files_renamed: filesRenamed,
-      files_resynced: [],  // C.1c will populate this when deployment registry exists
+      files_resynced: filesResynced,
       alias_recorded: aliasRecorded
     };
   }

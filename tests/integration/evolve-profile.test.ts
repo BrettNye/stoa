@@ -207,4 +207,136 @@ charmander has shown a pattern of refactoring during long sprints.
     expect(r.rationale).not.toMatch(/synthesis-charmander-memory/);
     expect(r.rationale).toMatch(/30/);
   });
+
+  it("commit phase auto-resyncs to deployed repos when registry has entries", async () => {
+    seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
+    const repoPath = join(vaultPath, "_fake_repo");
+    mkdirSync(join(repoPath, ".claude", "skills", "charmander"), { recursive: true });
+    mkdirSync(join(vaultPath, "wikis", "_agents", "moves", "move-tdd-cycle"), { recursive: true });
+    writeFileSync(join(vaultPath, "wikis", "_agents", "moves", "move-tdd-cycle", "SKILL.md"),
+      `---
+id: move-tdd-cycle
+name: tdd-cycle
+type: move
+wiki: _agents
+status: active
+description: red-green-refactor
+applies_to: [claude-code]
+---
+TDD content.
+`);
+    writeFileSync(join(vaultPath, "_index", "deployments.json"), JSON.stringify({
+      "profile-charmander": [{
+        repo_path: repoPath,
+        target: "claude-code",
+        mode: "copy",
+        synced_at: "2026-04-29T00:00:00Z"
+      }]
+    }, null, 2));
+
+    const before = parseFrontmatter(readFileSync(join(vaultPath, "wikis", "_agents", "profiles", "profile-charmander.md"), "utf8"));
+    const proposal = await evolveProfileTool.handler(
+      { pokemon_id: "profile-charmander", commit: false },
+      { vaultPath }
+    );
+
+    const r = await evolveProfileTool.handler(
+      {
+        pokemon_id: "profile-charmander",
+        commit: true,
+        expected_updated: String(before.frontmatter.updated),
+        proposal
+      },
+      { vaultPath }
+    );
+
+    expect(r.files_resynced.length).toBe(1);
+    expect(r.files_resynced[0].repo).toBe(repoPath);
+  });
+
+  it("commit phase migrates deployment registry key on rename", async () => {
+    seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
+    writeFileSync(join(vaultPath, "_index", "deployments.json"), JSON.stringify({
+      "profile-charmander": [{
+        repo_path: "/fake/repo",
+        target: "claude-code",
+        mode: "symlink",
+        synced_at: "2026-04-29T00:00:00Z"
+      }]
+    }, null, 2));
+
+    const before = parseFrontmatter(readFileSync(join(vaultPath, "wikis", "_agents", "profiles", "profile-charmander.md"), "utf8"));
+    const proposal = await evolveProfileTool.handler(
+      { pokemon_id: "profile-charmander", commit: false },
+      { vaultPath }
+    );
+    const userEdited = { ...proposal, proposed: { ...proposal.proposed, name: "profile-charmeleon" } };
+
+    await evolveProfileTool.handler(
+      {
+        pokemon_id: "profile-charmander",
+        commit: true,
+        expected_updated: String(before.frontmatter.updated),
+        proposal: userEdited
+      },
+      { vaultPath }
+    );
+
+    const reg = JSON.parse(readFileSync(join(vaultPath, "_index", "deployments.json"), "utf8"));
+    expect(reg["profile-charmeleon"]).toBeDefined();
+    expect(reg["profile-charmander"]).toBeUndefined();
+  });
+
+  it("commit phase no-ops auto-resync when deployments.json is missing", async () => {
+    seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
+    const before = parseFrontmatter(readFileSync(join(vaultPath, "wikis", "_agents", "profiles", "profile-charmander.md"), "utf8"));
+    const proposal = await evolveProfileTool.handler(
+      { pokemon_id: "profile-charmander", commit: false },
+      { vaultPath }
+    );
+    const r = await evolveProfileTool.handler(
+      {
+        pokemon_id: "profile-charmander",
+        commit: true,
+        expected_updated: String(before.frontmatter.updated),
+        proposal
+      },
+      { vaultPath }
+    );
+    expect(r.files_resynced).toEqual([]);
+  });
+
+  it("proposal phase sets proposed.name from PokeAPI chain when fetcher is supplied", async () => {
+    seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
+    const charmanderResp = {
+      name: "charmander",
+      types: [{ type: { name: "fire" } }],
+      species: { url: "https://pokeapi.co/api/v2/pokemon-species/4/" },
+      sprites: { front_default: null }
+    };
+    const speciesResp = { evolution_chain: { url: "https://pokeapi.co/api/v2/evolution-chain/2/" } };
+    const chainResp = {
+      chain: {
+        species: { name: "charmander", url: "" },
+        evolves_to: [{
+          species: { name: "charmeleon", url: "" },
+          evolves_to: []
+        }]
+      }
+    };
+    const fetcher: typeof fetch = (async (url: string | URL | Request) => {
+      const u = String(url);
+      if (u.includes("/pokemon/charmander")) return new Response(JSON.stringify(charmanderResp), { status: 200 });
+      if (u.includes("/pokemon-species/4/")) return new Response(JSON.stringify(speciesResp), { status: 200 });
+      if (u.includes("/evolution-chain/2/")) return new Response(JSON.stringify(chainResp), { status: 200 });
+      return new Response("not found", { status: 404 });
+    }) as typeof fetch;
+
+    const r = await evolveProfileTool.handler(
+      { pokemon_id: "profile-charmander", commit: false },
+      { vaultPath, fetcher }
+    );
+    expect(r.eligible).toBe(true);
+    expect(r.proposed.name).toBe("profile-charmeleon");
+  });
 });

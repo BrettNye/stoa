@@ -130,4 +130,21 @@ applies_to: [claude-code]
     expect(m.target).toBe("claude-code");
     expect(m.moves.sort()).toEqual(["move-pr-create", "move-tdd-cycle"]);
   });
+
+  it("writes a deployment registry entry to _index/deployments.json (Plan C.1c)", () => {
+    syncMoveset({
+      vaultPath,
+      repoPath,
+      pokemon_id: "profile-charmander",
+      target: "claude-code",
+      mode: "copy"
+    });
+    const regPath = join(vaultPath, "_index", "deployments.json");
+    expect(existsSync(regPath)).toBe(true);
+    const reg = JSON.parse(readFileSync(regPath, "utf8"));
+    expect(reg["profile-charmander"]).toBeDefined();
+    expect(reg["profile-charmander"][0].repo_path).toBe(repoPath);
+    expect(reg["profile-charmander"][0].target).toBe("claude-code");
+    expect(reg["profile-charmander"][0].mode).toBe("copy");
+  });
 });
