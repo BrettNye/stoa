@@ -1,8 +1,9 @@
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { readPage, writePage } from "./pages.js";
 import { parseFrontmatter } from "./frontmatter.js";
 import { readFileSync } from "node:fs";
+import { recordRename } from "./aliases.js";
 
 export class ProfileNotFoundError extends Error {
   constructor(public id: string) {
@@ -111,4 +112,55 @@ export function listProfiles(vaultPath: string): ProfileSummary[] {
 export function getMoveset(vaultPath: string, profile_id: string): string[] {
   const p = readProfile(vaultPath, profile_id);
   return Array.isArray(p.frontmatter.moveset) ? p.frontmatter.moveset : [];
+}
+
+export function renameProfile(vaultPath: string, oldId: string, newId: string): { oldPath: string; newPath: string } {
+  const profilesDir = join(vaultPath, "wikis", "_agents", "profiles");
+  const oldPath = join(profilesDir, `${oldId}.md`);
+  const newPath = join(profilesDir, `${newId}.md`);
+
+  if (!existsSync(oldPath)) {
+    throw new ProfileNotFoundError(oldId);
+  }
+  if (existsSync(newPath)) {
+    throw new Error(`profile id ${newId} already exists at ${newPath}`);
+  }
+
+  // Read old profile's frontmatter + body
+  const old = readProfile(vaultPath, oldId);
+
+  // Compose new frontmatter: clone old, swap id, append to previous_names
+  const priorPreviousNames: string[] = Array.isArray(old.frontmatter.previous_names)
+    ? old.frontmatter.previous_names
+    : [];
+  const newPreviousNames = [...priorPreviousNames, oldId];
+
+  // Use writeProfile so frontmatter normalization is consistent.
+  writeProfile(vaultPath, {
+    id: newId,
+    title: String(old.frontmatter.title ?? newId),
+    pokemon_type: String(old.frontmatter.pokemon_type ?? "normal"),
+    secondary_pokemon_type: old.frontmatter.secondary_pokemon_type
+      ? String(old.frontmatter.secondary_pokemon_type)
+      : undefined,
+    region: old.frontmatter.region ? String(old.frontmatter.region) : undefined,
+    evolution_stage: (old.frontmatter.evolution_stage ?? "basic") as "basic" | "stage1" | "stage2",
+    autonomy_level: old.frontmatter.autonomy_level
+      ? (old.frontmatter.autonomy_level as "restricted" | "feature-branch" | "main-branch")
+      : undefined,
+    moveset: Array.isArray(old.frontmatter.moveset) ? old.frontmatter.moveset : [],
+    summary: String(old.frontmatter.summary ?? ""),
+    applies_to: Array.isArray(old.frontmatter.applies_to) ? old.frontmatter.applies_to : ["claude-code"],
+    channels_tailed: Array.isArray(old.frontmatter.channels_tailed) ? old.frontmatter.channels_tailed : undefined,
+    body: old.body,
+    previous_names: newPreviousNames
+  });
+
+  // Delete the old file
+  unlinkSync(oldPath);
+
+  // Record the rename in the alias index
+  recordRename(vaultPath, oldId, newId);
+
+  return { oldPath, newPath };
 }
