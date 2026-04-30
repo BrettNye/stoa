@@ -39,7 +39,7 @@ describe("vault.bootstrap-repo", () => {
     const claudeMdPath = join(repoPath, "CLAUDE.md");
     expect(existsSync(claudeMdPath)).toBe(true);
     const content = readFileSync(claudeMdPath, "utf8");
-    expect(content).toContain("/start");
+    expect(content).toContain("vault_start");
     expect(content).toContain("alpha-progress");
   });
 
@@ -154,5 +154,74 @@ describe("vault.bootstrap-repo", () => {
     const json = JSON.parse(readFileSync(join(repoPath, ".mcp.json"), "utf8"));
     expect(json.mcpServers.vault.cwd).toBeDefined();
     expect(json.mcpServers.vault.cwd).toContain("vault-mcp");
+  });
+
+  it("defaults the MCP server-name key to 'vault'", async () => {
+    await bootstrapRepoTool.handler(
+      { repo_path: repoPath, wiki: "alpha" },
+      { vaultPath }
+    );
+    const json = JSON.parse(readFileSync(join(repoPath, ".mcp.json"), "utf8"));
+    expect(json.mcpServers.vault).toBeDefined();
+    expect(json.mcpServers["vault-anything"]).toBeUndefined();
+  });
+
+  it("uses a custom server name when mcp_server_name is provided", async () => {
+    await bootstrapRepoTool.handler(
+      { repo_path: repoPath, wiki: "alpha", mcp_server_name: "vault-alpha" },
+      { vaultPath }
+    );
+    const json = JSON.parse(readFileSync(join(repoPath, ".mcp.json"), "utf8"));
+    expect(json.mcpServers["vault-alpha"]).toBeDefined();
+    expect(json.mcpServers["vault-alpha"].args).toContain("--default-wiki=alpha");
+    // No collision: default 'vault' key should not have been written
+    expect(json.mcpServers.vault).toBeUndefined();
+  });
+
+  it("preserves other server entries when using a custom server name", async () => {
+    writeFileSync(
+      join(repoPath, ".mcp.json"),
+      JSON.stringify(
+        {
+          mcpServers: {
+            "github-mcp": { command: "npx", args: ["-y", "@modelcontextprotocol/server-github"] },
+            vault: { command: "OLD-VAULT" }
+          }
+        },
+        null,
+        2
+      )
+    );
+    await bootstrapRepoTool.handler(
+      { repo_path: repoPath, wiki: "alpha", mcp_server_name: "vault-alpha" },
+      { vaultPath }
+    );
+    const json = JSON.parse(readFileSync(join(repoPath, ".mcp.json"), "utf8"));
+    expect(Object.keys(json.mcpServers).sort()).toEqual(["github-mcp", "vault", "vault-alpha"]);
+    // Custom-name entry has the new vault config
+    expect(json.mcpServers["vault-alpha"].args).toContain("--default-wiki=alpha");
+    // Pre-existing 'vault' entry untouched (we did NOT clobber it)
+    expect(json.mcpServers.vault.command).toBe("OLD-VAULT");
+    // github preserved
+    expect(json.mcpServers["github-mcp"].args).toContain("@modelcontextprotocol/server-github");
+  });
+
+  it("writes the server name into the CLAUDE.md fragment", async () => {
+    await bootstrapRepoTool.handler(
+      { repo_path: repoPath, wiki: "alpha", mcp_server_name: "vault-alpha" },
+      { vaultPath }
+    );
+    const claudeMd = readFileSync(join(repoPath, "CLAUDE.md"), "utf8");
+    expect(claudeMd).toContain("vault-alpha");
+    expect(claudeMd).toContain("mcp__vault-alpha__vault_start");
+  });
+
+  it("uses the default 'vault' name in the CLAUDE.md fragment when no override given", async () => {
+    await bootstrapRepoTool.handler(
+      { repo_path: repoPath, wiki: "alpha" },
+      { vaultPath }
+    );
+    const claudeMd = readFileSync(join(repoPath, "CLAUDE.md"), "utf8");
+    expect(claudeMd).toContain("mcp__vault__vault_start");
   });
 });

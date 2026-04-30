@@ -8,7 +8,8 @@ const Input = z.object({
   repo_path: z.string(),
   wiki: z.string(),
   pokemon: z.string().optional(),
-  channels: z.array(z.string()).optional()
+  channels: z.array(z.string()).optional(),
+  mcp_server_name: z.string().default("vault")
 });
 
 const BOOTSTRAP_MARKER_START = "<!-- vault-mcp v1.5 bootstrap:start -->";
@@ -16,6 +17,7 @@ const BOOTSTRAP_MARKER_END = "<!-- /vault-mcp-bootstrap -->";
 
 function buildClaudeMdFragment(args: {
   wiki: string;
+  serverName: string;
   pokemon?: string;
   channels?: string[];
   profile?: { name: string; title: string; pokemon_type: string; evolution_stage: string };
@@ -25,10 +27,12 @@ function buildClaudeMdFragment(args: {
   lines.push("");
   lines.push(`## Vault context — wiki: \`${args.wiki}\``);
   lines.push("");
-  lines.push("This repo is bootstrapped to the knowledge vault. On every session start:");
+  lines.push(`This repo is bootstrapped to the knowledge vault. The MCP server is registered under the name \`${args.serverName}\`; vault tools are exposed as \`mcp__${args.serverName}__vault_*\` (e.g. \`mcp__${args.serverName}__vault_start\`).`);
   lines.push("");
-  lines.push("1. Run `/start` (calls `vault.start`) — reads the wiki map, tails active channels, runs `/recall` on the repo's primary topic, returns a context brief.");
-  lines.push("2. Journal at end-of-task: `/agent-journal \"<summary>\"` with `moves_used:` populated when applicable.");
+  lines.push("On every session start:");
+  lines.push("");
+  lines.push(`1. Call \`vault.start\` (via \`mcp__${args.serverName}__vault_start\`) — reads the wiki map, tails active channels, runs \`vault.recall\` on the repo's primary topic, returns a context brief.`);
+  lines.push(`2. Journal at end-of-task: call \`vault.agent-journal\` with \`moves_used:\` populated when applicable.`);
   if (args.channels && args.channels.length > 0) {
     lines.push(`3. Tail and post on these channels: ${args.channels.map(c => `\`${c}\``).join(", ")}.`);
   }
@@ -63,7 +67,7 @@ function mergeOrAppendClaudeMd(repoPath: string, fragment: string): string {
   return path;
 }
 
-function mergeOrCreateMcpJson(repoPath: string, vaultPath: string, wiki: string): string {
+function mergeOrCreateMcpJson(repoPath: string, vaultPath: string, wiki: string, serverName: string): string {
   const mcpJsonPath = join(repoPath, ".mcp.json");
   const tsxBinaryName = process.platform === "win32" ? "tsx.cmd" : "tsx";
   const vaultMcpDir = join(vaultPath, "vault-mcp").replace(/\\/g, "/");
@@ -81,7 +85,7 @@ function mergeOrCreateMcpJson(repoPath: string, vaultPath: string, wiki: string)
   };
 
   if (!existsSync(mcpJsonPath)) {
-    writeFileSync(mcpJsonPath, JSON.stringify({ mcpServers: { vault: vaultEntry } }, null, 2) + "\n");
+    writeFileSync(mcpJsonPath, JSON.stringify({ mcpServers: { [serverName]: vaultEntry } }, null, 2) + "\n");
     return mcpJsonPath;
   }
 
@@ -96,7 +100,7 @@ function mergeOrCreateMcpJson(repoPath: string, vaultPath: string, wiki: string)
   if (typeof parsed.mcpServers !== "object" || parsed.mcpServers === null) {
     parsed.mcpServers = {};
   }
-  parsed.mcpServers.vault = vaultEntry;
+  parsed.mcpServers[serverName] = vaultEntry;
 
   writeFileSync(mcpJsonPath, JSON.stringify(parsed, null, 2) + "\n");
   return mcpJsonPath;
@@ -107,10 +111,11 @@ export const bootstrapRepoTool = {
   description: "Wire a repo to the vault MCP: writes .mcp.json + CLAUDE.md fragment; optionally deploys a Pokemon's moveset.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
+    const serverName = (input.mcp_server_name as string | undefined) ?? "vault";
     mkdirSync(input.repo_path, { recursive: true });
 
     // Write .mcp.json (merge — preserves existing mcpServers entries)
-    const mcpJsonPath = mergeOrCreateMcpJson(input.repo_path, ctx.vaultPath, input.wiki);
+    const mcpJsonPath = mergeOrCreateMcpJson(input.repo_path, ctx.vaultPath, input.wiki, serverName);
 
     // Resolve profile if given
     let profileSummary: { name: string; title: string; pokemon_type: string; evolution_stage: string } | undefined;
@@ -135,6 +140,7 @@ export const bootstrapRepoTool = {
     // Build + write CLAUDE.md
     const fragment = buildClaudeMdFragment({
       wiki: input.wiki,
+      serverName,
       pokemon: input.pokemon,
       channels: input.channels,
       profile: profileSummary

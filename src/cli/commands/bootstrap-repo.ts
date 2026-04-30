@@ -9,11 +9,12 @@ export function registerBootstrapRepo(program: Command): void {
     .requiredOption("--wiki <wiki>", "wiki this repo's work belongs to")
     .option("--pokemon <id>", "profile id; if set, deploy moveset")
     .option("--channels <list>", "comma-separated channel names to tail")
-    .action(async (repoPath: string, opts: { wiki: string; pokemon?: string; channels?: string }) => {
+    .option("--mcp-server-name <name>", "MCP server-name key in the generated .mcp.json", "vault")
+    .action(async (repoPath: string, opts: { wiki: string; pokemon?: string; channels?: string; mcpServerName: string }) => {
       const ctx = getCtx();
       const channels = opts.channels ? opts.channels.split(",") : undefined;
       const result = await bootstrapRepoTool.handler(
-        { repo_path: repoPath, wiki: opts.wiki, pokemon: opts.pokemon, channels },
+        { repo_path: repoPath, wiki: opts.wiki, pokemon: opts.pokemon, channels, mcp_server_name: opts.mcpServerName },
         { vaultPath: ctx.vaultPath }
       );
       console.log(JSON.stringify(result, null, 2));
