@@ -94,6 +94,9 @@ export function lint(vaultPath: string, input: LintInput = {}): LintResult {
     lintAgentsWiki(vaultPath, diagnostics);
   }
 
+  // ALIAS_DRIFT runs across all wikis, not just _agents
+  lintAliasDrift(vaultPath, input.wiki, diagnostics);
+
   const summary = {
     errors: diagnostics.filter(d => d.severity === "error").length,
     warnings: diagnostics.filter(d => d.severity === "warning").length,
@@ -182,6 +185,64 @@ function lintAgentsWiki(vaultPath: string, diagnostics: Diagnostic[]): void {
             });
           }
         }
+
+        // MOVESET_TYPE_MISMATCH (Plan C.1c)
+        if (Array.isArray(fm.moveset) && fm.moveset.length > 0 && fm.pokemon_type) {
+          const profileType = String(fm.pokemon_type);
+          let offType = 0;
+          let total = 0;
+          for (const moveId of fm.moveset) {
+            const movePath = join(movesDir, String(moveId), "SKILL.md");
+            if (!existsSync(movePath)) continue;
+            try {
+              const moveRaw = readFileSync(movePath, "utf8");
+              const { frontmatter: moveFm } = parseFrontmatter(moveRaw);
+              total++;
+              if (moveFm.pokemon_type && String(moveFm.pokemon_type) !== profileType) {
+                offType++;
+              }
+            } catch { /* skip */ }
+          }
+          if (total > 0 && offType * 2 > total) {
+            diagnostics.push({
+              severity: "warning",
+              code: "MOVESET_TYPE_MISMATCH",
+              page_id: id,
+              wiki: "_agents",
+              message: `${offType}/${total} moves are off-type from profile pokemon_type=${profileType}`,
+              suggestion: "consider reorganizing moves or revising the profile's pokemon_type"
+            });
+          }
+        }
+
+        // MOVE_APPLIES_TO_INCONSISTENT (Plan C.1c)
+        if (Array.isArray(fm.moveset) && fm.moveset.length > 0 && Array.isArray(fm.applies_to)) {
+          const profileApplies = new Set<string>(fm.applies_to.map((a: any) => String(a)));
+          for (const moveId of fm.moveset) {
+            const movePath = join(movesDir, String(moveId), "SKILL.md");
+            if (!existsSync(movePath)) continue;
+            try {
+              const moveRaw = readFileSync(movePath, "utf8");
+              const { frontmatter: moveFm } = parseFrontmatter(moveRaw);
+              if (Array.isArray(moveFm.applies_to)) {
+                const moveApplies = new Set<string>(moveFm.applies_to.map((a: any) => String(a)));
+                for (const r of profileApplies) {
+                  if (!moveApplies.has(r)) {
+                    diagnostics.push({
+                      severity: "info",
+                      code: "MOVE_APPLIES_TO_INCONSISTENT",
+                      page_id: id,
+                      wiki: "_agents",
+                      message: `profile applies_to includes "${r}" but move "${moveId}" does not`,
+                      suggestion: `either extend ${moveId}'s applies_to or remove ${r} from the profile`
+                    });
+                    break;  // one diagnostic per move per profile is enough
+                  }
+                }
+              }
+            } catch { /* skip */ }
+          }
+        }
       } catch { /* skip malformed */ }
     }
   }
@@ -222,6 +283,49 @@ function lintAgentsWiki(vaultPath: string, diagnostics: Diagnostic[]): void {
             suggestion: "add a description: line to frontmatter"
           });
         }
+      } catch { /* skip */ }
+    }
+  }
+}
+
+function lintAliasDrift(vaultPath: string, wikiFilter: string | undefined, diagnostics: Diagnostic[]): void {
+  const aliasesPath = join(vaultPath, "_index", "aliases.json");
+  if (!existsSync(aliasesPath)) return;
+  let aliases: Record<string, { current: string; history: string[] }> = {};
+  try { aliases = JSON.parse(readFileSync(aliasesPath, "utf8")); } catch { return; }
+  const aliasedOldBares = new Set<string>();
+  for (const [oldId, entry] of Object.entries(aliases)) {
+    if (entry.current && entry.current !== oldId) {
+      const bare = oldId.startsWith("profile-") ? oldId.slice("profile-".length) : oldId;
+      aliasedOldBares.add(`agent:${bare}`);
+    }
+  }
+  if (aliasedOldBares.size === 0) return;
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const wikisDir = join(vaultPath, "wikis");
+  if (!existsSync(wikisDir)) return;
+  const targetWikis = wikiFilter ? [wikiFilter] : readdirSync(wikisDir);
+  for (const wikiName of targetWikis) {
+    const journalDir = join(wikisDir, wikiName, "journal");
+    if (!existsSync(journalDir)) continue;
+    for (const file of readdirSync(journalDir)) {
+      if (!file.endsWith(".md")) continue;
+      const path = join(journalDir, file);
+      try {
+        const raw = readFileSync(path, "utf8");
+        const { frontmatter: fm } = parseFrontmatter(raw);
+        const author = String(fm.author ?? "");
+        if (!aliasedOldBares.has(author)) continue;
+        const created = new Date(String(fm.created ?? ""));
+        if (Number.isNaN(created.getTime()) || created < cutoff) continue;
+        diagnostics.push({
+          severity: "warning",
+          code: "ALIAS_DRIFT",
+          page_id: String(fm.id ?? file.replace(/\.md$/, "")),
+          wiki: wikiName,
+          message: `recent journal authored as ${author} (an aliased-old id)`,
+          suggestion: "agent's local CLAUDE.md fragment may need updating to use the current id"
+        });
       } catch { /* skip */ }
     }
   }

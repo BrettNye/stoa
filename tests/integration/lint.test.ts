@@ -193,4 +193,133 @@ ${Array.from({ length: 9 }, (_, i) => `  - move-${i}`).join("\n")}
     const r = lint(vaultPath, { level: "warning" });
     expect(r.diagnostics.some(d => d.code === "MOVESET_OVERSIZED")).toBe(true);
   });
+
+  it("MOVESET_TYPE_MISMATCH — warns when more than half a profile's moveset is off-type", () => {
+    const v = mkdtempSync(join(tmpdir(), "vault-lint-mtm-"));
+    mkdirSync(join(v, "wikis", "_agents", "profiles"), { recursive: true });
+    mkdirSync(join(v, "wikis", "_agents", "moves", "move-a"), { recursive: true });
+    mkdirSync(join(v, "wikis", "_agents", "moves", "move-b"), { recursive: true });
+    mkdirSync(join(v, "wikis", "_agents", "moves", "move-c"), { recursive: true });
+    mkdirSync(join(v, "_index"), { recursive: true });
+    writeFileSync(join(v, "wikis", "_agents", "profiles", "profile-charmander.md"),
+      `---
+id: profile-charmander
+title: Charmander
+type: profile
+wiki: _agents
+status: active
+created: 2026-04-29
+updated: 2026-04-29
+summary: Backend
+pokemon_type: fire
+moveset: [move-a, move-b, move-c]
+---
+`);
+    writeFileSync(join(v, "wikis", "_agents", "moves", "move-a", "SKILL.md"),
+      `---
+id: move-a
+name: a
+type: move
+wiki: _agents
+status: active
+description: a
+pokemon_type: water
+---
+`);
+    writeFileSync(join(v, "wikis", "_agents", "moves", "move-b", "SKILL.md"),
+      `---
+id: move-b
+name: b
+type: move
+wiki: _agents
+status: active
+description: b
+pokemon_type: water
+---
+`);
+    writeFileSync(join(v, "wikis", "_agents", "moves", "move-c", "SKILL.md"),
+      `---
+id: move-c
+name: c
+type: move
+wiki: _agents
+status: active
+description: c
+pokemon_type: fire
+---
+`);
+    reindex(v);
+    const r = lint(v, { wiki: "_agents" });
+    const mtm = r.diagnostics.find(d => d.code === "MOVESET_TYPE_MISMATCH");
+    expect(mtm).toBeDefined();
+    expect(mtm?.severity).toBe("warning");
+    expect(mtm?.page_id).toBe("profile-charmander");
+    rmSync(v, { recursive: true, force: true });
+  });
+
+  it("ALIAS_DRIFT — warns when a recent journal author was an aliased-old id", () => {
+    const v = mkdtempSync(join(tmpdir(), "vault-lint-ad-"));
+    mkdirSync(join(v, "wikis", "alpha", "journal"), { recursive: true });
+    mkdirSync(join(v, "_index"), { recursive: true });
+    writeFileSync(join(v, "_index", "aliases.json"), JSON.stringify({
+      "profile-charmander": { current: "profile-charmeleon", history: ["profile-charmander"] }
+    }, null, 2));
+    const recent = new Date().toISOString();
+    writeFileSync(join(v, "wikis", "alpha", "journal", "journal-2026-04-29-1500-z.md"),
+      `---
+id: journal-2026-04-29-1500-z
+title: Journal z
+type: journal
+wiki: alpha
+created: ${recent}
+author: agent:charmander
+---
+`);
+    reindex(v);
+    const r = lint(v, { wiki: "alpha" });
+    const drift = r.diagnostics.find(d => d.code === "ALIAS_DRIFT");
+    expect(drift).toBeDefined();
+    expect(drift?.severity).toBe("warning");
+    rmSync(v, { recursive: true, force: true });
+  });
+
+  it("MOVE_APPLIES_TO_INCONSISTENT — info when a move's applies_to omits a runtime the profile uses", () => {
+    const v = mkdtempSync(join(tmpdir(), "vault-lint-mati-"));
+    mkdirSync(join(v, "wikis", "_agents", "profiles"), { recursive: true });
+    mkdirSync(join(v, "wikis", "_agents", "moves", "move-x"), { recursive: true });
+    mkdirSync(join(v, "_index"), { recursive: true });
+    writeFileSync(join(v, "wikis", "_agents", "profiles", "profile-charmander.md"),
+      `---
+id: profile-charmander
+title: Charmander
+type: profile
+wiki: _agents
+status: active
+created: 2026-04-29
+updated: 2026-04-29
+summary: Backend
+pokemon_type: fire
+moveset: [move-x]
+applies_to: [claude-code, openclaw]
+---
+`);
+    writeFileSync(join(v, "wikis", "_agents", "moves", "move-x", "SKILL.md"),
+      `---
+id: move-x
+name: x
+type: move
+wiki: _agents
+status: active
+description: x
+applies_to: [claude-code]
+---
+`);
+    reindex(v);
+    const r = lint(v, { wiki: "_agents" });
+    const mati = r.diagnostics.find(d => d.code === "MOVE_APPLIES_TO_INCONSISTENT");
+    expect(mati).toBeDefined();
+    expect(mati?.severity).toBe("info");
+    expect(mati?.page_id).toBe("profile-charmander");
+    rmSync(v, { recursive: true, force: true });
+  });
 });
