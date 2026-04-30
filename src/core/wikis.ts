@@ -68,6 +68,10 @@ export interface NewWikiInput {
   name: string;
   mode: WikiMode;
   scope: string;
+  // Phase-2 T3-1 — optional family declaration. When set, the scaffolded
+  // CLAUDE.md gets a `**Family:** <value>` line right under `**Mode:**`,
+  // matching the bold-with-colon-inside form `loadWikiMeta` recognizes.
+  family?: string;
 }
 
 export interface NewWikiResult {
@@ -89,7 +93,12 @@ export function newWiki(vaultPath: string, input: NewWikiInput): NewWikiResult {
   }
 
   // CLAUDE.md
-  const claudeMd = `# ${input.name} — wiki conventions\n\n**Mode:** ${input.mode}\n**Scope:** ${input.scope}\n\n## Tag vocabulary\n\n(Add wiki-specific tags here as they emerge.)\n\n## Local conventions\n\n(Add wiki-specific rules that extend the vault root CLAUDE.md.)\n`;
+  // Phase-2 T3-1 — emit `**Family:** <name>` between `**Mode:**` and
+  // `**Scope:**` only when the caller passed family. Format intentionally
+  // matches the WIKI_FAMILY_LINE regex in loadWikiMeta above so reindex
+  // picks it up without manual editing.
+  const familyLine = input.family ? `**Family:** ${input.family}\n` : "";
+  const claudeMd = `# ${input.name} — wiki conventions\n\n**Mode:** ${input.mode}\n${familyLine}**Scope:** ${input.scope}\n\n## Tag vocabulary\n\n(Add wiki-specific tags here as they emerge.)\n\n## Local conventions\n\n(Add wiki-specific rules that extend the vault root CLAUDE.md.)\n`;
   writeFileSync(join(root, "CLAUDE.md"), claudeMd);
   created.push("CLAUDE.md");
 
