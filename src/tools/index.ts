@@ -23,6 +23,7 @@ import { taskListTool } from "./task-list.js";
 import { taskUpdateTool } from "./task-update.js";
 import { profileStatsTool } from "./profile-stats.js";
 import { evolveProfileTool } from "./evolve-profile.js";
+import { refreshProfileMemoryTool } from "./refresh-profile-memory.js";
 
 export const allTools = [
   recallTool, readTool, listWikisTool, lintTool, channelTailTool,
@@ -30,7 +31,7 @@ export const allTools = [
   synthesizeTool, reindexTool, agentJournalTool, channelPostTool, taskClaimTool,
   // v1.5
   bootstrapRepoTool, syncSkillsTool, startTool,
-  taskCreateTool, taskListTool, taskUpdateTool, profileStatsTool, evolveProfileTool
+  taskCreateTool, taskListTool, taskUpdateTool, profileStatsTool, evolveProfileTool, refreshProfileMemoryTool
 ];
 
 export type ToolDefinition = (typeof allTools)[number];

@@ -24,6 +24,7 @@ import { registerTaskList } from "./commands/task-list.js";
 import { registerTaskUpdate } from "./commands/task-update.js";
 import { registerProfileStats } from "./commands/profile-stats.js";
 import { registerEvolveProfile } from "./commands/evolve-profile.js";
+import { registerRefreshProfileMemory } from "./commands/refresh-profile-memory.js";
 
 export function buildCli(): Command {
   const program = new Command()
@@ -55,6 +56,7 @@ export function buildCli(): Command {
   registerTaskUpdate(program);
   registerProfileStats(program);
   registerEvolveProfile(program);
+  registerRefreshProfileMemory(program);
 
   return program;
 }
