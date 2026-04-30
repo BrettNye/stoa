@@ -67,6 +67,11 @@ export function loadTokens(vaultPath: string): Record<string, PageTokens> {
 
 export interface PageFilter {
   wiki?: string;
+  // Phase-2 T3-2 — multi-wiki scope used by family-aware tools (recall, list-wikis,
+  // start). When set, pages are kept iff their `wiki` field is in the array. The
+  // single `wiki` field still wins when both are set (most-specific). Empty array
+  // matches nothing.
+  wikis?: string[];
   type?: NoteType;
   layer?: "knowledge" | "execution" | "all";
   channel?: string;
@@ -74,8 +79,10 @@ export interface PageFilter {
 }
 
 export function queryPages(idx: VaultIndex, f: PageFilter): IndexedPage[] {
+  const wikiSet = f.wikis ? new Set(f.wikis) : undefined;
   return idx.pages.filter(p => {
     if (f.wiki && p.wiki !== f.wiki) return false;
+    if (!f.wiki && wikiSet && !wikiSet.has(p.wiki)) return false;
     if (f.type && p.type !== f.type) return false;
     if (f.channel && p.channel !== f.channel) return false;
     if (f.status && p.status !== f.status) return false;
