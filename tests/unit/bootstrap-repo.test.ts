@@ -115,4 +115,44 @@ describe("vault.bootstrap-repo", () => {
     const keys = Object.keys(json.mcpServers);
     expect(keys.filter(k => k === "vault")).toHaveLength(1);
   });
+
+  it("emits a tsx-binary command instead of npx (so spawn works on Windows)", async () => {
+    await bootstrapRepoTool.handler(
+      { repo_path: repoPath, wiki: "alpha" },
+      { vaultPath }
+    );
+    const json = JSON.parse(readFileSync(join(repoPath, ".mcp.json"), "utf8"));
+    const cmd = json.mcpServers.vault.command;
+    expect(cmd).not.toBe("npx");
+    // command should end with "tsx" or "tsx.cmd"
+    expect(/[\\/]tsx(\.cmd)?$/.test(cmd)).toBe(true);
+    // and live under vault-mcp/node_modules/.bin
+    expect(cmd).toContain("vault-mcp");
+    expect(cmd).toContain("node_modules");
+  });
+
+  it("emits args without the leading 'tsx' positional", async () => {
+    await bootstrapRepoTool.handler(
+      { repo_path: repoPath, wiki: "alpha" },
+      { vaultPath }
+    );
+    const json = JSON.parse(readFileSync(join(repoPath, ".mcp.json"), "utf8"));
+    const args = json.mcpServers.vault.args;
+    // First arg should be the bin.ts path, not the literal string "tsx"
+    expect(args[0]).not.toBe("tsx");
+    expect(args[0]).toMatch(/bin\.ts$/);
+    // The other expected flags should still be there
+    expect(args).toContain("--mcp");
+    expect(args).toContain("--default-wiki=alpha");
+  });
+
+  it("emits a cwd field pointing at vault-mcp (so npm resolution works regardless)", async () => {
+    await bootstrapRepoTool.handler(
+      { repo_path: repoPath, wiki: "alpha" },
+      { vaultPath }
+    );
+    const json = JSON.parse(readFileSync(join(repoPath, ".mcp.json"), "utf8"));
+    expect(json.mcpServers.vault.cwd).toBeDefined();
+    expect(json.mcpServers.vault.cwd).toContain("vault-mcp");
+  });
 });

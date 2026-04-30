@@ -65,15 +65,19 @@ function mergeOrAppendClaudeMd(repoPath: string, fragment: string): string {
 
 function mergeOrCreateMcpJson(repoPath: string, vaultPath: string, wiki: string): string {
   const mcpJsonPath = join(repoPath, ".mcp.json");
+  const tsxBinaryName = process.platform === "win32" ? "tsx.cmd" : "tsx";
+  const vaultMcpDir = join(vaultPath, "vault-mcp").replace(/\\/g, "/");
+  const tsxBinary = join(vaultPath, "vault-mcp", "node_modules", ".bin", tsxBinaryName).replace(/\\/g, "/");
+  const binTs = join(vaultPath, "vault-mcp", "src", "bin.ts").replace(/\\/g, "/");
   const vaultEntry = {
-    command: "npx",
+    command: tsxBinary,
     args: [
-      "tsx",
-      join(vaultPath, "vault-mcp", "src", "bin.ts").replace(/\\/g, "/"),
+      binTs,
       "--mcp",
       `--vault=${vaultPath.replace(/\\/g, "/")}`,
       `--default-wiki=${wiki}`
-    ]
+    ],
+    cwd: vaultMcpDir
   };
 
   if (!existsSync(mcpJsonPath)) {
