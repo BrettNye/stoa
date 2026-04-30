@@ -5,6 +5,7 @@ import { parseFrontmatter, toIsoDate } from "./frontmatter.js";
 import type { IndexedPage, IndexedWiki, PageTokens } from "./index.js";
 import { listProfiles } from "./profiles.js";
 import { readAliases } from "./aliases.js";
+import { loadWikiMeta } from "./wikis.js";
 
 const stemmer = natural.PorterStemmer;
 const STOP_WORDS = new Set(["the","and","of","a","an","in","to","is","for","on","with","as","at","by","or","be","this","that","it","from","are","was","were","not","but","if"]);
@@ -139,13 +140,19 @@ export function reindex(vaultPath: string, scopeWiki?: string): ReindexResult {
     const counts: Record<string, number> = {};
     for (const p of pages) counts[p.type] = (counts[p.type] ?? 0) + 1;
     const lastTouched = pages.map(p => p.updated).sort().reverse()[0] ?? "";
-    wikiSummaries.push({
+    // Phase-2 T2-1 — surface `family:` from `wikis/<w>/CLAUDE.md` onto the
+    // index entry. Default to omission when absent (Plan B back-compat).
+    // The `mode: "mixed"` hardcode below is a separate, out-of-Phase-2 TODO.
+    const meta = loadWikiMeta(vaultPath, w);
+    const summary: IndexedWiki = {
       name: w,
       mode: "mixed", // TODO read from wiki CLAUDE.md in v1.5
       scope: "",
       page_counts: counts,
       last_touched: lastTouched
-    });
+    };
+    if (meta.family) summary.family = meta.family;
+    wikiSummaries.push(summary);
   }
 
   // Build links: forward + inbound

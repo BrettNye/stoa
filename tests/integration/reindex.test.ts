@@ -69,6 +69,35 @@ describe("reindex", () => {
     expect(tokens["concept-foo"].title.length).toBeGreaterThan(0);
     expect(tokens["concept-foo"].body.length).toBeGreaterThan(0);
   });
+
+  it("omits family from wikis.json entries when CLAUDE.md has no family field", () => {
+    // Phase-2 T2-1 back-compat: wikis without family declared keep the
+    // pre-T2-1 entry shape (no stray `family` key).
+    reindex(vault);
+    const wikis = JSON.parse(readFileSync(join(vault, "_index", "wikis.json"), "utf8"));
+    const alpha = wikis.wikis.find((w: any) => w.name === "alpha");
+    expect(alpha).toBeDefined();
+    expect("family" in alpha).toBe(false);
+  });
+
+  it("surfaces family from wiki CLAUDE.md onto its wikis.json entry", () => {
+    // Phase-2 T2-1 — adding a `family:` line to the wiki's CLAUDE.md should
+    // make it appear on the IndexedWiki entry after reindex.
+    mkdirSync(join(vault, "wikis", "rastate-app"), { recursive: true });
+    writeFileSync(
+      join(vault, "wikis", "rastate-app", "CLAUDE.md"),
+      "# rastate-app — wiki conventions\n\n**Family:** rastate\n**Mode:** project-doc\n"
+    );
+    writeFileSync(
+      join(vault, "wikis", "rastate-app", "map.md"),
+      "---\nid: map-rastate-app\ntype: map\ntitle: Rastate App\nwiki: rastate-app\nstatus: active\ncreated: 2026-04-30\nupdated: 2026-04-30\nsummary: m\n---\nMap.\n"
+    );
+    reindex(vault);
+    const wikis = JSON.parse(readFileSync(join(vault, "_index", "wikis.json"), "utf8"));
+    const rastate = wikis.wikis.find((w: any) => w.name === "rastate-app");
+    expect(rastate).toBeDefined();
+    expect(rastate.family).toBe("rastate");
+  });
 });
 
 import { mkdtempSync as mkdtempSyncV15, mkdirSync as mkdirSyncV15, writeFileSync as writeFileSyncV15, rmSync, existsSync as existsSyncV15, readFileSync as readFileSyncV15 } from "node:fs";

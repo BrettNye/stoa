@@ -6,6 +6,42 @@ const KEBAB = /^_?[a-z0-9]+(-[a-z0-9]+)*$/;
 const VALID_MODES = ["idea-map", "project-doc", "learning", "mixed"] as const;
 type WikiMode = typeof VALID_MODES[number];
 
+// Phase-2 T2-1 — accept BOTH the markdown-bold form (`**Family:** rastate`)
+// emitted by `vault.new-wiki` today and the plain key:value form
+// (`family: rastate`) per spec §5.1. Mirrors the regex pair already
+// battle-tested in core/lint-checks/family-member-mode-drift.ts, but
+// constrains the value to horizontal whitespace (no newline span) so that
+// an empty `**Family:**` line followed by another `**Mode:**` line doesn't
+// silently capture the next line's content as the family value.
+// Note the colon-inside-bold form is `**Family:**`, NOT `**Family**:`.
+const WIKI_FAMILY_LINE = /^[ \t]*(?:\*\*[ \t]*family[ \t]*:[ \t]*\*\*|family[ \t]*:)[ \t]*(.*?)[ \t]*$/im;
+
+/**
+ * Reads `wikis/<wiki>/CLAUDE.md` and extracts the wiki-level metadata
+ * (currently just `family:`). Returns `{}` when the file is missing,
+ * unreadable, or has no family field. Empty-string family is treated
+ * as absent. Used by `core/reindex.ts` to surface `family` on the
+ * `IndexedWiki` summary written to `_index/wikis.json`.
+ *
+ * Plan B Pre-baked context: "default to omission for back-compat" —
+ * `family` is not present in the returned object when absent (vs. `null`).
+ */
+export function loadWikiMeta(vaultPath: string, wiki: string): { family?: string } {
+  const claudePath = join(vaultPath, "wikis", wiki, "CLAUDE.md");
+  if (!existsSync(claudePath)) return {};
+  let raw: string;
+  try {
+    raw = readFileSync(claudePath, "utf8");
+  } catch {
+    return {};
+  }
+  const m = raw.match(WIKI_FAMILY_LINE);
+  if (!m) return {};
+  const family = m[1].trim();
+  if (family.length === 0) return {};
+  return { family };
+}
+
 export class WikiExistsError extends Error {
   constructor(public name: string) { super(`wiki exists: ${name}`); this.name = "WikiExistsError"; }
 }

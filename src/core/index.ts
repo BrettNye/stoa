@@ -27,6 +27,10 @@ export interface IndexedWiki {
   name: string;
   mode: string;
   scope: string;
+  // Phase-2 T2-1 — surfaced from each wiki's CLAUDE.md `family:` field by
+  // `core/reindex.ts` via `loadWikiMeta`. Omitted from the JSON entry when
+  // the wiki declares no family (Plan B back-compat: "default to omission").
+  family?: string;
   page_counts: Record<string, number>;
   last_touched: string;
 }
