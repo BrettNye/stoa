@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { updateTask } from "../core/tasks.js";
+import { pathForPage } from "../core/pages.js";
+import { upsertPage } from "../core/index.js";
 
 const Input = z.object({
   task_id: z.string(),
@@ -16,6 +18,12 @@ export const taskUpdateTool = {
   description: "Update a task's status, notes, or segregation. Uses mtime OCC.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
-    return updateTask(ctx.vaultPath, input);
+    const result = updateTask(ctx.vaultPath, input);
+    // v1.7 §5.1 — write-through index update so the changed task fields
+    // (status, segregation, updated) are immediately visible to loadIndex-based
+    // tools (recall, merge-queue, start) without requiring a manual reindex.
+    const path = pathForPage(ctx.vaultPath, input.task_id, "task", input.wiki);
+    await upsertPage(ctx.vaultPath, path);
+    return result;
   }
 };

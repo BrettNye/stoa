@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createTask } from "../core/tasks.js";
+import { upsertPage } from "../core/index.js";
 
 const Input = z.object({
   title: z.string().min(1),
@@ -17,6 +18,11 @@ export const taskCreateTool = {
   description: "Create a new task in a wiki's task queue. Status starts as pending.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
-    return createTask(ctx.vaultPath, input);
+    const result = createTask(ctx.vaultPath, input);
+    // v1.7 §5.1 — write-through index update so the new task is immediately
+    // visible to loadIndex-based tools (recall, merge-queue, start) without
+    // requiring a manual reindex.
+    await upsertPage(ctx.vaultPath, result.path);
+    return result;
   }
 };
