@@ -155,7 +155,14 @@ export interface ReindexResult {
 
 export function reindex(vaultPath: string, scopeWiki?: string): ReindexResult {
   const start = Date.now();
-  const wikis = scopeWiki ? [scopeWiki] : discoverWikis(vaultPath);
+  if (!scopeWiki) {
+    return reindexFull(vaultPath, start);
+  }
+  throw new Error("scoped path not yet implemented");
+}
+
+function reindexFull(vaultPath: string, start: number): ReindexResult {
+  const wikis = discoverWikis(vaultPath);
   const allPages: IndexedPage[] = [];
   const wikiSummaries: IndexedWiki[] = [];
 
