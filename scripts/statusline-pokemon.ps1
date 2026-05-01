@@ -1,4 +1,4 @@
-# statusline-pokemon.ps1 — emit a one-line statusline summary for the active vault Pokemon.
+﻿# statusline-pokemon.ps1 — emit a one-line statusline summary for the active vault Pokemon.
 # Usage: $env:VAULT_PATH=<path>; [$env:VAULT_POKEMON=<profile-id>]; .\statusline-pokemon.ps1
 
 param()
@@ -6,7 +6,7 @@ param()
 $ErrorActionPreference = "Stop"
 $VaultPath = $env:VAULT_PATH
 if (-not $VaultPath) { Write-Output "🛑 VAULT_PATH unset"; exit 0 }
-$ProfilesPath = Join-Path $VaultPath "_index" "profiles.json"
+$ProfilesPath = Join-Path (Join-Path $VaultPath "_index") "profiles.json"
 if (-not (Test-Path $ProfilesPath)) { Write-Output "🛑 no profiles.json"; exit 0 }
 
 $ProfilesData = Get-Content $ProfilesPath -Raw | ConvertFrom-Json
