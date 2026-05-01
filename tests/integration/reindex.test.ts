@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { reindex } from "../../src/core/reindex.js";
@@ -173,7 +173,178 @@ Body.
   });
 });
 
-import { mkdtempSync as mkdtempSyncV15, mkdirSync as mkdirSyncV15, writeFileSync as writeFileSyncV15, rmSync, existsSync as existsSyncV15, readFileSync as readFileSyncV15 } from "node:fs";
+describe("scoped reindex (v1.6.2)", () => {
+  let vault: string;
+
+  beforeEach(() => {
+    vault = mkdtempSync(join(tmpdir(), "vault-scoped-"));
+    mkdirSync(join(vault, "wikis", "alpha", "concepts"), { recursive: true });
+    mkdirSync(join(vault, "wikis", "beta", "concepts"), { recursive: true });
+    mkdirSync(join(vault, "_index"), { recursive: true });
+
+    writeFileSync(
+      join(vault, "wikis", "alpha", "map.md"),
+      `---
+id: map-alpha
+type: map
+title: Alpha
+wiki: alpha
+status: active
+created: 2026-04-28
+updated: 2026-04-28
+summary: Alpha map
+---
+Map.
+`
+    );
+    writeFileSync(
+      join(vault, "wikis", "alpha", "concepts", "concept-a1.md"),
+      `---
+id: concept-a1
+title: A1
+type: concept
+wiki: alpha
+status: active
+created: 2026-04-28
+updated: 2026-04-28
+summary: An A1 concept
+tags: [a]
+---
+Body about a1.
+`
+    );
+    writeFileSync(
+      join(vault, "wikis", "beta", "map.md"),
+      `---
+id: map-beta
+type: map
+title: Beta
+wiki: beta
+status: active
+created: 2026-04-28
+updated: 2026-04-28
+summary: Beta map
+---
+Map.
+`
+    );
+    writeFileSync(
+      join(vault, "wikis", "beta", "concepts", "concept-b1.md"),
+      `---
+id: concept-b1
+title: B1
+type: concept
+wiki: beta
+status: active
+created: 2026-04-28
+updated: 2026-04-28
+summary: A B1 concept
+tags: [b]
+---
+Body about b1.
+`
+    );
+
+    // Seed: full reindex first so the scoped call has an existing index to merge into.
+    reindex(vault);
+  });
+
+  it("preserves other wikis' pages when scoped to one wiki", () => {
+    reindex(vault, "alpha");
+    const pages = JSON.parse(readFileSync(join(vault, "_index", "pages.json"), "utf8"));
+    const ids = pages.pages.map((p: any) => p.id).sort();
+    expect(ids).toContain("concept-b1");
+    expect(ids).toContain("map-beta");
+  });
+
+  it("preserves other wikis' tokens when scoped", () => {
+    reindex(vault, "alpha");
+    const tokens = JSON.parse(readFileSync(join(vault, "_index", "tokens.json"), "utf8"));
+    expect(tokens["concept-b1"]).toBeDefined();
+  });
+
+  it("preserves other wikis' wikis.json entries when scoped", () => {
+    reindex(vault, "alpha");
+    const wikis = JSON.parse(readFileSync(join(vault, "_index", "wikis.json"), "utf8"));
+    const names = wikis.wikis.map((w: any) => w.name).sort();
+    expect(names).toContain("alpha");
+    expect(names).toContain("beta");
+  });
+
+  it("rebuilds the scoped wiki's pages — additions are picked up", () => {
+    writeFileSync(
+      join(vault, "wikis", "alpha", "concepts", "concept-a2.md"),
+      `---
+id: concept-a2
+title: A2
+type: concept
+wiki: alpha
+status: active
+created: 2026-04-28
+updated: 2026-04-28
+summary: An A2 concept
+tags: [a]
+---
+Body about a2.
+`
+    );
+    reindex(vault, "alpha");
+    const pages = JSON.parse(readFileSync(join(vault, "_index", "pages.json"), "utf8"));
+    expect(pages.pages.find((p: any) => p.id === "concept-a2")).toBeDefined();
+  });
+
+  it("rebuilds the scoped wiki's pages — deletions drop from index", () => {
+    rmSync(join(vault, "wikis", "alpha", "concepts", "concept-a1.md"));
+    reindex(vault, "alpha");
+    const pages = JSON.parse(readFileSync(join(vault, "_index", "pages.json"), "utf8"));
+    expect(pages.pages.find((p: any) => p.id === "concept-a1")).toBeUndefined();
+    const tokens = JSON.parse(readFileSync(join(vault, "_index", "tokens.json"), "utf8"));
+    expect(tokens["concept-a1"]).toBeUndefined();
+  });
+
+  it("cleans up stale inbound edges to a deleted scope-page", () => {
+    // beta page links into alpha's concept-a1 via related:
+    writeFileSync(
+      join(vault, "wikis", "beta", "concepts", "concept-b2.md"),
+      `---
+id: concept-b2
+title: B2
+type: concept
+wiki: beta
+status: active
+created: 2026-04-28
+updated: 2026-04-28
+summary: ""
+related: ["[[wikis/alpha/concepts/concept-a1]]"]
+---
+Body.
+`
+    );
+    reindex(vault); // full reindex picks up the new beta link
+    rmSync(join(vault, "wikis", "alpha", "concepts", "concept-a1.md"));
+    reindex(vault, "alpha");
+    const links = JSON.parse(readFileSync(join(vault, "_index", "links.json"), "utf8"));
+    // concept-a1 is gone from combinedPages; its inbound entry must be cleared
+    // so a stale `inbound: ["concept-b2"]` edge is not retained.
+    expect(links["concept-a1"]).toBeUndefined();
+    // beta page's outbound still references concept-a1 (dangling outbound is OK;
+    // the inbound side is what we care about for index correctness).
+  });
+
+  it("rejects reserved wiki not in RESERVED_INCLUDED", () => {
+    expect(() => reindex(vault, "_archive")).toThrow(/reserved/i);
+  });
+
+  it("falls back to full reindex when index sidecars are missing", () => {
+    rmSync(join(vault, "_index", "pages.json"));
+    reindex(vault, "alpha"); // should not throw; should rebuild from full
+    const pages = JSON.parse(readFileSync(join(vault, "_index", "pages.json"), "utf8"));
+    const ids = pages.pages.map((p: any) => p.id).sort();
+    expect(ids).toContain("concept-b1"); // beta picked up by fallback full reindex
+  });
+});
+
+import { mkdtempSync as mkdtempSyncV15, mkdirSync as mkdirSyncV15, writeFileSync as writeFileSyncV15, existsSync as existsSyncV15, readFileSync as readFileSyncV15 } from "node:fs";
 import { afterEach } from "vitest";
 
 describe("v1.5 — reindex profiles + aliases sidecars", () => {

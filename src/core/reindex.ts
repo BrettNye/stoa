@@ -155,7 +155,190 @@ export interface ReindexResult {
 
 export function reindex(vaultPath: string, scopeWiki?: string): ReindexResult {
   const start = Date.now();
-  const wikis = scopeWiki ? [scopeWiki] : discoverWikis(vaultPath);
+  if (!scopeWiki) {
+    return reindexFull(vaultPath, start);
+  }
+  return reindexScoped(vaultPath, scopeWiki, start);
+}
+
+/**
+ * v1.6.2 — scoped reindex must merge with existing index instead of replacing.
+ * Pre-fix, this path overwrote all four sidecars with only scopeWiki's payload,
+ * wiping every other wiki from the index. Now: load existing sidecars, drop the
+ * scope wiki's existing entries, splice in fresh scope payload, write.
+ *
+ * Reserved-wiki guard mirrors discoverWikis: scoped reindex of `_*` is rejected
+ * unless in RESERVED_INCLUDED, so scoped and unscoped agree on which wikis can
+ * appear in the index.
+ *
+ * Missing-sidecar fallback: if any of the four sidecars is missing or
+ * unparseable, fall back to a full reindex — there's nothing to merge into.
+ */
+function reindexScoped(vaultPath: string, scopeWiki: string, start: number): ReindexResult {
+  if (scopeWiki.startsWith("_") && !RESERVED_INCLUDED.has(scopeWiki)) {
+    throw new Error(`Cannot reindex reserved wiki: ${scopeWiki}`);
+  }
+
+  const existing = loadExistingIndex(vaultPath);
+  if (!existing) {
+    return reindexFull(vaultPath, start);
+  }
+
+  const newScopePages = discoverPages(vaultPath, scopeWiki);
+  const oldScopeIds = new Set(
+    existing.pages.filter((p: any) => p.wiki === scopeWiki).map((p: any) => p.id)
+  );
+
+  const sanitizedFresh = newScopePages.map(p => {
+    const { __outbound, tokens, ...rest } = p as any;
+    return rest;
+  });
+  const combinedPages = mergePagesByWiki(existing.pages, scopeWiki, sanitizedFresh);
+
+  const tokensMap = mergeTokens(existing.tokens, oldScopeIds, newScopePages);
+
+  const counts: Record<string, number> = {};
+  for (const p of newScopePages) counts[p.type] = (counts[p.type] ?? 0) + 1;
+  const lastTouched = newScopePages.map(p => p.updated).sort().reverse()[0] ?? "";
+  const meta = loadWikiMeta(vaultPath, scopeWiki);
+  const freshSummary: IndexedWiki = {
+    name: scopeWiki,
+    mode: "mixed",
+    scope: "",
+    page_counts: counts,
+    last_touched: lastTouched
+  };
+  if (meta.family) freshSummary.family = meta.family;
+  const combinedSummaries = mergeWikiSummaries(existing.wikis, scopeWiki, freshSummary);
+  const families = aggregateFamilies(summariesToFamilyInput(combinedSummaries));
+
+  const scopeOutbound: Record<string, string[]> = {};
+  for (const p of newScopePages) {
+    scopeOutbound[p.id] = ((p as any).__outbound ?? []) as string[];
+  }
+  const links = rebuildLinks(combinedPages, existing.links, scopeOutbound);
+
+  writeFileSync(
+    join(vaultPath, "_index", "wikis.json"),
+    JSON.stringify({ wikis: combinedSummaries, families }, null, 2)
+  );
+  writeFileSync(join(vaultPath, "_index", "pages.json"), JSON.stringify({ pages: combinedPages }, null, 2));
+  writeFileSync(join(vaultPath, "_index", "tokens.json"), JSON.stringify(tokensMap, null, 2));
+  writeFileSync(join(vaultPath, "_index", "links.json"), JSON.stringify(links, null, 2));
+
+  writeProfilesJson(vaultPath);
+  ensureAliasesJson(vaultPath);
+
+  return {
+    pages_indexed: combinedPages.length,
+    wikis_indexed: combinedSummaries.length,
+    links_indexed: Object.keys(links).length,
+    duration_ms: Date.now() - start
+  };
+}
+
+interface ExistingIndex {
+  pages: any[];
+  tokens: Record<string, PageTokens>;
+  links: Record<string, { outbound: string[]; inbound: string[] }>;
+  wikis: IndexedWiki[];
+}
+
+function loadExistingIndex(vaultPath: string): ExistingIndex | null {
+  const indexDir = join(vaultPath, "_index");
+  const pagesPath = join(indexDir, "pages.json");
+  const tokensPath = join(indexDir, "tokens.json");
+  const linksPath = join(indexDir, "links.json");
+  const wikisPath = join(indexDir, "wikis.json");
+  if (
+    !existsSync(pagesPath) ||
+    !existsSync(tokensPath) ||
+    !existsSync(linksPath) ||
+    !existsSync(wikisPath)
+  ) {
+    return null;
+  }
+  try {
+    const pages = (JSON.parse(readFileSync(pagesPath, "utf8")).pages ?? []) as any[];
+    const tokens = JSON.parse(readFileSync(tokensPath, "utf8")) as Record<string, PageTokens>;
+    const links = JSON.parse(readFileSync(linksPath, "utf8")) as Record<
+      string,
+      { outbound: string[]; inbound: string[] }
+    >;
+    const wikis = (JSON.parse(readFileSync(wikisPath, "utf8")).wikis ?? []) as IndexedWiki[];
+    return { pages, tokens, links, wikis };
+  } catch {
+    return null;
+  }
+}
+
+function mergePagesByWiki(existingPages: any[], scopeWiki: string, freshScopeSanitized: any[]): any[] {
+  const nonScope = existingPages.filter(p => p.wiki !== scopeWiki);
+  return nonScope.concat(freshScopeSanitized);
+}
+
+function mergeTokens(
+  existingTokens: Record<string, PageTokens>,
+  oldScopeIds: Set<string>,
+  freshScopePages: IndexedPage[]
+): Record<string, PageTokens> {
+  const out: Record<string, PageTokens> = {};
+  for (const [id, tok] of Object.entries(existingTokens)) {
+    if (!oldScopeIds.has(id)) out[id] = tok;
+  }
+  for (const p of freshScopePages) {
+    if (p.tokens) out[p.id] = p.tokens;
+  }
+  return out;
+}
+
+function mergeWikiSummaries(
+  existingSummaries: IndexedWiki[],
+  scopeWiki: string,
+  freshSummary: IndexedWiki
+): IndexedWiki[] {
+  return existingSummaries.filter(w => w.name !== scopeWiki).concat([freshSummary]);
+}
+
+/**
+ * Scoped link rebuild — combines outbound from existing non-scope pages
+ * (carried forward from oldLinks) with fresh scope pages' outbound, then
+ * rebuilds inbound from scratch. Skips dangling targets so deleted scope
+ * pages don't retain stale inbound entries from non-scope pages still
+ * referencing them. (Diverges intentionally from reindexFull, which currently
+ * creates dangling entries; aligning the two paths is a v1.7 candidate.)
+ */
+function rebuildLinks(
+  combinedPages: any[],
+  oldLinks: Record<string, { outbound: string[]; inbound: string[] }>,
+  scopeOutbound: Record<string, string[]>
+): Record<string, { outbound: string[]; inbound: string[] }> {
+  const outboundOf: Record<string, string[]> = {};
+  for (const p of combinedPages) {
+    if (p.id in scopeOutbound) {
+      outboundOf[p.id] = scopeOutbound[p.id];
+    } else {
+      outboundOf[p.id] = oldLinks[p.id]?.outbound ?? [];
+    }
+  }
+  const idSet = new Set(combinedPages.map(p => p.id));
+  const links: Record<string, { outbound: string[]; inbound: string[] }> = {};
+  for (const p of combinedPages) {
+    links[p.id] = { outbound: outboundOf[p.id], inbound: [] };
+  }
+  for (const p of combinedPages) {
+    for (const target of outboundOf[p.id]) {
+      if (!idSet.has(target)) continue;
+      if (!links[target].inbound.includes(p.id)) {
+        links[target].inbound.push(p.id);
+      }
+    }
+  }
+  return links;
+}
+
+function reindexFull(vaultPath: string, start: number): ReindexResult {
+  const wikis = discoverWikis(vaultPath);
   const allPages: IndexedPage[] = [];
   const wikiSummaries: IndexedWiki[] = [];
 
