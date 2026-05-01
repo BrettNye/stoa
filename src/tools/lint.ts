@@ -15,6 +15,7 @@ import "../core/lint-checks/active-wiki-divergence.js";
 import "../core/lint-checks/deployment-drift.js";
 import "../core/lint-checks/agent-attribution-aware.js";
 import "../core/lint-checks/family-member-mode-drift.js";
+import "../core/lint-checks/display-config-block-invalid.js";
 
 const Input = z.object({
   wiki: z.string().optional(),

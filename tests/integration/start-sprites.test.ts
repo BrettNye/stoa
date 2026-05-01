@@ -330,4 +330,49 @@ describe("integration — /start sprite render fallback (T2-1)", () => {
     expect(r.ascii_header).toBeDefined();
     expect(r.ascii_header!).toContain("\x1b[38;2;");
   });
+
+  // ---- 8. T4-1 end-to-end: real display_config block → ansi propagates.
+  it("end-to-end: display_config block with sprites.color_mode='ansi' → ANSI escapes (T4-1)", async () => {
+    writeProfile(vaultPath, "mewtwo", { pokeapi_url: POKEAPI_URL });
+    // Real fenced-YAML reader path — no spy. Wave 4 makes this work end-to-end.
+    writeFileSync(
+      join(vaultPath, "wikis", "_agents", "CLAUDE.md"),
+      "# Agents\n\n```yaml display_config\n" +
+      "sprites:\n  color_mode: ansi\n" +
+      "```\n"
+    );
+    const { fetcher } = makeFakeFetcher({ pokeapiUrl: POKEAPI_URL, pngUrl: PNG_URL });
+    await startTool.handler(
+      { wiki: "alpha", pokemon: "mewtwo" },
+      { vaultPath, fetcher }
+    );
+
+    const fileText = readFileSync(join(vaultPath, "_index", "sprites", "mewtwo.txt"), "utf8");
+    expect(fileText).not.toContain("\x1b[38;2;");
+    expect(/\x1b\[(3\d|9\d)/.test(fileText)).toBe(true);
+    expect(fileText.split("\n")[0]).toMatch(/^# rendered: \S+ mode=ansi$/);
+  });
+
+  // ---- 9. T4-1 end-to-end: real display_config block → none → no escapes.
+  it("end-to-end: display_config block with sprites.color_mode='none' → no ANSI escapes after sentinel (T4-1)", async () => {
+    writeProfile(vaultPath, "mewtwo", { pokeapi_url: POKEAPI_URL });
+    writeFileSync(
+      join(vaultPath, "wikis", "_agents", "CLAUDE.md"),
+      "# Agents\n\n```yaml display_config\n" +
+      "sprites:\n  color_mode: none\n" +
+      "```\n"
+    );
+    const { fetcher } = makeFakeFetcher({ pokeapiUrl: POKEAPI_URL, pngUrl: PNG_URL });
+    await startTool.handler(
+      { wiki: "alpha", pokemon: "mewtwo" },
+      { vaultPath, fetcher }
+    );
+
+    const fileText = readFileSync(join(vaultPath, "_index", "sprites", "mewtwo.txt"), "utf8");
+    // First line is the sentinel `# rendered: ... mode=none`; payload after
+    // that must contain no ANSI escapes.
+    expect(fileText.split("\n")[0]).toMatch(/^# rendered: \S+ mode=none$/);
+    const payload = fileText.split("\n").slice(1).join("\n");
+    expect(payload.includes("\x1b[")).toBe(false);
+  });
 });

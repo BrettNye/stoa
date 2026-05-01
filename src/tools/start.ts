@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseFrontmatter } from "../core/frontmatter.js";
 import { readProfile, ProfileNotFoundError } from "../core/profiles.js";
@@ -44,6 +44,43 @@ const Input = z.object({
 //   - plain key:value:                              `mode: project-doc`
 //     (per spec §5.1's example).
 const WIKI_MODE_LINE = /^\s*(?:\*\*\s*mode\s*:\s*\*\*|mode\s*:)\s*([^\s].*?)\s*$/im;
+
+// v1.6 Phase 3 T4-1 — Pokemon-type → statusline emoji glyph table.
+// Mirrors `scripts/statusline-pokemon.{sh,ps1}` 1:1 (the v1.5 statusline
+// scripts that reach into `_index/profiles.json` for the emoji case-mapping
+// today). This module owns the mapping for the `_index/statusline.json`
+// write path so consumers don't need to re-derive it. When `display_config.
+// statusline.emoji_safe_mode: true`, we substitute a `[<typename>]` text
+// fallback for terminals that render emoji as tofu (notably Windows Terminal
+// edge cases). Spec §10.3.
+const TYPE_EMOJI: Record<string, string> = {
+  normal: "⚪", fire: "🔥", water: "💧", electric: "⚡", grass: "🌿", ice: "❄️",
+  fighting: "🥊", poison: "☠️", ground: "⛰️", flying: "🪶", psychic: "🔮", bug: "🐛",
+  rock: "🪨", ghost: "👻", dragon: "🐉", dark: "🌑", steel: "⚙️", fairy: "✨"
+};
+
+function typeLabel(pokemonType: string, emojiSafeMode: boolean): string {
+  if (emojiSafeMode) return `[${pokemonType}]`;
+  return TYPE_EMOJI[pokemonType] ?? "⚪";
+}
+
+interface StatuslineJson {
+  name: string;
+  pokemon_type: string;
+  type_label: string;
+  evolution_stage: string;
+  tasks_in_flight: number;
+  emoji_safe_mode: boolean;
+}
+
+function writeStatuslineJson(vaultPath: string, payload: StatuslineJson): void {
+  const indexDir = join(vaultPath, "_index");
+  if (!existsSync(indexDir)) mkdirSync(indexDir, { recursive: true });
+  writeFileSync(
+    join(indexDir, "statusline.json"),
+    JSON.stringify(payload, null, 2)
+  );
+}
 
 function readWikiMode(vaultPath: string, wiki: string): string | undefined {
   const claudePath = join(vaultPath, "wikis", wiki, "CLAUDE.md");
@@ -244,9 +281,9 @@ export const startTool = {
       wiki
     });
 
-    // 5. Sprite render path (v1.6 Phase 3 T2-1).
+    // 5. Sprite render path (v1.6 Phase 3 T2-1) + statusline JSON write (T4-1).
     //
-    // Two-tier fallback:
+    // Two-tier fallback for sprite rendering:
     //   - SpriteVariantNotAvailableError → retry once with `front_default`.
     //   - any other SpriteRenderError (or unknown throw) → empty sprite block;
     //     /start MUST still succeed.
@@ -256,13 +293,32 @@ export const startTool = {
     // unset on the profile we fall back to the legacy hand-authored-only path
     // via `loadAsciiHeader` (existing behaviour for profiles authored before
     // this field landed).
+    //
+    // Display config (T4-1) drives BOTH sprite color_mode AND the
+    // `_index/statusline.json` emoji-vs-text-fallback choice. Read once.
     let asciiHeader: string | undefined = undefined;
     if (pokemonState) {
+      const displayCfg = readDisplayConfig(ctx.vaultPath);
+
+      // Statusline JSON — written every /start with a pokemon arg, regardless
+      // of whether the sprite renders. The v1.5 / Plan D scripts at
+      // scripts/statusline.{sh,ps1} (and the per-task statusline shipped via
+      // bootstrap-repo) consume this file. `type_label` is pre-resolved here
+      // so consumers don't need to hold their own emoji table.
+      writeStatuslineJson(ctx.vaultPath, {
+        name: pokemonState.name,
+        pokemon_type: pokemonState.pokemon_type,
+        type_label: typeLabel(pokemonState.pokemon_type, displayCfg.statusline.emoji_safe_mode),
+        evolution_stage: pokemonState.evolution_stage,
+        tasks_in_flight: pokemonState.active_tasks.length,
+        emoji_safe_mode: displayCfg.statusline.emoji_safe_mode
+      });
+
       const unreadTotal = channelActivity.reduce((sum, c) => sum + c.unread_count, 0);
       const headerState = { unread_total: unreadTotal };
 
       if (pokeapiUrl && ctx.fetcher) {
-        const colorMode: ColorMode = readDisplayConfig(ctx.vaultPath).sprites.color_mode;
+        const colorMode: ColorMode = displayCfg.sprites.color_mode;
         const fetcher: Fetcher = ctx.fetcher;
         const baseInput = {
           pokeapiUrl,
