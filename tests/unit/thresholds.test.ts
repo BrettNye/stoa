@@ -185,5 +185,62 @@ stage1_to_stage2:
         stage1_to_stage2: { tasks_completed: 80, success_rate: 0.8 },
       });
     });
+
+    it("re-throws on identical malformed YAML across calls (no gray-matter cache poisoning)", () => {
+      // v1.7 §5.7 regression — gray-matter has a global content-keyed cache
+      // that's bypassed only when ANY options arg is supplied. Without
+      // matter(input, {}), the FIRST call on malformed YAML throws (correct)
+      // but populates the cache with a partially-initialized file object
+      // (data: {}). A SECOND call on identical content returns that cached
+      // entry directly, bypassing parseMatter — so the YAML parse error is
+      // never re-raised; instead schema validation fires on the empty {}
+      // and surfaces a different (downstream) error. With matter(input, {}),
+      // the cache is bypassed entirely and every call re-parses, so
+      // identical malformed bodies surface the SAME parse error every time.
+      //
+      // Mirrors the same regression locked in for core/display-config.ts
+      // during v1.6 Phase 2 Wave 4.
+      const malformed = `# Agents
+
+\`\`\`yaml evolution_thresholds
+basic_to_stage1:
+   tasks_completed: 30
+  success_rate: 0.80
+stage1_to_stage2:
+  tasks_completed: 100
+  success_rate: 0.85
+\`\`\`
+`;
+      writeAgentsClaude(malformed);
+
+      // First call: must throw a parse-level ThresholdBlockError.
+      let firstError: ThresholdBlockError | undefined;
+      try {
+        readThresholds(vaultPath);
+      } catch (e) {
+        firstError = e as ThresholdBlockError;
+      }
+      expect(firstError).toBeInstanceOf(ThresholdBlockError);
+      expect(firstError!.message).toMatch(/failed to parse YAML/);
+
+      // Rewrite identical content (same byte-for-byte body — this is the
+      // gray-matter cache key). Without the cache-bypass fix, this second
+      // call would NOT re-throw the parse error; matter() would return a
+      // cached file with data: {}, which then fails schema validation —
+      // surfacing a "failed schema validation" error instead of the
+      // "failed to parse YAML" error.
+      writeAgentsClaude(malformed);
+
+      let secondError: ThresholdBlockError | undefined;
+      try {
+        readThresholds(vaultPath);
+      } catch (e) {
+        secondError = e as ThresholdBlockError;
+      }
+      expect(secondError).toBeInstanceOf(ThresholdBlockError);
+      // Critical assertion: second call must surface the SAME parse error,
+      // not a downstream schema-validation error caused by cache returning {}.
+      expect(secondError!.message).toMatch(/failed to parse YAML/);
+    });
   });
 });
