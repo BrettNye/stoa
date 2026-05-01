@@ -31,6 +31,12 @@ import { suggestPokemonTool } from "./suggest-pokemon.js";
 // and wiki renames more generally. Pure rewrite logic in core/rewrite-links.
 import { rewriteLinksTool } from "./rewrite-links.js";
 
+// v1.6 Phase 3 — bulk merge-queue surfacing. Reads `ready: branch=...`
+// signals from a coordination channel + tasks scoped to the resolved
+// wiki/family, returns a topo-sorted dependency order. Pure logic in
+// core/merge-queue.
+import { mergeQueueTool } from "./merge-queue.js";
+
 export const allTools = [
   recallTool, readTool, listWikisTool, lintTool, channelTailTool,
   inboxTool, processInboxTool, newTool, newWikiTool, setActiveTool,
@@ -39,7 +45,9 @@ export const allTools = [
   bootstrapRepoTool, syncSkillsTool, startTool,
   taskCreateTool, taskListTool, taskUpdateTool, profileStatsTool, evolveProfileTool, refreshProfileMemoryTool, suggestPokemonTool,
   // v1.6 phase 2
-  rewriteLinksTool
+  rewriteLinksTool,
+  // v1.6 phase 3
+  mergeQueueTool
 ];
 
 export type ToolDefinition = (typeof allTools)[number];

@@ -158,6 +158,11 @@ export interface TaskSummary {
   blocking?: string[];
   channel?: string;
   wiki: string;
+  // Phase-3 T3-1 — exposed for `vault.merge-queue` so the tool can build
+  // `TaskRef[]` (which `core/merge-queue` needs for branch→task mapping)
+  // without each consumer re-reading task pages from disk. Optional:
+  // tasks created before the convention landed simply omit it.
+  branch_suffix?: string;
 }
 
 export function listTasks(vaultPath: string, input: ListTasksInput = {}): TaskSummary[] {
@@ -190,7 +195,8 @@ export function listTasks(vaultPath: string, input: ListTasksInput = {}): TaskSu
           segregation: Array.isArray(fm.segregation) ? fm.segregation : undefined,
           blocking: Array.isArray(fm.blocking) ? fm.blocking : undefined,
           channel: fm.channel ? String(fm.channel) : undefined,
-          wiki
+          wiki,
+          branch_suffix: fm.branch_suffix ? String(fm.branch_suffix) : undefined
         });
       } catch {
         // skip malformed
