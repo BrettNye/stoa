@@ -60,7 +60,7 @@ export const syncSkillsTool = {
   }
 };
 
-interface ReverifyResult {
+export interface ReverifyResult {
   drift: DriftReport[];
   drift_fixed: number;
 }

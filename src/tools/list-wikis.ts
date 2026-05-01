@@ -17,7 +17,7 @@ const Input = z.object({
   group_by_family: z.boolean().default(false)
 });
 
-interface FamilyGroup {
+export interface FamilyGroup {
   name: string;
   members: IndexedWiki[];
   total_pages: number;
