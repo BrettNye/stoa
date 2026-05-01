@@ -105,6 +105,37 @@ describe("parseReadySignals", () => {
     expect(out).toHaveLength(1);
     expect(out[0].branch).toBe("feat/foo");
   });
+
+  it("parseReadySignals — filters merge-record outcomes from the same channel", () => {
+    const entries = [
+      {
+        // Real ready signal
+        journal_id: "journal-2026-05-01-0623-ready-branchfeat-foo-pr-1",
+        body: "ready: branch=feat-foo PR-1 ready for review",
+        posted_at: "2026-05-01T06:23:00.000Z",
+        author: "agent:bulbasaur",
+      },
+      {
+        // Merge-record outcome — must be filtered out
+        journal_id: "journal-2026-05-01-0626-merge-1-merged",
+        body: "# Merge PR #1 — merged\n\n**PR:** #1\n**Branch:** feat-foo\n**Status:** merged\n\n## Ready signal\n[[wikis/_agents/journal/journal-2026-05-01-0623-ready-branchfeat-foo-pr-1]]",
+        posted_at: "2026-05-01T06:26:00.000Z",
+        author: "agent:mewtwo",
+      },
+      {
+        // Halted-conflict outcome — must also be filtered
+        journal_id: "journal-2026-05-01-0624-merge-2-halted-conflict",
+        body: "# Merge PR #2 — halted-conflict\n\n**PR:** #2\n**Status:** halted-conflict\n\n## What happened\nConflict on shared.txt",
+        posted_at: "2026-05-01T06:24:00.000Z",
+        author: "agent:mewtwo",
+      },
+    ];
+    const result = parseReadySignals(entries);
+    expect(result.length).toBe(1);
+    expect(result[0].journal_id).toBe("journal-2026-05-01-0623-ready-branchfeat-foo-pr-1");
+    expect(result[0].branch).toBe("feat-foo");
+    expect(result[0].pr_number).toBe(1);
+  });
 });
 
 // ---------- mapReadyToTasks ----------

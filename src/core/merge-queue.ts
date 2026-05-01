@@ -45,6 +45,7 @@ export interface MergeQueueOutput {
 
 const READY_RE = /ready[:\s]+(?:branch[:\s]+)?(\S+)/i;
 const PR_RE = /(?:PR-|#)(\d+)/;
+const MERGE_RECORD_ID = /-merge-\d+-(merged|failed|halted-conflict|halted-red-ci)$/;
 
 export function parseReadySignals(
   channelEntries: Array<{
@@ -56,6 +57,11 @@ export function parseReadySignals(
 ): ReadyEntry[] {
   const out: ReadyEntry[] = [];
   for (const entry of channelEntries) {
+    // Skip merge-record outcomes — they live on the same channel feed but are
+    // not ready signals. (Their `## Ready signal` H2 + `**PR:** #N` line would
+    // otherwise pass both regex tests.)
+    if (MERGE_RECORD_ID.test(entry.journal_id)) continue;
+
     const readyMatch = entry.body.match(READY_RE);
     const prMatch = entry.body.match(PR_RE);
     if (!readyMatch || !prMatch) continue;
