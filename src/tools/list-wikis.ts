@@ -1,9 +1,10 @@
 // vault-mcp/src/tools/list-wikis.ts
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { listWikis } from "../core/wikis.js";
-import type { IndexedWiki } from "../core/index.js";
+import { loadIndex, type IndexedWiki } from "../core/index.js";
+import { findOnDisk } from "../core/disk-fallback.js";
 
 const Input = z.object({
   include_reserved: z.boolean().default(false),
@@ -46,12 +47,77 @@ function loadFamiliesRollup(vaultPath: string): Record<string, FamilyRollupEntry
   }
 }
 
+/**
+ * v1.7 §5.4 — disk-fallback augmentation for `page_counts`. Walks every
+ * `wikis/<wiki>/<type-folder>/<id>.md` and records pages absent from
+ * `_index/pages.json`, validating each via `findOnDisk` (which guards against
+ * id-mismatch). Returns a map of `wiki -> { type -> count }` for the
+ * disk-only surplus. Index-first preserved — the indexed counts come from
+ * `IndexedWiki.page_counts`; this only adds the surplus on top.
+ */
+const TYPE_FOLDERS_FOR_COUNT = [
+  "concepts", "guides", "decisions", "specs", "synthesis",
+  "ideas", "questions", "sources", "journal", "tasks",
+  "profiles", "plans"
+] as const;
+
+const FOLDER_TO_TYPE: Record<string, string> = {
+  concepts: "concept", guides: "guide", decisions: "decision",
+  specs: "spec", synthesis: "synthesis", ideas: "idea",
+  questions: "question", sources: "source", journal: "journal",
+  tasks: "task", profiles: "profile", plans: "plan"
+};
+
+function diskOnlyPageCounts(
+  vaultPath: string,
+  indexedIds: Set<string>
+): Record<string, Record<string, number>> {
+  const wikisDir = join(vaultPath, "wikis");
+  if (!existsSync(wikisDir)) return {};
+  const out: Record<string, Record<string, number>> = {};
+  for (const wiki of readdirSync(wikisDir)) {
+    const wikiDir = join(wikisDir, wiki);
+    for (const folder of TYPE_FOLDERS_FOR_COUNT) {
+      const dir = join(wikiDir, folder);
+      if (!existsSync(dir)) continue;
+      for (const file of readdirSync(dir)) {
+        if (!file.endsWith(".md")) continue;
+        const id = file.replace(/\.md$/, "");
+        if (indexedIds.has(id)) continue;
+        const verified = findOnDisk(vaultPath, id);
+        if (!verified) continue;
+        if (verified.wiki !== wiki) continue;
+        const type = FOLDER_TO_TYPE[folder] ?? folder;
+        if (!out[wiki]) out[wiki] = {};
+        out[wiki][type] = (out[wiki][type] ?? 0) + 1;
+      }
+    }
+  }
+  return out;
+}
+
 export const listWikisTool = {
   name: "vault.list-wikis",
   description: "List all visible wikis (always includes _agents; pass include_reserved for _archive etc.). Optional family: filters to one family; group_by_family: returns a rollup shape.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
     const all = listWikis(ctx.vaultPath, { include_reserved: input.include_reserved });
+
+    // v1.7 §5.4 — augment each wiki's `page_counts` with on-disk-only pages.
+    // The index-derived counts come from `IndexedWiki.page_counts` (fast
+    // path); the disk scan adds entries authored on disk between reindexes.
+    const idx = loadIndex(ctx.vaultPath);
+    const indexedIds = new Set(idx.pages.map(p => p.id));
+    const surplus = diskOnlyPageCounts(ctx.vaultPath, indexedIds);
+    for (const w of all) {
+      const extra = surplus[w.name];
+      if (!extra) continue;
+      const merged: Record<string, number> = { ...w.page_counts };
+      for (const [type, n] of Object.entries(extra)) {
+        merged[type] = (merged[type] ?? 0) + n;
+      }
+      w.page_counts = merged;
+    }
 
     // Apply optional family filter first (narrows the working set for both
     // shapes below).

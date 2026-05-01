@@ -245,6 +245,38 @@ describe("phase-3 T3-1 — vault.merge-queue tool", () => {
     expect(result.warnings).toEqual([]);
   });
 
+  it("findOnDisk fallback: ready-signal journal on disk but not in idx still surfaces (v1.7 §5.4)", async () => {
+    vault = seedSingleWikiVault();
+    const channel = "feat-fallback-progress";
+
+    // Task with branch_suffix=fallback, claimed by charmander.
+    writeTask(vault, "alpha", "task-fallback", {
+      channel, branch_suffix: "fallback", status: "claimed",
+      claimed_by: "agent:charmander", blocking: []
+    });
+
+    // Reindex: at this point pages.json knows about the task only.
+    reindex(vault);
+
+    // NOW write the ready-signal journal on disk WITHOUT reindexing again.
+    // The index-based tailChannel will not see this entry.
+    writeJournal(vault, "alpha", "journal-2026-05-01-1200-ready-pr42", channel,
+      "agent:charmander", "2026-05-01T12:00:00Z",
+      "ready: branch=feat/fallback/fallback PR-42");
+
+    const result = await mergeQueueTool.handler(
+      { channel, wiki: "alpha", since: "2026-01-01T00:00:00Z" },
+      { vaultPath: vault }
+    );
+
+    // With findOnDisk fallback: the on-disk journal is recovered, the ready
+    // signal is parsed, and the PR shows up in ready_prs with author resolved.
+    expect(result.ready_prs).toHaveLength(1);
+    expect(result.ready_prs[0].pr_number).toBe(42);
+    expect(result.ready_prs[0].task_id).toBe("task-fallback");
+    expect(result.ready_prs[0].author).toBe("agent:charmander");
+  });
+
   it("family: filter pulls tasks + journals across all family members", async () => {
     vault = mkdtempSync(join(tmpdir(), "vault-mq-fam-"));
     mkdirSync(join(vault, "_index"), { recursive: true });

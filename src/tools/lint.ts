@@ -3,6 +3,7 @@ import { z } from "zod";
 import { lint } from "../core/lint.js";
 import { loadIndex } from "../core/index.js";
 import { runRegisteredChecks, type LintCheckCtx } from "../core/lint-check.js";
+import { findOnDisk } from "../core/disk-fallback.js";
 
 // Side-effect-only imports: each module calls registerLintCheck() at load
 // time. The IMPORTS THEMSELVES ARE THE WIRING — they look unused, but they
@@ -21,6 +22,12 @@ const Input = z.object({
   wiki: z.string().optional(),
   level: z.enum(["error", "warning", "info"]).default("warning")
 });
+
+// v1.7 §5.4 — extract the unknown-id from a CROSS_WIKI_LINK_BROKEN diagnostic
+// message so the post-processing pass can verify the target on disk. Mirrors
+// the format emitted by `core/lint-checks/cross-wiki-link-broken.ts`:
+//   `... — unknown id "<id>"` (and possibly `unknown wiki "<name>", unknown id "<id>"`).
+const UNKNOWN_ID_RE = /unknown id "([^"]+)"/;
 
 export const lintTool = {
   name: "vault.lint",
@@ -44,6 +51,21 @@ export const lintTool = {
       fetcher: ctx.fetcher,
     };
     result.diagnostics.push(...runRegisteredChecks(lintCheckCtx, idx, input));
+
+    // v1.7 §5.4 — disk-fallback for CROSS_WIKI_LINK_BROKEN. The check uses
+    // `idx.pages` to validate target ids; pages on disk but not yet indexed
+    // would be falsely flagged. Suppress diagnostics whose unknown-id refers
+    // to a page that exists on disk. Index-first preserved — `findOnDisk` is
+    // only invoked on the diagnostic emission, never on every link.
+    result.diagnostics = result.diagnostics.filter(d => {
+      if (d.code !== "CROSS_WIKI_LINK_BROKEN") return true;
+      const m = UNKNOWN_ID_RE.exec(d.message);
+      if (!m) return true;  // wiki-unknown-only diagnostic — keep
+      const targetId = m[1];
+      const onDisk = findOnDisk(ctx.vaultPath, targetId);
+      // Drop the diagnostic when the target id is recoverable from disk.
+      return onDisk === null;
+    });
 
     // Recompute summary so registry-emitted diagnostics are counted.
     result.summary = {

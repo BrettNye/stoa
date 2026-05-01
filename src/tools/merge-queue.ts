@@ -23,11 +23,15 @@
 //
 // Flat zod schema. `z.discriminatedUnion` is incompatible with the MCP SDK
 // per the carry-forward gotcha documented on `rewrite-links.ts`.
+import { existsSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { z } from "zod";
 import { tailChannel, type TailEntry } from "../core/channel.js";
 import { listTasks, type TaskSummary } from "../core/tasks.js";
 import { loadIndex } from "../core/index.js";
 import { resolveFamily, membersOf } from "../core/family.js";
+import { findOnDisk } from "../core/disk-fallback.js";
+import { resolveCurrent } from "../core/aliases.js";
 import {
   buildMergeQueue,
   type MergeQueueOutput,
@@ -101,6 +105,71 @@ function toChannelEntries(
 }
 
 /**
+ * v1.7 §5.4 — disk-fallback for ready-signal journal entries. Scans
+ * `wikis/<wiki>/journal/*.md` for journal pages on the named channel that
+ * post-date `since`, dedupes against the index-based `tailEntries` set, and
+ * returns the surplus entries with the same alias-overlay treatment
+ * `tailChannel` applies. Index-first semantics preserved — this only fires
+ * when the index has a stale view of recent journal writes.
+ */
+function findOnDiskJournals(
+  vaultPath: string,
+  channel: string,
+  since: string,
+  wikis: string[] | undefined,
+  alreadySeen: Set<string>
+): TailEntry[] {
+  const wikisDir = join(vaultPath, "wikis");
+  if (!existsSync(wikisDir)) return [];
+  const candidateWikis = wikis ?? readdirSync(wikisDir);
+  const out: TailEntry[] = [];
+  for (const wiki of candidateWikis) {
+    const journalDir = join(wikisDir, wiki, "journal");
+    if (!existsSync(journalDir)) continue;
+    for (const file of readdirSync(journalDir)) {
+      if (!file.endsWith(".md")) continue;
+      const id = file.replace(/\.md$/, "");
+      if (alreadySeen.has(id)) continue;
+      // Verify via findOnDisk (defensive id-mismatch guard).
+      const verified = findOnDisk(vaultPath, id);
+      if (!verified) continue;
+      if (verified.type !== "journal") continue;
+      const fm = verified.frontmatter;
+      if (String(fm.channel ?? "") !== channel) continue;
+      const created = String(fm.created ?? "");
+      if (created < since) continue;
+
+      const author = String(fm.author ?? "unknown");
+      let current_alias: string | undefined;
+      if (author.startsWith("agent:")) {
+        const bare = author.slice("agent:".length);
+        const profileId = `profile-${bare}`;
+        const current = resolveCurrent(vaultPath, profileId);
+        if (current !== profileId) {
+          current_alias = current.startsWith("profile-")
+            ? current.slice("profile-".length)
+            : current;
+        }
+      }
+
+      // Re-parse the body from the verified file path — findOnDisk already
+      // gave us body, so just use it.
+      const entry: TailEntry = {
+        id: String(fm.id ?? id),
+        wiki: verified.wiki,
+        author,
+        created,
+        body: verified.body
+      };
+      if (current_alias) entry.current_alias = current_alias;
+      if (fm.session_id) entry.session_id = String(fm.session_id);
+      out.push(entry);
+    }
+  }
+  return out;
+}
+
+/**
  * Convert `TaskSummary[]` (from task-list) → `TaskRef[]` (what `buildMergeQueue`
  * consumes). `claimed_by` is left optional: the unready_prs path tolerates an
  * empty string when the task is unclaimed.
@@ -156,7 +225,20 @@ export const mergeQueueTool = {
     }
 
     const tail = tailAcross(ctx.vaultPath, input.channel, since, wikis);
-    const channelEntries = toChannelEntries(tail);
+
+    // v1.7 §5.4 — append on-disk journal entries for the channel that the
+    // index hasn't caught up to yet. Index-first preserved: this scan runs
+    // after the fast-path tail and only adds entries the tail didn't return.
+    const seenIds = new Set(tail.map(e => e.id));
+    const diskOnly = findOnDiskJournals(
+      ctx.vaultPath,
+      input.channel,
+      since,
+      wikis,
+      seenIds
+    );
+    const allEntries = [...tail, ...diskOnly];
+    const channelEntries = toChannelEntries(allEntries);
 
     // Task scope mirrors the channel scope: explicit wiki → that wiki, family
     // → each member, neither → all wikis (listTasks with `wiki: undefined`).

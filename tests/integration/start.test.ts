@@ -91,3 +91,61 @@ moveset: []
     expect(r.pokemon_state?.pokemon_type).toBe("fire");
   });
 });
+
+describe("integration — start finds profile via findOnDisk fallback (v1.7 §5.4)", () => {
+  it("returns pokemon_state when the profile lives outside _agents/profiles (disk-only)", async () => {
+    const vaultPath = mkdtempSync(join(tmpdir(), "vault-start-fallback-"));
+    try {
+      // Seed a normal alpha wiki so map lookup succeeds.
+      mkdirSync(join(vaultPath, "wikis", "alpha"), { recursive: true });
+      mkdirSync(join(vaultPath, "_index"), { recursive: true });
+      writeFileSync(join(vaultPath, "_index", "aliases.json"), "{}");
+      writeFileSync(join(vaultPath, "wikis", "alpha", "map.md"),
+        `---
+id: map-alpha
+type: map
+title: alpha
+created: 2026-05-01
+wiki: alpha
+status: active
+summary: x
+updated: 2026-05-01
+---
+
+# alpha map
+`);
+      // Place the profile under a non-_agents wiki's profiles folder.
+      // readProfile only looks in wikis/_agents/profiles, so this is invisible
+      // to it. findOnDisk walks every wiki/<type-folder>, so the fallback
+      // catches it.
+      mkdirSync(join(vaultPath, "wikis", "alpha", "profiles"), { recursive: true });
+      writeFileSync(join(vaultPath, "wikis", "alpha", "profiles", "profile-charmander.md"),
+        `---
+id: profile-charmander
+type: profile
+title: Charmander
+created: 2026-05-01
+wiki: alpha
+status: active
+summary: Backend
+pokemon_type: fire
+evolution_stage: basic
+moveset: []
+---
+
+# Charmander
+`);
+
+      const r = await startTool.handler(
+        { wiki: "alpha", pokemon: "charmander" },
+        { vaultPath }
+      );
+
+      expect(r.pokemon_state).toBeDefined();
+      expect(r.pokemon_state?.name).toBe("charmander");
+      expect(r.pokemon_state?.pokemon_type).toBe("fire");
+    } finally {
+      rmSync(vaultPath, { recursive: true, force: true });
+    }
+  });
+});

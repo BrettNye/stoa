@@ -3,6 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { lint } from "../../src/core/lint.js";
+import { lintTool } from "../../src/tools/lint.js";
 import { reindex } from "../../src/core/reindex.js";
 
 let vault: string;
@@ -281,6 +282,72 @@ author: agent:charmander
     expect(drift).toBeDefined();
     expect(drift?.severity).toBe("warning");
     rmSync(v, { recursive: true, force: true });
+  });
+
+  it("CROSS_WIKI_LINK_BROKEN — does NOT flag when the target id exists on disk but not in idx (v1.7 §5.4)", async () => {
+    const v = mkdtempSync(join(tmpdir(), "vault-lint-fallback-"));
+    try {
+      mkdirSync(join(v, "wikis", "alpha", "concepts"), { recursive: true });
+      mkdirSync(join(v, "wikis", "alpha", "decisions"), { recursive: true });
+      mkdirSync(join(v, "_index"), { recursive: true });
+
+      writeFileSync(join(v, "wikis", "alpha", "map.md"), `---
+id: map-alpha
+title: alpha
+type: map
+wiki: alpha
+status: active
+created: 2026-05-01
+updated: 2026-05-01
+summary: m
+---
+m
+`);
+      // Source page references a target via wikilink.
+      writeFileSync(join(v, "wikis", "alpha", "concepts", "concept-source.md"), `---
+id: concept-source
+title: Source
+type: concept
+wiki: alpha
+status: active
+created: 2026-05-01
+updated: 2026-05-01
+summary: s
+---
+Body links to [[wikis/alpha/decisions/decision-2026-05-01-target]] for context.
+`);
+      // First reindex — only concept-source is indexed.
+      reindex(v);
+
+      // NOW write the target on disk WITHOUT reindexing again. The wikilink's
+      // target id is therefore unknown to idx.pages but exists on disk.
+      writeFileSync(join(v, "wikis", "alpha", "decisions", "decision-2026-05-01-target.md"), `---
+id: decision-2026-05-01-target
+title: Target
+type: decision
+wiki: alpha
+status: accepted
+created: 2026-05-01
+updated: 2026-05-01
+summary: t
+confidence: high
+---
+target body
+`);
+
+      // Use the tool handler so registered checks (including
+      // cross-wiki-link-broken) actually run.
+      const r = await lintTool.handler({ wiki: "alpha", level: "error" }, { vaultPath: v });
+      const broken = r.diagnostics.find((d: any) =>
+        d.code === "CROSS_WIKI_LINK_BROKEN" &&
+        d.page_id === "concept-source"
+      );
+      // With findOnDisk fallback in cross-wiki-link-broken, the on-disk target
+      // is recovered and the link is NOT flagged as broken.
+      expect(broken).toBeUndefined();
+    } finally {
+      rmSync(v, { recursive: true, force: true });
+    }
   });
 
   it("MOVE_APPLIES_TO_INCONSISTENT — info when a move's applies_to omits a runtime the profile uses", () => {
