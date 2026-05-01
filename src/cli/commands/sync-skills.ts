@@ -15,7 +15,9 @@ export function registerSyncSkills(p: Command) {
           repo_path: repoPath,
           pokemon: opts.pokemon,
           target: opts.target as "claude-code" | "openclaw" | "codex",
-          mode: opts.mode as "copy" | "symlink"
+          mode: opts.mode as "copy" | "symlink",
+          reverify: false,
+          fix: false
         },
         { vaultPath: ctx.vaultPath }
       );

@@ -108,7 +108,7 @@ describe("phase-3 T3-2 — vault.merge-record tool", () => {
       status: "claimed",
       claimed_by: "agent:charmander"
     });
-    reindex(vault);
+    await reindex(vault);
 
     const result = await mergeRecordTool.handler(
       {
@@ -145,7 +145,7 @@ describe("phase-3 T3-2 — vault.merge-record tool", () => {
   it("status=merged + no task_id: journal written, task_updated=false", async () => {
     vault = seedVault();
     writeProfile(vault, "profile-charmander");
-    reindex(vault);
+    await reindex(vault);
 
     const result = await mergeRecordTool.handler(
       {
@@ -170,7 +170,7 @@ describe("phase-3 T3-2 — vault.merge-record tool", () => {
       status: "claimed",
       claimed_by: "agent:charmander"
     });
-    reindex(vault);
+    await reindex(vault);
 
     const result = await mergeRecordTool.handler(
       {
@@ -204,7 +204,7 @@ describe("phase-3 T3-2 — vault.merge-record tool", () => {
       status: "claimed",
       claimed_by: "agent:charmander"
     });
-    reindex(vault);
+    await reindex(vault);
 
     const result = await mergeRecordTool.handler(
       {
@@ -231,7 +231,7 @@ describe("phase-3 T3-2 — vault.merge-record tool", () => {
       status: "claimed",
       claimed_by: "agent:charmander"
     });
-    reindex(vault);
+    await reindex(vault);
 
     const result = await mergeRecordTool.handler(
       {
@@ -257,7 +257,7 @@ describe("phase-3 T3-2 — vault.merge-record tool", () => {
     // Profile starts as charmander, then renamed to charmeleon.
     writeProfile(vault, "profile-charmeleon");
     recordRename(vault, "profile-charmander", "profile-charmeleon");
-    reindex(vault);
+    await reindex(vault);
 
     const result = await mergeRecordTool.handler(
       {
@@ -278,7 +278,7 @@ describe("phase-3 T3-2 — vault.merge-record tool", () => {
   it("unknown agent_id: throws UnknownAgentError; no journal file written", async () => {
     vault = seedVault();
     // No profile, no alias.
-    reindex(vault);
+    await reindex(vault);
 
     await expect(
       mergeRecordTool.handler(
@@ -303,7 +303,7 @@ describe("phase-3 T3-2 — vault.merge-record tool", () => {
     vault = seedVault();
     writeProfile(vault, "profile-charmander");
     // Reindex BEFORE the task exists, so the index does NOT know about it.
-    reindex(vault);
+    await reindex(vault);
     // Now create the task on disk (simulates direct file authoring between
     // reindexes — the scenario that surfaced the bug in Phase-3 Wave 5 T5-3).
     writeTask(vault, "alpha", "task-disk-only", {
@@ -336,7 +336,7 @@ describe("phase-3 T3-2 — vault.merge-record tool", () => {
   it("disk-scan fallback: task truly missing → task_updated=false but journal still written", async () => {
     vault = seedVault();
     writeProfile(vault, "profile-charmander");
-    reindex(vault);
+    await reindex(vault);
 
     const result = await mergeRecordTool.handler(
       {
@@ -358,7 +358,7 @@ describe("phase-3 T3-2 — vault.merge-record tool", () => {
   it("idempotent re-run: same now + same input → same journal_id, file overwritten safely", async () => {
     vault = seedVault();
     writeProfile(vault, "profile-charmander");
-    reindex(vault);
+    await reindex(vault);
 
     // Pin `now` so both calls produce the same journal_id.
     const fixedNow = "2026-04-30T15:55:27.000Z";

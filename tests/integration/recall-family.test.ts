@@ -36,7 +36,7 @@ function writePage(
   );
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   vault = mkdtempSync(join(tmpdir(), "vault-recall-fam-"));
   mkdirSync(join(vault, "_index"), { recursive: true });
 
@@ -120,7 +120,7 @@ beforeEach(() => {
     tags: "[auth]"
   }, "Meta auth content.");
 
-  reindex(vault);
+  await reindex(vault);
 });
 
 afterEach(() => {

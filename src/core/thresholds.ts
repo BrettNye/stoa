@@ -70,8 +70,17 @@ export function readThresholds(vaultPath: string): EvolutionThresholds | null {
   try {
     // Use gray-matter to parse the YAML body via its bundled js-yaml engine.
     // We wrap the body in frontmatter delimiters so `matter()` treats it as YAML.
+    //
+    // NOTE: passing the empty options object `{}` is deliberate. gray-matter
+    // has a global content-keyed cache that's bypassed when ANY options arg is
+    // supplied (lib/index.js: `if (!options) { ... cache code ... }`).
+    // Without it, repeated reads with identical malformed bodies in a single
+    // process would see the SECOND call return `data: {}` from cache instead
+    // of re-throwing the YAML parse error — surfacing a misleading downstream
+    // schema-validation error in place of the real parse error. v1.7 §5.7
+    // mirrors the same fix already applied to core/display-config.ts.
     const wrapped = `---\n${body}\n---\n`;
-    const result = matter(wrapped);
+    const result = matter(wrapped, {});
     parsed = result.data;
   } catch (err) {
     throw new ThresholdBlockError(

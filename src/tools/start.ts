@@ -7,6 +7,7 @@ import { listTasks } from "../core/tasks.js";
 import { computeChannelActivity, loadAsciiHeader, formatAsciiHeader } from "../core/start.js";
 import { resolveFamily, membersOf } from "../core/family.js";
 import { loadIndex } from "../core/index.js";
+import { findOnDisk } from "../core/disk-fallback.js";
 import { resolveWiki } from "./_resolve-wiki.js";
 import {
   renderSprite,
@@ -242,11 +243,26 @@ export const startTool = {
     let pokeapiUrl: string | undefined = undefined;
     let spriteVariant: SpriteVariant = "front_default";
     if (input.pokemon) {
+      const profileId = input.pokemon.startsWith("profile-")
+        ? input.pokemon
+        : `profile-${input.pokemon}`;
+      // Fast path: readProfile (looks in wikis/_agents/profiles + alias overlay).
+      // Slow path (v1.7 §5.4): findOnDisk fallback when the profile lives in a
+      // non-canonical location (e.g., authored under a non-_agents wiki, or
+      // moved between wikis without alias-recording). Index-first semantics
+      // preserved — the disk scan only fires on miss.
+      let profileFm: Record<string, any> | null = null;
       try {
-        const profileId = input.pokemon.startsWith("profile-")
-          ? input.pokemon
-          : `profile-${input.pokemon}`;
         const p = readProfile(ctx.vaultPath, profileId);
+        profileFm = p.frontmatter;
+      } catch (e) {
+        if (!(e instanceof ProfileNotFoundError)) throw e;
+        const onDisk = findOnDisk(ctx.vaultPath, profileId);
+        if (onDisk && onDisk.type === "profile") {
+          profileFm = onDisk.frontmatter;
+        }
+      }
+      if (profileFm) {
         const name = profileId.slice("profile-".length);
         const claimedTasks = listTasks(ctx.vaultPath, {
           claimed_by: `agent:${name}`,
@@ -254,24 +270,22 @@ export const startTool = {
         });
         pokemonState = {
           name,
-          pokemon_type: String(p.frontmatter.pokemon_type ?? "normal"),
-          evolution_stage: String(p.frontmatter.evolution_stage ?? "basic"),
+          pokemon_type: String(profileFm.pokemon_type ?? "normal"),
+          evolution_stage: String(profileFm.evolution_stage ?? "basic"),
           active_tasks: claimedTasks.map(t => ({
             id: t.id, title: t.title, status: t.status
           }))
         };
-        if (Array.isArray(p.frontmatter.channels_tailed)) {
-          channelsTailed = p.frontmatter.channels_tailed.map(String);
+        if (Array.isArray(profileFm.channels_tailed)) {
+          channelsTailed = profileFm.channels_tailed.map(String);
         }
         // v1.6 Phase 3 T2-1 — sprite render inputs from profile frontmatter.
-        if (typeof p.frontmatter.pokeapi_url === "string" && p.frontmatter.pokeapi_url.length > 0) {
-          pokeapiUrl = p.frontmatter.pokeapi_url;
+        if (typeof profileFm.pokeapi_url === "string" && profileFm.pokeapi_url.length > 0) {
+          pokeapiUrl = profileFm.pokeapi_url;
         }
-        if (typeof p.frontmatter.sprite_variant === "string" && p.frontmatter.sprite_variant.length > 0) {
-          spriteVariant = p.frontmatter.sprite_variant as SpriteVariant;
+        if (typeof profileFm.sprite_variant === "string" && profileFm.sprite_variant.length > 0) {
+          spriteVariant = profileFm.sprite_variant as SpriteVariant;
         }
-      } catch (e) {
-        if (!(e instanceof ProfileNotFoundError)) throw e;
       }
     }
 

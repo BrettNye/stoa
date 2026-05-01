@@ -8,7 +8,7 @@ import { reindex } from "../../src/core/reindex.js";
 describe("tailChannel — since normalization (T3-5)", () => {
   let vaultPath: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vaultPath = mkdtempSync(join(tmpdir(), "vault-since-"));
     mkdirSync(join(vaultPath, "wikis", "alpha", "journal"), { recursive: true });
     mkdirSync(join(vaultPath, "_index"), { recursive: true });
@@ -25,7 +25,7 @@ channel: feat-x
 ---
 body
 `);
-    reindex(vaultPath);
+    await reindex(vaultPath);
   });
 
   afterEach(() => {

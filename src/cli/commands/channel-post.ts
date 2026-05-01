@@ -11,7 +11,7 @@ export function registerChannelPost(p: Command) {
     .action(async (channel, content: string[], opts) => {
       const ctx = getCtx();
       const wiki = resolveWiki(opts.wiki, ctx.defaultWiki, ctx.vaultPath);
-      const r = postToChannel(ctx.vaultPath, { channel, content: content.join(" "), wiki, agent_id: opts.agentId ?? "claude-code" });
+      const r = await postToChannel(ctx.vaultPath, { channel, content: content.join(" "), wiki, agent_id: opts.agentId ?? "claude-code" });
       console.log(`posted: ${r.id} (channel: ${r.channel})`);
     });
 }

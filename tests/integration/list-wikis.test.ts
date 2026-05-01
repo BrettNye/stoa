@@ -123,6 +123,65 @@ describe("phase-2 T3-3 — list-wikis family: filter + group_by_family", () => {
     expect(r.unfamilied).toEqual([]);
   });
 
+  it("findOnDisk fallback: page_counts include disk-only pages not yet in idx (v1.7 §5.4)", async () => {
+    const v = mkdtempSync(join(tmpdir(), "vault-lw-fallback-"));
+    try {
+      mkdirSync(join(v, "wikis", "alpha", "concepts"), { recursive: true });
+      mkdirSync(join(v, "_index"), { recursive: true });
+
+      // Index says alpha has 1 concept page. (Stale on purpose.)
+      writeFileSync(join(v, "_index", "wikis.json"), JSON.stringify({
+        wikis: [
+          { name: "alpha", mode: "mixed", scope: "", page_counts: { concept: 1 }, last_touched: "2026-05-01" }
+        ]
+      }));
+      writeFileSync(join(v, "_index", "pages.json"), JSON.stringify({
+        pages: [
+          { id: "concept-indexed", type: "concept", wiki: "alpha", title: "Indexed", summary: "i", tags: [], status: "active", updated: "2026-05-01", created: "2026-05-01", path: "wikis/alpha/concepts/concept-indexed.md" }
+        ]
+      }));
+
+      // The indexed page on disk.
+      writeFileSync(join(v, "wikis", "alpha", "concepts", "concept-indexed.md"), `---
+id: concept-indexed
+title: Indexed
+type: concept
+wiki: alpha
+status: active
+created: 2026-05-01
+updated: 2026-05-01
+summary: i
+---
+indexed body
+`);
+      // A second concept page on disk only — never reindexed.
+      writeFileSync(join(v, "wikis", "alpha", "concepts", "concept-disk-only.md"), `---
+id: concept-disk-only
+title: Disk Only
+type: concept
+wiki: alpha
+status: active
+created: 2026-05-01
+updated: 2026-05-01
+summary: d
+---
+disk-only body
+`);
+
+      const r: any = await listWikisTool.handler(
+        { include_reserved: false, group_by_family: false },
+        { vaultPath: v }
+      );
+      const alpha = r.wikis.find((w: any) => w.name === "alpha");
+      expect(alpha).toBeDefined();
+      // findOnDisk-augmented: the count reflects BOTH the indexed page and
+      // the on-disk-only page.
+      expect(alpha.page_counts.concept).toBe(2);
+    } finally {
+      rmSync(v, { recursive: true, force: true });
+    }
+  });
+
   it("group_by_family: true with no families in vault — empty families[], all wikis in unfamilied", async () => {
     writeFileSync(join(vaultPath, "_index", "wikis.json"), JSON.stringify({
       wikis: [

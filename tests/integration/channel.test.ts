@@ -15,8 +15,8 @@ beforeEach(() => {
 });
 
 describe("postToChannel", () => {
-  it("writes a journal entry with channel field set", () => {
-    const result = postToChannel(vault, {
+  it("writes a journal entry with channel field set", async () => {
+    const result = await postToChannel(vault, {
       channel: "test-chan",
       content: "hello",
       wiki: "alpha",
@@ -26,13 +26,13 @@ describe("postToChannel", () => {
     expect(result.channel).toBe("test-chan");
   });
 
-  it("rejects invalid channel format", () => {
-    expect(() => postToChannel(vault, {
+  it("rejects invalid channel format", async () => {
+    await expect(postToChannel(vault, {
       channel: "Bad Channel!",
       content: "x",
       wiki: "alpha",
       agent_id: "claude-code"
-    })).toThrow();
+    })).rejects.toThrow();
   });
 });
 
@@ -42,11 +42,11 @@ describe("tailChannel", () => {
     expect(result.entries).toHaveLength(0);
   });
 
-  it("returns entries on a channel ordered by created", () => {
-    postToChannel(vault, { channel: "ordered", content: "first", wiki: "alpha", agent_id: "a" });
-    postToChannel(vault, { channel: "ordered", content: "second", wiki: "alpha", agent_id: "a" });
+  it("returns entries on a channel ordered by created", async () => {
+    await postToChannel(vault, { channel: "ordered", content: "first", wiki: "alpha", agent_id: "a" });
+    await postToChannel(vault, { channel: "ordered", content: "second", wiki: "alpha", agent_id: "a" });
     // Reindex so tailChannel can find the just-posted entries via pages.json
-    reindex(vault);
+    await reindex(vault);
     const result = tailChannel(vault, { channel: "ordered" });
     expect(result.entries).toHaveLength(2);
     expect(result.entries[0].body).toContain("first");

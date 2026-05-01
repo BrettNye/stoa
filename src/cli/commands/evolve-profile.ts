@@ -18,13 +18,13 @@ export function registerEvolveProfile(p: Command) {
         }
         const proposal = JSON.parse(readFileSync(opts.proposalFile, "utf8"));
         const r = await evolveProfileTool.handler(
-          { pokemon_id: pokemonId, commit: true, expected_updated: opts.expectedUpdated, proposal },
+          { pokemon_id: pokemonId, commit: true, expected_updated: opts.expectedUpdated, proposal, cleanup_old_skills_dir: true },
           { vaultPath: ctx.vaultPath }
         );
         console.log(JSON.stringify(r, null, 2));
       } else {
         const r = await evolveProfileTool.handler(
-          { pokemon_id: pokemonId, commit: false },
+          { pokemon_id: pokemonId, commit: false, cleanup_old_skills_dir: true },
           { vaultPath: ctx.vaultPath }
         );
         console.log(JSON.stringify(r, null, 2));

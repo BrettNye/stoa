@@ -22,7 +22,7 @@ export interface PostResult {
   channel: string;
 }
 
-export function postToChannel(vaultPath: string, input: PostInput): PostResult {
+export async function postToChannel(vaultPath: string, input: PostInput): Promise<PostResult> {
   if (!KEBAB.test(input.channel)) {
     throw new Error(`channel must be kebab-case: ${input.channel}`);
   }
@@ -43,7 +43,7 @@ export function postToChannel(vaultPath: string, input: PostInput): PostResult {
   };
   if (input.session_id) fm.session_id = input.session_id;
   writeFileSync(path, serializeFrontmatter(fm, input.content));
-  upsertPage(vaultPath, path);
+  await upsertPage(vaultPath, path);
   return { id, path, created: fm.created, channel: input.channel };
 }
 

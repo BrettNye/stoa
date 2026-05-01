@@ -50,7 +50,7 @@ describe("newWiki --family (Phase-2 T3-1)", () => {
     expect(claudeMd).not.toMatch(/^family:/im);
   });
 
-  it("scaffolded family flows through loadWikiMeta + reindex into _index/wikis.json", () => {
+  it("scaffolded family flows through loadWikiMeta + reindex into _index/wikis.json", async () => {
     // End-to-end: the format new-wiki writes must match the regex
     // loadWikiMeta uses (T2-1) and surface on the wikis.json entry (T2-2).
     newWiki(vault, {
@@ -60,12 +60,13 @@ describe("newWiki --family (Phase-2 T3-1)", () => {
       family: "rastate"
     });
     // Sanity: loadWikiMeta picks up the family field directly from disk.
-    expect(loadWikiMeta(vault, "rastate-mcp")).toEqual({ family: "rastate" });
+    // v1.7 §5.7 — loadWikiMeta now also surfaces `mode:` from CLAUDE.md.
+    expect(loadWikiMeta(vault, "rastate-mcp")).toEqual({ family: "rastate", mode: "project-doc" });
 
     // map.md is required so reindex registers the wiki.
     expect(existsSync(join(vault, "wikis", "rastate-mcp", "map.md"))).toBe(true);
 
-    reindex(vault);
+    await reindex(vault);
     const wikisIdx = JSON.parse(
       readFileSync(join(vault, "_index", "wikis.json"), "utf8")
     );

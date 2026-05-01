@@ -15,18 +15,22 @@ type WikiMode = typeof VALID_MODES[number];
 // silently capture the next line's content as the family value.
 // Note the colon-inside-bold form is `**Family:**`, NOT `**Family**:`.
 const WIKI_FAMILY_LINE = /^[ \t]*(?:\*\*[ \t]*family[ \t]*:[ \t]*\*\*|family[ \t]*:)[ \t]*(.*?)[ \t]*$/im;
+// v1.7 §5.7 — mirror the family regex for `mode:`, accepting the same two
+// declaration shapes. Constrained to horizontal whitespace for the same
+// reason (no accidental newline-spanning capture).
+const WIKI_MODE_LINE = /^[ \t]*(?:\*\*[ \t]*mode[ \t]*:[ \t]*\*\*|mode[ \t]*:)[ \t]*(.*?)[ \t]*$/im;
 
 /**
  * Reads `wikis/<wiki>/CLAUDE.md` and extracts the wiki-level metadata
- * (currently just `family:`). Returns `{}` when the file is missing,
- * unreadable, or has no family field. Empty-string family is treated
- * as absent. Used by `core/reindex.ts` to surface `family` on the
- * `IndexedWiki` summary written to `_index/wikis.json`.
+ * (`family:` and `mode:`). Returns `{}` when the file is missing or
+ * unreadable. Each field is omitted from the returned object when not
+ * found or empty (Plan B "default to omission for back-compat" — `family`
+ * and `mode` are not present in the returned object when absent, vs. `null`).
  *
- * Plan B Pre-baked context: "default to omission for back-compat" —
- * `family` is not present in the returned object when absent (vs. `null`).
+ * Used by `core/reindex.ts` to surface `family` and `mode` on the
+ * `IndexedWiki` summary written to `_index/wikis.json`.
  */
-export function loadWikiMeta(vaultPath: string, wiki: string): { family?: string } {
+export function loadWikiMeta(vaultPath: string, wiki: string): { family?: string; mode?: string } {
   const claudePath = join(vaultPath, "wikis", wiki, "CLAUDE.md");
   if (!existsSync(claudePath)) return {};
   let raw: string;
@@ -35,11 +39,18 @@ export function loadWikiMeta(vaultPath: string, wiki: string): { family?: string
   } catch {
     return {};
   }
-  const m = raw.match(WIKI_FAMILY_LINE);
-  if (!m) return {};
-  const family = m[1].trim();
-  if (family.length === 0) return {};
-  return { family };
+  const out: { family?: string; mode?: string } = {};
+  const fm = raw.match(WIKI_FAMILY_LINE);
+  if (fm) {
+    const family = fm[1].trim();
+    if (family.length > 0) out.family = family;
+  }
+  const mm = raw.match(WIKI_MODE_LINE);
+  if (mm) {
+    const mode = mm[1].trim();
+    if (mode.length > 0) out.mode = mode;
+  }
+  return out;
 }
 
 export class WikiExistsError extends Error {

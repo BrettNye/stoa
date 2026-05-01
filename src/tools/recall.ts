@@ -1,8 +1,10 @@
 // vault-mcp/src/tools/recall.ts
 import { z } from "zod";
-import { recall } from "../core/recall.js";
+import { recall, type RecallHit } from "../core/recall.js";
 import { loadIndex } from "../core/index.js";
 import { resolveFamily, membersOf } from "../core/family.js";
+import { findOnDisk } from "../core/disk-fallback.js";
+import { toIsoDate } from "../core/frontmatter.js";
 
 const Input = z.object({
   topic: z.string().min(1),
@@ -59,6 +61,43 @@ export const recallTool = {
     // on family/wiki mismatch is intentionally not invoked here — the wiki
     // filter is authoritative for recall's scope, and a mismatch case should
     // not block a perfectly valid single-wiki call.
-    return recall(ctx.vaultPath, { ...input, wikis });
+    const result = recall(ctx.vaultPath, { ...input, wikis });
+
+    // v1.7 §5.4 — exact-id topic disk-fallback. When the index-based candidate
+    // search returns zero hits AND `topic` matches an on-disk page id verbatim,
+    // surface that page as a single fallback hit. Recovers pages authored on
+    // disk but not yet seen by `vault.reindex`. Index-first semantics
+    // preserved — the disk scan only fires on miss.
+    if (result.hits.length === 0) {
+      const onDisk = findOnDisk(ctx.vaultPath, input.topic);
+      if (onDisk) {
+        const inScope =
+          (input.wiki && onDisk.wiki === input.wiki) ||
+          (!input.wiki && wikis && wikis.includes(onDisk.wiki)) ||
+          (!input.wiki && !wikis);
+        if (inScope) {
+          const fm = onDisk.frontmatter;
+          const fallbackHit: RecallHit = {
+            id: String(fm.id ?? input.topic),
+            title: String(fm.title ?? fm.id ?? input.topic),
+            type: String(fm.type ?? onDisk.type),
+            wiki: onDisk.wiki,
+            summary: String(fm.summary ?? ""),
+            score: 1,
+            status: String(fm.status ?? "draft"),
+            updated: toIsoDate(fm.updated ?? fm.created ?? "")
+          };
+          if (fm.confidence) fallbackHit.confidence = String(fm.confidence);
+          result.hits.push(fallbackHit);
+          result.total_candidates += 1;
+          if (["concept","spec","decision","synthesis","guide","source","idea","question"].includes(fallbackHit.type)) {
+            result.segmented.knowledge += 1;
+          } else if (["task","journal"].includes(fallbackHit.type)) {
+            result.segmented.execution += 1;
+          }
+        }
+      }
+    }
+    return result;
   }
 };

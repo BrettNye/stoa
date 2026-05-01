@@ -8,7 +8,7 @@ import { reindex } from "../../src/core/reindex.js";
 describe("vault.profile-stats", () => {
   let vaultPath: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vaultPath = mkdtempSync(join(tmpdir(), "vault-pstats-"));
     const profilesDir = join(vaultPath, "wikis", "_agents", "profiles");
     mkdirSync(profilesDir, { recursive: true });
@@ -32,7 +32,7 @@ applies_to: [claude-code]
 
 # Charmander
 `);
-    reindex(vaultPath);
+    await reindex(vaultPath);
   });
 
   afterEach(() => {

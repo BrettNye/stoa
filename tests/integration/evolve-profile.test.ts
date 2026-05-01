@@ -7,7 +7,7 @@ import { reindex } from "../../src/core/reindex.js";
 import { parseFrontmatter } from "../../src/core/frontmatter.js";
 import { readAliases } from "../../src/core/aliases.js";
 
-function seedVaultWithProfileAndCompletedTasks(vaultPath: string, taskCount: number, succeedCount: number): void {
+async function seedVaultWithProfileAndCompletedTasks(vaultPath: string, taskCount: number, succeedCount: number): Promise<void> {
   const profilesDir = join(vaultPath, "wikis", "_agents", "profiles");
   mkdirSync(profilesDir, { recursive: true });
   const tasksDir = join(vaultPath, "wikis", "alpha", "tasks");
@@ -48,7 +48,7 @@ claimed_by: agent:charmander
 `);
   }
 
-  reindex(vaultPath);
+  await reindex(vaultPath);
 }
 
 describe("vault.evolve-profile", () => {
@@ -63,7 +63,7 @@ describe("vault.evolve-profile", () => {
   });
 
   it("proposal phase returns eligible:false when thresholds not met", async () => {
-    seedVaultWithProfileAndCompletedTasks(vaultPath, 5, 5);  // only 5 completed, need 30
+    await seedVaultWithProfileAndCompletedTasks(vaultPath, 5, 5);  // only 5 completed, need 30
     const r = await evolveProfileTool.handler(
       { pokemon_id: "profile-charmander", commit: false },
       { vaultPath }
@@ -73,7 +73,7 @@ describe("vault.evolve-profile", () => {
   });
 
   it("proposal phase returns eligible:true when 30+ completed at >=80% success", async () => {
-    seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);  // 30 completed at 100% success
+    await seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);  // 30 completed at 100% success
     const r = await evolveProfileTool.handler(
       { pokemon_id: "profile-charmander", commit: false },
       { vaultPath }
@@ -85,7 +85,7 @@ describe("vault.evolve-profile", () => {
   });
 
   it("commit phase without name updates frontmatter in place (no rename)", async () => {
-    seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
+    await seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
     const profilePath = join(vaultPath, "wikis", "_agents", "profiles", "profile-charmander.md");
     const before = parseFrontmatter(readFileSync(profilePath, "utf8"));
     const proposalResp = await evolveProfileTool.handler(
@@ -115,7 +115,7 @@ describe("vault.evolve-profile", () => {
   });
 
   it("commit phase with a non-null name in proposal renames the profile and records the alias", async () => {
-    seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
+    await seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
     const profilePath = join(vaultPath, "wikis", "_agents", "profiles", "profile-charmander.md");
     const before = parseFrontmatter(readFileSync(profilePath, "utf8"));
     const proposalResp = await evolveProfileTool.handler(
@@ -149,7 +149,7 @@ describe("vault.evolve-profile", () => {
   });
 
   it("commit phase rejects on expected_updated mismatch (OCC)", async () => {
-    seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
+    await seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
     const proposalResp = await evolveProfileTool.handler(
       { pokemon_id: "profile-charmander", commit: false },
       { vaultPath }
@@ -168,7 +168,7 @@ describe("vault.evolve-profile", () => {
   });
 
   it("proposal phase cites memory_page_id in rationale when synthesis-<bare>-memory.md exists", async () => {
-    seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
+    await seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
     const synthDir = join(vaultPath, "wikis", "_agents", "synthesis");
     mkdirSync(synthDir, { recursive: true });
     writeFileSync(join(synthDir, "synthesis-charmander-memory.md"),
@@ -197,7 +197,7 @@ charmander has shown a pattern of refactoring during long sprints.
   });
 
   it("proposal phase falls back to base rationale when memory page does not exist", async () => {
-    seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
+    await seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
     const r = await evolveProfileTool.handler(
       { pokemon_id: "profile-charmander", commit: false },
       { vaultPath }
@@ -209,7 +209,7 @@ charmander has shown a pattern of refactoring during long sprints.
   });
 
   it("commit phase auto-resyncs to deployed repos when registry has entries", async () => {
-    seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
+    await seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
     const repoPath = join(vaultPath, "_fake_repo");
     mkdirSync(join(repoPath, ".claude", "skills", "charmander"), { recursive: true });
     mkdirSync(join(vaultPath, "wikis", "_agents", "moves", "move-tdd-cycle"), { recursive: true });
@@ -255,7 +255,7 @@ TDD content.
   });
 
   it("commit phase migrates deployment registry key on rename", async () => {
-    seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
+    await seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
     writeFileSync(join(vaultPath, "_index", "deployments.json"), JSON.stringify({
       "profile-charmander": [{
         repo_path: "/fake/repo",
@@ -288,7 +288,7 @@ TDD content.
   });
 
   it("commit phase no-ops auto-resync when deployments.json is missing", async () => {
-    seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
+    await seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
     const before = parseFrontmatter(readFileSync(join(vaultPath, "wikis", "_agents", "profiles", "profile-charmander.md"), "utf8"));
     const proposal = await evolveProfileTool.handler(
       { pokemon_id: "profile-charmander", commit: false },
@@ -309,7 +309,7 @@ TDD content.
   it("proposal phase honours custom thresholds from wikis/_agents/CLAUDE.md", async () => {
     // Seed 8 successful tasks: well below the default 30-task threshold,
     // but above a custom 5-task threshold the operator declares.
-    seedVaultWithProfileAndCompletedTasks(vaultPath, 8, 8);
+    await seedVaultWithProfileAndCompletedTasks(vaultPath, 8, 8);
 
     // No CLAUDE.md present yet → default thresholds → not eligible at 8 tasks.
     const beforeOverride = await evolveProfileTool.handler(
@@ -356,7 +356,7 @@ More prose.
   });
 
   it("proposal phase falls back to defaults when threshold block is invalid", async () => {
-    seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
+    await seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
 
     const agentsDir = join(vaultPath, "wikis", "_agents");
     mkdirSync(agentsDir, { recursive: true });
@@ -381,7 +381,7 @@ stage1_to_stage2:
   });
 
   it("commit phase with cleanup_old_skills_dir:true removes pre-rename skills dir on rename", async () => {
-    seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
+    await seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
     const repoPath = join(vaultPath, "_fake_repo");
     const oldSkillsDir = join(repoPath, ".claude", "skills", "charmander");
     mkdirSync(oldSkillsDir, { recursive: true });
@@ -441,7 +441,7 @@ TDD content.
   });
 
   it("commit phase with cleanup_old_skills_dir:false leaves pre-rename skills dir intact", async () => {
-    seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
+    await seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
     const repoPath = join(vaultPath, "_fake_repo");
     const oldSkillsDir = join(repoPath, ".claude", "skills", "charmander");
     mkdirSync(oldSkillsDir, { recursive: true });
@@ -493,7 +493,7 @@ TDD content.
   });
 
   it("commit phase defaults cleanup_old_skills_dir to true when omitted", async () => {
-    seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
+    await seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
     const repoPath = join(vaultPath, "_fake_repo");
     const oldSkillsDir = join(repoPath, ".claude", "skills", "charmander");
     mkdirSync(oldSkillsDir, { recursive: true });
@@ -544,7 +544,7 @@ TDD content.
   });
 
   it("proposal phase sets proposed.name from PokeAPI chain when fetcher is supplied", async () => {
-    seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
+    await seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
     const charmanderResp = {
       name: "charmander",
       types: [{ type: { name: "fire" } }],

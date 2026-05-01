@@ -7,10 +7,10 @@ import { reindex } from "../../src/core/reindex.js";
 const VAULT = process.cwd().replace(/[/\\]vault-mcp[/\\]?$/, "");
 
 describe("Plan D recipes — UC2 + UC4", () => {
-  it("profile-aerodactyl exists and lints clean against _agents wiki", () => {
+  it("profile-aerodactyl exists and lints clean against _agents wiki", async () => {
     const path = join(VAULT, "wikis", "_agents", "profiles", "profile-aerodactyl.md");
     expect(existsSync(path)).toBe(true);
-    reindex(VAULT);
+    await reindex(VAULT);
     const result = lint(VAULT, { wiki: "_agents" });
     const errors = result.diagnostics.filter(d => d.severity === "error" && d.page_id === "profile-aerodactyl");
     expect(errors).toHaveLength(0);
@@ -25,12 +25,12 @@ describe("Plan D recipes — UC2 + UC4", () => {
     expect(content).toMatch(/aerodactyl/i);
   });
 
-  it("profile-bulbasaur + move-research-deposit exist and lint clean", () => {
+  it("profile-bulbasaur + move-research-deposit exist and lint clean", async () => {
     const profilePath = join(VAULT, "wikis", "_agents", "profiles", "profile-bulbasaur.md");
     const movePath = join(VAULT, "wikis", "_agents", "moves", "move-research-deposit", "SKILL.md");
     expect(existsSync(profilePath)).toBe(true);
     expect(existsSync(movePath)).toBe(true);
-    reindex(VAULT);
+    await reindex(VAULT);
     const result = lint(VAULT, { wiki: "_agents" });
     const errors = result.diagnostics.filter(d =>
       d.severity === "error" &&

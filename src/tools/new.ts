@@ -3,6 +3,7 @@ import { z } from "zod";
 import { writePage } from "../core/pages.js";
 import { NoteType, PageStatus } from "../core/frontmatter.js";
 import { generateId } from "../core/ids.js";
+import { upsertPage } from "../core/index.js";
 
 const Input = z.object({
   type: NoteType,
@@ -26,9 +27,14 @@ export const newTool = {
       created: today, status: input.status,
       ...(input.frontmatter ?? {})
     };
-    return writePage(ctx.vaultPath, {
+    const result = writePage(ctx.vaultPath, {
       id, type: input.type, wiki: input.wiki,
       frontmatter: fm, body: input.body ?? `# ${input.title}\n\n`
     });
+    // v1.7 §5.1 — write-through index update so the new page is immediately
+    // visible to loadIndex-based tools (recall, channel-tail, merge-queue,
+    // start, lint) without requiring a manual reindex.
+    await upsertPage(ctx.vaultPath, result.path);
+    return result;
   }
 };

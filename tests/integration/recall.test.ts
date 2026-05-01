@@ -1,13 +1,14 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { recall } from "../../src/core/recall.js";
+import { recallTool } from "../../src/tools/recall.js";
 import { reindex } from "../../src/core/reindex.js";
 
 let vault: string;
 
-beforeEach(() => {
+beforeEach(async () => {
   vault = mkdtempSync(join(tmpdir(), "vault-recall-"));
   mkdirSync(join(vault, "wikis", "alpha", "concepts"), { recursive: true });
   mkdirSync(join(vault, "wikis", "alpha", "synthesis"), { recursive: true });
@@ -58,7 +59,7 @@ confidence: high
 We chose JWT.
 `);
 
-  reindex(vault);
+  await reindex(vault);
 });
 
 describe("recall", () => {
@@ -91,5 +92,47 @@ describe("recall", () => {
   it("respects limit", () => {
     const result = recall(vault, { topic: "auth", limit: 1 });
     expect(result.hits).toHaveLength(1);
+  });
+});
+
+describe("recall — findOnDisk fallback for exact-id topic on unindexed pages (v1.7 §5.4)", () => {
+  it("returns the disk-only page when topic is its exact id", async () => {
+    const v = mkdtempSync(join(tmpdir(), "vault-recall-fallback-"));
+    try {
+      mkdirSync(join(v, "wikis", "alpha", "concepts"), { recursive: true });
+      mkdirSync(join(v, "_index"), { recursive: true });
+
+      // Author a concept page on disk WITHOUT running reindex. The page's
+      // tokens are absent from _index/tokens.json, so the index-based recall
+      // search returns 0 hits even when topic matches the id exactly.
+      writeFileSync(join(v, "wikis", "alpha", "concepts", "concept-disk-only.md"), `---
+id: concept-disk-only
+title: Disk Only
+type: concept
+wiki: alpha
+status: active
+created: 2026-05-01
+updated: 2026-05-01
+summary: A page authored on disk with no reindex
+tags: [v17-fallback]
+---
+Body content.
+`);
+
+      // Empty index sidecars — no reindex was run.
+      writeFileSync(join(v, "_index", "pages.json"), JSON.stringify({ pages: [] }));
+      writeFileSync(join(v, "_index", "tokens.json"), "{}");
+      writeFileSync(join(v, "_index", "wikis.json"), JSON.stringify({ wikis: [] }));
+      writeFileSync(join(v, "_index", "links.json"), "{}");
+
+      const result: any = await recallTool.handler(
+        { topic: "concept-disk-only", layer: "knowledge", include_archive: false, limit: 20 },
+        { vaultPath: v }
+      );
+      expect(result.hits.length).toBeGreaterThan(0);
+      expect(result.hits.some((h: any) => h.id === "concept-disk-only")).toBe(true);
+    } finally {
+      rmSync(v, { recursive: true, force: true });
+    }
   });
 });

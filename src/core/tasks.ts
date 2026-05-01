@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseFrontmatter, toIsoDate } from "./frontmatter.js";
 import { readProfile, ProfileNotFoundError } from "./profiles.js";
+import { findOnDisk } from "./disk-fallback.js";
 
 export class AlreadyClaimedError extends Error {
   constructor(public taskId: string, public claimedBy: string) {
@@ -227,32 +228,26 @@ export interface TaskOnDisk {
  *
  * `tools/merge-record.ts:findTask` consults `_index/pages.json` first (fast path).
  * If a task was created on disk since the last `vault.reindex`, the index lookup
- * misses. This helper does a targeted scan of every `wikis/<wiki>/tasks/<id>.md`
- * to recover the task without forcing a full reindex.
+ * misses. This helper does a targeted scan to recover the task without forcing a
+ * full reindex.
+ *
+ * v1.7 §5.4 — now delegates to the generalized `findOnDisk` in
+ * `core/disk-fallback.ts`. Public contract preserved: returns a `TaskOnDisk`
+ * shape with `{ wiki, updated, status }`, with `updated` ISO-normalized and
+ * the defensive id-mismatch guard intact. Restricts results to `type: "task"`.
  *
  * Returns null when no task with the given id exists in any wiki's tasks/ dir.
  */
 export function findTaskOnDisk(vaultPath: string, taskId: string): TaskOnDisk | null {
-  for (const wiki of listWikiNames(vaultPath)) {
-    const filePath = join(vaultPath, "wikis", wiki, "tasks", `${taskId}.md`);
-    if (!existsSync(filePath)) continue;
-    try {
-      const raw = readFileSync(filePath, "utf8");
-      const { frontmatter: fm } = parseFrontmatter(raw);
-      // Sanity check: the frontmatter id must match (defensive — protects against
-      // tasks that were renamed on disk without `id` being updated).
-      if (String(fm.id) !== taskId) continue;
-      return {
-        wiki,
-        // gray-matter parses unquoted YAML dates as JS Date objects; normalize.
-        updated: toIsoDate(fm.updated),
-        status: String(fm.status ?? "")
-      };
-    } catch {
-      // unreadable / unparseable → skip
-    }
-  }
-  return null;
+  const found = findOnDisk(vaultPath, taskId);
+  if (!found) return null;
+  if (found.type !== "task") return null;
+  return {
+    wiki: found.wiki,
+    // gray-matter parses unquoted YAML dates as JS Date objects; normalize.
+    updated: toIsoDate(found.frontmatter.updated),
+    status: String(found.frontmatter.status ?? "")
+  };
 }
 
 export interface UpdateTaskInput {

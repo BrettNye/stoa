@@ -9,7 +9,7 @@ import { recordRename } from "../../src/core/aliases.js";
 describe("recall — by_agent filter (alias-aware)", () => {
   let vaultPath: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vaultPath = mkdtempSync(join(tmpdir(), "vault-rba-"));
     mkdirSync(join(vaultPath, "wikis", "alpha", "journal"), { recursive: true });
     mkdirSync(join(vaultPath, "_index"), { recursive: true });
@@ -36,7 +36,7 @@ author: agent:squirtle
 ---
 journal y body — feature work
 `);
-    reindex(vaultPath);
+    await reindex(vaultPath);
   });
 
   afterEach(() => {

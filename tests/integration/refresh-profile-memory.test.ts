@@ -9,7 +9,7 @@ import { parseFrontmatter } from "../../src/core/frontmatter.js";
 describe("vault.refresh-profile-memory", () => {
   let vaultPath: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vaultPath = mkdtempSync(join(tmpdir(), "vault-rpm-"));
     const profilesDir = join(vaultPath, "wikis", "_agents", "profiles");
     mkdirSync(profilesDir, { recursive: true });
@@ -56,7 +56,7 @@ author: agent:charmander
 ---
 charmander journal b
 `);
-    reindex(vaultPath);
+    await reindex(vaultPath);
   });
 
   afterEach(() => {
