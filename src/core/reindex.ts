@@ -389,14 +389,21 @@ function reindexFullBody(vaultPath: string, start: number): ReindexResult {
     wikiSummaries.push(summary);
   }
 
-  // Build links: forward + inbound
+  // Build links: forward + inbound. v1.7 §5.5 — skip dangling targets so
+  // reindexFull aligns with reindexScoped's existing behavior. A link to a
+  // nonexistent target does not create an entry in links.json. Forward edges
+  // for the writer still record the full outbound list (including dangling
+  // targets, mirroring reindexScoped's rebuildLinks); only the inbound /
+  // cross-reference side filters dangling.
+  const knownPageIds = new Set(allPages.map(p => p.id));
   const links: Record<string, { outbound: string[]; inbound: string[] }> = {};
   for (const p of allPages) {
-    links[p.id] = links[p.id] ?? { outbound: [], inbound: [] };
+    if (!links[p.id]) links[p.id] = { outbound: [], inbound: [] };
     const outbound: string[] = (p as any).__outbound ?? [];
     links[p.id].outbound = outbound;
     for (const target of outbound) {
-      links[target] = links[target] ?? { outbound: [], inbound: [] };
+      if (!knownPageIds.has(target)) continue;  // skip dangling
+      if (!links[target]) links[target] = { outbound: [], inbound: [] };
       if (!links[target].inbound.includes(p.id)) links[target].inbound.push(p.id);
     }
   }

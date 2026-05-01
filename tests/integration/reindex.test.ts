@@ -516,6 +516,30 @@ pokemon_type: ghost
   });
 });
 
+describe("reindex — full and scoped paths agree on dangling-target handling (v1.7 §5.5)", () => {
+  it("links.json from reindexFull contains no dangling targets", async () => {
+    const vaultPath = mkdtempSync(join(tmpdir(), "vault-dangling-"));
+    mkdirSync(join(vaultPath, "_index"), { recursive: true });
+    // Seed: a page that links to a nonexistent target.
+    mkdirSync(join(vaultPath, "wikis", "alpha", "concepts"), { recursive: true });
+    writeFileSync(join(vaultPath, "wikis", "alpha", "concepts", "concept-source.md"), [
+      "---",
+      "id: concept-source",
+      "title: Source",
+      "type: concept",
+      "wiki: alpha",
+      "created: '2026-05-02T12:00:00.000Z'",
+      "---",
+      "Body links to [[concept-nonexistent-target]]."
+    ].join("\n"));
+
+    await reindex(vaultPath);  // unscoped/full
+
+    const links = JSON.parse(readFileSync(join(vaultPath, "_index", "links.json"), "utf8"));
+    expect(links["concept-nonexistent-target"]).toBeUndefined();
+  });
+});
+
 describe("reindex — concurrent scoped reindex consistency (v1.7 §5.3)", () => {
   it("two concurrent scoped reindexes on different wikis produce consistent sidecars", async () => {
     const vaultPath = mkdtempSync(join(tmpdir(), "vault-reindex-conc-"));
