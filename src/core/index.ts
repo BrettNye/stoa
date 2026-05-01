@@ -200,6 +200,6 @@ export function upsertPage(vaultPath: string, pagePath: string): void {
     if (ts && ts > wikiEntry.last_touched) {
       wikiEntry.last_touched = ts;
     }
-    writeFileSync(wikisPath, JSON.stringify({ wikis }, null, 2));
+    writeFileSync(wikisPath, JSON.stringify({ ...wikisData, wikis }, null, 2));
   }
 }

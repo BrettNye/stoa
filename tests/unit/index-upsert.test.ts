@@ -187,4 +187,41 @@ describe("upsertPage — wikis.json write-through (v1.7 §5.1)", () => {
     expect(beta).toBeDefined();
     expect(beta.page_counts.journal).toBe(1);
   });
+
+  it("preserves the families rollup when upserting", () => {
+    // Seed wikis.json with a families rollup (v1.6 Phase-2 T2-2 shape).
+    writeFileSync(
+      join(vaultPath, "_index", "wikis.json"),
+      JSON.stringify({
+        wikis: [{ name: "alpha", mode: "mixed", scope: "", page_counts: {}, last_touched: "2026-01-01T00:00:00.000Z" }],
+        families: {
+          rastate: {
+            family: "rastate",
+            members: ["rastate-core", "rastate-dev"],
+            total_pages: 0,
+            modes_used: ["project-doc"]
+          }
+        }
+      }, null, 2)
+    );
+
+    const pagePath = join(vaultPath, "wikis", "alpha", "journal", "journal-2026-05-02-1200-test.md");
+    writeFileSync(pagePath, [
+      "---",
+      "id: journal-2026-05-02-1200-test",
+      "title: Test",
+      "type: journal",
+      "wiki: alpha",
+      "created: '2026-05-02T12:00:00.000Z'",
+      "---",
+      "body"
+    ].join("\n"));
+
+    upsertPage(vaultPath, pagePath);
+
+    const wikisData = JSON.parse(readFileSync(join(vaultPath, "_index", "wikis.json"), "utf8"));
+    expect(wikisData.families).toBeDefined();
+    expect(wikisData.families.rastate.family).toBe("rastate");
+    expect(wikisData.families.rastate.members).toEqual(["rastate-core", "rastate-dev"]);
+  });
 });
