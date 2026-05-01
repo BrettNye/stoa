@@ -7,8 +7,9 @@ import { profileStatsTool } from "./profile-stats.js";
 import { parseFrontmatter, serializeFrontmatter } from "../core/frontmatter.js";
 import { EvolutionStage } from "../core/pokemon.js";
 import { readDeployments, migrateDeploymentKey } from "../core/deployments.js";
-import { syncMoveset } from "../core/skills.js";
+import { syncMoveset, removeOldDeployment } from "../core/skills.js";
 import { nextEvolution } from "../core/pokeapi.js";
+import { readThresholds, DEFAULT_THRESHOLDS, ThresholdBlockError, type EvolutionThresholds } from "../core/thresholds.js";
 
 const ProposedShape = z.object({
   name: z.string().nullable(),
@@ -33,11 +34,17 @@ const ProposalShape = z.object({
 
 // Flat z.object so zodToJsonSchema produces type:"object" compatible with MCP SDK.
 // commit:true fields are optional at the schema level; runtime validates them.
+//
+// `cleanup_old_skills_dir` (v1.6 §6.3) defaults to true: when a commit-phase
+// rename occurs, the pre-rename per-deployment skills directory is removed
+// before re-deploying under the new bare name. Pass `false` to leave the old
+// dir on disk (e.g. for a manual side-by-side review during evolution).
 const Input = z.object({
   pokemon_id: z.string(),
   commit: z.boolean().default(false),
   expected_updated: z.string().optional(),
-  proposal: ProposalShape.optional()
+  proposal: ProposalShape.optional(),
+  cleanup_old_skills_dir: z.boolean().default(true)
 });
 
 export const evolveProfileTool = {
@@ -57,6 +64,21 @@ export const evolveProfileTool = {
       const memoryPath = join(ctx.vaultPath, "wikis", "_agents", "synthesis", `synthesis-${bare}-memory.md`);
       const memoryPageId = existsSync(memoryPath) ? `synthesis-${bare}-memory` : undefined;
 
+      // Resolve evolution thresholds per v1.6 §4.4 / §7.3.
+      // Missing or absent block → defaults. Invalid block (ThresholdBlockError)
+      // → also defaults; lint reports the invalid block separately
+      // (THRESHOLD_BLOCK_INVALID, §6 lint registry).
+      let thresholds: EvolutionThresholds;
+      try {
+        thresholds = readThresholds(ctx.vaultPath) ?? DEFAULT_THRESHOLDS;
+      } catch (err) {
+        if (err instanceof ThresholdBlockError) {
+          thresholds = DEFAULT_THRESHOLDS;
+        } else {
+          throw err;
+        }
+      }
+
       const proposal = proposeEvolution({
         profile: {
           id: input.pokemon_id,
@@ -73,7 +95,8 @@ export const evolveProfileTool = {
           success_rate: stats.success_rate,
           moves_used_freq: stats.moves_used_freq
         },
-        memory_page_id: memoryPageId
+        memory_page_id: memoryPageId,
+        thresholds
       });
 
       // PokeAPI-driven naming (Plan C.1c) — only when a fetcher is explicitly provided
@@ -140,6 +163,24 @@ export const evolveProfileTool = {
 
     // Auto-resync deployed repos (Plan C.1c)
     const filesResynced: { repo: string; skills_dir: string }[] = [];
+
+    // v1.6 §6.3: when renaming, optionally remove the pre-rename per-deployment
+    // skills directory. Done BEFORE registry migration + re-deploy so that
+    // re-deploy under the new bare name lands in a clean tree. If cleanup
+    // throws, the error surfaces here and re-deploy never runs (atomic-ish:
+    // no half-cleaned, half-redeployed state on disk). Defaults to true when
+    // omitted: integration tests call the handler directly (bypassing the
+    // Zod parser that would have applied `.default(true)`), so we resolve
+    // the default here as well.
+    const cleanupOldSkillsDir = input.cleanup_old_skills_dir ?? true;
+    if (oldId !== newId && cleanupOldSkillsDir) {
+      const preMigration = readDeployments(ctx.vaultPath);
+      const oldEntries = preMigration[oldId] ?? [];
+      for (const e of oldEntries) {
+        removeOldDeployment(e, oldId);
+      }
+    }
+
     if (oldId !== newId) {
       migrateDeploymentKey(ctx.vaultPath, oldId, newId);
     }

@@ -306,6 +306,243 @@ TDD content.
     expect(r.files_resynced).toEqual([]);
   });
 
+  it("proposal phase honours custom thresholds from wikis/_agents/CLAUDE.md", async () => {
+    // Seed 8 successful tasks: well below the default 30-task threshold,
+    // but above a custom 5-task threshold the operator declares.
+    seedVaultWithProfileAndCompletedTasks(vaultPath, 8, 8);
+
+    // No CLAUDE.md present yet → default thresholds → not eligible at 8 tasks.
+    const beforeOverride = await evolveProfileTool.handler(
+      { pokemon_id: "profile-charmander", commit: false },
+      { vaultPath }
+    );
+    expect(beforeOverride.eligible).toBe(false);
+
+    // Drop a custom threshold block at wikis/_agents/CLAUDE.md.
+    const agentsDir = join(vaultPath, "wikis", "_agents");
+    mkdirSync(agentsDir, { recursive: true });
+    const customClaudeMd = `# _agents — wiki conventions
+
+Some prose.
+
+\`\`\`yaml evolution_thresholds
+basic_to_stage1:
+  tasks_completed: 5
+  success_rate: 0.50
+stage1_to_stage2:
+  tasks_completed: 100
+  success_rate: 0.85
+\`\`\`
+
+More prose.
+`;
+    writeFileSync(join(agentsDir, "CLAUDE.md"), customClaudeMd);
+
+    // With override: 8 tasks at 100% success satisfies the 5/0.50 gate → eligible.
+    const withOverride = await evolveProfileTool.handler(
+      { pokemon_id: "profile-charmander", commit: false },
+      { vaultPath }
+    );
+    expect(withOverride.eligible).toBe(true);
+    expect(withOverride.proposed.evolution_stage).toBe("stage1");
+
+    // Remove the override and re-verify: back to ineligible.
+    rmSync(join(agentsDir, "CLAUDE.md"));
+    const afterRemoval = await evolveProfileTool.handler(
+      { pokemon_id: "profile-charmander", commit: false },
+      { vaultPath }
+    );
+    expect(afterRemoval.eligible).toBe(false);
+  });
+
+  it("proposal phase falls back to defaults when threshold block is invalid", async () => {
+    seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
+
+    const agentsDir = join(vaultPath, "wikis", "_agents");
+    mkdirSync(agentsDir, { recursive: true });
+    // Malformed YAML in the fence — tool must catch ThresholdBlockError and fall back to defaults.
+    const brokenClaudeMd = `\`\`\`yaml evolution_thresholds
+basic_to_stage1:
+  tasks_completed: not-a-number
+  success_rate: 0.80
+stage1_to_stage2:
+  tasks_completed: 100
+  success_rate: 0.85
+\`\`\`
+`;
+    writeFileSync(join(agentsDir, "CLAUDE.md"), brokenClaudeMd);
+
+    // Defaults of 30/0.80 still apply → eligible at 30/100% success.
+    const r = await evolveProfileTool.handler(
+      { pokemon_id: "profile-charmander", commit: false },
+      { vaultPath }
+    );
+    expect(r.eligible).toBe(true);
+  });
+
+  it("commit phase with cleanup_old_skills_dir:true removes pre-rename skills dir on rename", async () => {
+    seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
+    const repoPath = join(vaultPath, "_fake_repo");
+    const oldSkillsDir = join(repoPath, ".claude", "skills", "charmander");
+    mkdirSync(oldSkillsDir, { recursive: true });
+    writeFileSync(join(oldSkillsDir, "_pokemon.json"), "{}");
+
+    // Seed move so re-deploy under new id has something to sync.
+    mkdirSync(join(vaultPath, "wikis", "_agents", "moves", "move-tdd-cycle"), { recursive: true });
+    writeFileSync(join(vaultPath, "wikis", "_agents", "moves", "move-tdd-cycle", "SKILL.md"),
+      `---
+id: move-tdd-cycle
+name: tdd-cycle
+type: move
+wiki: _agents
+status: active
+description: red-green-refactor
+applies_to: [claude-code]
+---
+TDD content.
+`);
+
+    writeFileSync(join(vaultPath, "_index", "deployments.json"), JSON.stringify({
+      "profile-charmander": [{
+        repo_path: repoPath,
+        target: "claude-code",
+        mode: "copy",
+        synced_at: "2026-04-29T00:00:00Z"
+      }]
+    }, null, 2));
+
+    const before = parseFrontmatter(readFileSync(join(vaultPath, "wikis", "_agents", "profiles", "profile-charmander.md"), "utf8"));
+    const proposal = await evolveProfileTool.handler(
+      { pokemon_id: "profile-charmander", commit: false },
+      { vaultPath }
+    );
+    const userEdited = { ...proposal, proposed: { ...proposal.proposed, name: "profile-charmeleon" } };
+
+    await evolveProfileTool.handler(
+      {
+        pokemon_id: "profile-charmander",
+        commit: true,
+        expected_updated: String(before.frontmatter.updated),
+        proposal: userEdited,
+        cleanup_old_skills_dir: true
+      },
+      { vaultPath }
+    );
+
+    // Old skills dir gone, new one present
+    expect(existsSync(oldSkillsDir)).toBe(false);
+    const newSkillsDir = join(repoPath, ".claude", "skills", "charmeleon");
+    expect(existsSync(newSkillsDir)).toBe(true);
+
+    // Registry migrated
+    const reg = JSON.parse(readFileSync(join(vaultPath, "_index", "deployments.json"), "utf8"));
+    expect(reg["profile-charmeleon"]).toBeDefined();
+    expect(reg["profile-charmander"]).toBeUndefined();
+  });
+
+  it("commit phase with cleanup_old_skills_dir:false leaves pre-rename skills dir intact", async () => {
+    seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
+    const repoPath = join(vaultPath, "_fake_repo");
+    const oldSkillsDir = join(repoPath, ".claude", "skills", "charmander");
+    mkdirSync(oldSkillsDir, { recursive: true });
+    writeFileSync(join(oldSkillsDir, "_pokemon.json"), "{}");
+
+    mkdirSync(join(vaultPath, "wikis", "_agents", "moves", "move-tdd-cycle"), { recursive: true });
+    writeFileSync(join(vaultPath, "wikis", "_agents", "moves", "move-tdd-cycle", "SKILL.md"),
+      `---
+id: move-tdd-cycle
+name: tdd-cycle
+type: move
+wiki: _agents
+status: active
+description: red-green-refactor
+applies_to: [claude-code]
+---
+TDD content.
+`);
+
+    writeFileSync(join(vaultPath, "_index", "deployments.json"), JSON.stringify({
+      "profile-charmander": [{
+        repo_path: repoPath,
+        target: "claude-code",
+        mode: "copy",
+        synced_at: "2026-04-29T00:00:00Z"
+      }]
+    }, null, 2));
+
+    const before = parseFrontmatter(readFileSync(join(vaultPath, "wikis", "_agents", "profiles", "profile-charmander.md"), "utf8"));
+    const proposal = await evolveProfileTool.handler(
+      { pokemon_id: "profile-charmander", commit: false },
+      { vaultPath }
+    );
+    const userEdited = { ...proposal, proposed: { ...proposal.proposed, name: "profile-charmeleon" } };
+
+    await evolveProfileTool.handler(
+      {
+        pokemon_id: "profile-charmander",
+        commit: true,
+        expected_updated: String(before.frontmatter.updated),
+        proposal: userEdited,
+        cleanup_old_skills_dir: false
+      },
+      { vaultPath }
+    );
+
+    // Old skills dir REMAINS
+    expect(existsSync(oldSkillsDir)).toBe(true);
+  });
+
+  it("commit phase defaults cleanup_old_skills_dir to true when omitted", async () => {
+    seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
+    const repoPath = join(vaultPath, "_fake_repo");
+    const oldSkillsDir = join(repoPath, ".claude", "skills", "charmander");
+    mkdirSync(oldSkillsDir, { recursive: true });
+    writeFileSync(join(oldSkillsDir, "_pokemon.json"), "{}");
+
+    mkdirSync(join(vaultPath, "wikis", "_agents", "moves", "move-tdd-cycle"), { recursive: true });
+    writeFileSync(join(vaultPath, "wikis", "_agents", "moves", "move-tdd-cycle", "SKILL.md"),
+      `---
+id: move-tdd-cycle
+name: tdd-cycle
+type: move
+wiki: _agents
+status: active
+description: red-green-refactor
+applies_to: [claude-code]
+---
+TDD content.
+`);
+
+    writeFileSync(join(vaultPath, "_index", "deployments.json"), JSON.stringify({
+      "profile-charmander": [{
+        repo_path: repoPath,
+        target: "claude-code",
+        mode: "copy",
+        synced_at: "2026-04-29T00:00:00Z"
+      }]
+    }, null, 2));
+
+    const before = parseFrontmatter(readFileSync(join(vaultPath, "wikis", "_agents", "profiles", "profile-charmander.md"), "utf8"));
+    const proposal = await evolveProfileTool.handler(
+      { pokemon_id: "profile-charmander", commit: false },
+      { vaultPath }
+    );
+    const userEdited = { ...proposal, proposed: { ...proposal.proposed, name: "profile-charmeleon" } };
+
+    // No cleanup_old_skills_dir provided → default true
+    await evolveProfileTool.handler(
+      {
+        pokemon_id: "profile-charmander",
+        commit: true,
+        expected_updated: String(before.frontmatter.updated),
+        proposal: userEdited
+      },
+      { vaultPath }
+    );
+
+    expect(existsSync(oldSkillsDir)).toBe(false);
+  });
+
   it("proposal phase sets proposed.name from PokeAPI chain when fetcher is supplied", async () => {
     seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
     const charmanderResp = {

@@ -6,6 +6,42 @@ const KEBAB = /^_?[a-z0-9]+(-[a-z0-9]+)*$/;
 const VALID_MODES = ["idea-map", "project-doc", "learning", "mixed"] as const;
 type WikiMode = typeof VALID_MODES[number];
 
+// Phase-2 T2-1 — accept BOTH the markdown-bold form (`**Family:** rastate`)
+// emitted by `vault.new-wiki` today and the plain key:value form
+// (`family: rastate`) per spec §5.1. Mirrors the regex pair already
+// battle-tested in core/lint-checks/family-member-mode-drift.ts, but
+// constrains the value to horizontal whitespace (no newline span) so that
+// an empty `**Family:**` line followed by another `**Mode:**` line doesn't
+// silently capture the next line's content as the family value.
+// Note the colon-inside-bold form is `**Family:**`, NOT `**Family**:`.
+const WIKI_FAMILY_LINE = /^[ \t]*(?:\*\*[ \t]*family[ \t]*:[ \t]*\*\*|family[ \t]*:)[ \t]*(.*?)[ \t]*$/im;
+
+/**
+ * Reads `wikis/<wiki>/CLAUDE.md` and extracts the wiki-level metadata
+ * (currently just `family:`). Returns `{}` when the file is missing,
+ * unreadable, or has no family field. Empty-string family is treated
+ * as absent. Used by `core/reindex.ts` to surface `family` on the
+ * `IndexedWiki` summary written to `_index/wikis.json`.
+ *
+ * Plan B Pre-baked context: "default to omission for back-compat" —
+ * `family` is not present in the returned object when absent (vs. `null`).
+ */
+export function loadWikiMeta(vaultPath: string, wiki: string): { family?: string } {
+  const claudePath = join(vaultPath, "wikis", wiki, "CLAUDE.md");
+  if (!existsSync(claudePath)) return {};
+  let raw: string;
+  try {
+    raw = readFileSync(claudePath, "utf8");
+  } catch {
+    return {};
+  }
+  const m = raw.match(WIKI_FAMILY_LINE);
+  if (!m) return {};
+  const family = m[1].trim();
+  if (family.length === 0) return {};
+  return { family };
+}
+
 export class WikiExistsError extends Error {
   constructor(public name: string) { super(`wiki exists: ${name}`); this.name = "WikiExistsError"; }
 }
@@ -32,6 +68,10 @@ export interface NewWikiInput {
   name: string;
   mode: WikiMode;
   scope: string;
+  // Phase-2 T3-1 — optional family declaration. When set, the scaffolded
+  // CLAUDE.md gets a `**Family:** <value>` line right under `**Mode:**`,
+  // matching the bold-with-colon-inside form `loadWikiMeta` recognizes.
+  family?: string;
 }
 
 export interface NewWikiResult {
@@ -53,7 +93,12 @@ export function newWiki(vaultPath: string, input: NewWikiInput): NewWikiResult {
   }
 
   // CLAUDE.md
-  const claudeMd = `# ${input.name} — wiki conventions\n\n**Mode:** ${input.mode}\n**Scope:** ${input.scope}\n\n## Tag vocabulary\n\n(Add wiki-specific tags here as they emerge.)\n\n## Local conventions\n\n(Add wiki-specific rules that extend the vault root CLAUDE.md.)\n`;
+  // Phase-2 T3-1 — emit `**Family:** <name>` between `**Mode:**` and
+  // `**Scope:**` only when the caller passed family. Format intentionally
+  // matches the WIKI_FAMILY_LINE regex in loadWikiMeta above so reindex
+  // picks it up without manual editing.
+  const familyLine = input.family ? `**Family:** ${input.family}\n` : "";
+  const claudeMd = `# ${input.name} — wiki conventions\n\n**Mode:** ${input.mode}\n${familyLine}**Scope:** ${input.scope}\n\n## Tag vocabulary\n\n(Add wiki-specific tags here as they emerge.)\n\n## Local conventions\n\n(Add wiki-specific rules that extend the vault root CLAUDE.md.)\n`;
   writeFileSync(join(root, "CLAUDE.md"), claudeMd);
   created.push("CLAUDE.md");
 

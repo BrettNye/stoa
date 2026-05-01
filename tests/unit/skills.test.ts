@@ -1,10 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync, lstatSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir, platform } from "node:os";
 import {
-  resolveSkillsDir, syncMoveset, SyncResult
+  resolveSkillsDir, syncMoveset, removeOldDeployment, SyncResult
 } from "../../src/core/skills.js";
+import * as skillsPlatform from "../../src/core/skills-platform.js";
+import type { DeploymentEntry } from "../../src/core/deployments.js";
 
 describe("resolveSkillsDir", () => {
   it("claude-code → <repo>/.claude/skills/<pokemon>/", () => {
@@ -146,5 +148,106 @@ applies_to: [claude-code]
     expect(reg["profile-charmander"][0].repo_path).toBe(repoPath);
     expect(reg["profile-charmander"][0].target).toBe("claude-code");
     expect(reg["profile-charmander"][0].mode).toBe("copy");
+  });
+
+  // T2-2 (v1.6 Phase 1): actual_mode is recorded alongside requested mode.
+  // Spec ref: §3.1, §5.4.
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("requested=symlink succeeds → entry has actual_mode='symlink' AND mode='symlink' (Case A)", () => {
+    // Force deployMove to report symlink success irrespective of host capability.
+    vi.spyOn(skillsPlatform, "deployMove").mockReturnValue({ actual_mode: "symlink" });
+
+    syncMoveset({
+      vaultPath, repoPath, pokemon_id: "profile-charmander",
+      target: "claude-code", mode: "symlink"
+    });
+
+    const reg = JSON.parse(readFileSync(join(vaultPath, "_index", "deployments.json"), "utf8"));
+    const entry = reg["profile-charmander"][0];
+    expect(entry.mode).toBe("symlink");
+    expect(entry.actual_mode).toBe("symlink");
+  });
+
+  it("requested=symlink falls back to copy → entry has actual_mode='copy' AND mode='symlink' (Case B)", () => {
+    vi.spyOn(skillsPlatform, "deployMove").mockReturnValue({ actual_mode: "copy" });
+
+    syncMoveset({
+      vaultPath, repoPath, pokemon_id: "profile-charmander",
+      target: "claude-code", mode: "symlink"
+    });
+
+    const reg = JSON.parse(readFileSync(join(vaultPath, "_index", "deployments.json"), "utf8"));
+    const entry = reg["profile-charmander"][0];
+    expect(entry.mode).toBe("symlink");          // request preserved
+    expect(entry.actual_mode).toBe("copy");      // truth on disk
+  });
+
+  it("requested=copy → entry has both mode and actual_mode = 'copy' (Case C)", () => {
+    syncMoveset({
+      vaultPath, repoPath, pokemon_id: "profile-charmander",
+      target: "claude-code", mode: "copy"
+    });
+
+    const reg = JSON.parse(readFileSync(join(vaultPath, "_index", "deployments.json"), "utf8"));
+    const entry = reg["profile-charmander"][0];
+    expect(entry.mode).toBe("copy");
+    expect(entry.actual_mode).toBe("copy");
+  });
+});
+
+describe("removeOldDeployment", () => {
+  let vaultPath: string;
+  let repoPath: string;
+
+  beforeEach(() => {
+    vaultPath = mkdtempSync(join(tmpdir(), "vault-rm-"));
+    repoPath = mkdtempSync(join(tmpdir(), "repo-rm-"));
+  });
+
+  afterEach(() => {
+    rmSync(vaultPath, { recursive: true, force: true });
+    rmSync(repoPath, { recursive: true, force: true });
+  });
+
+  it("removes the deployed skills directory; idempotent on second call (Case D)", () => {
+    // Seed a deployed skills dir at the conventional path.
+    const skillsDir = join(repoPath, ".claude", "skills", "charmander");
+    mkdirSync(join(skillsDir, "move-tdd-cycle"), { recursive: true });
+    writeFileSync(join(skillsDir, "move-tdd-cycle", "SKILL.md"), "# tdd\n");
+    expect(existsSync(skillsDir)).toBe(true);
+
+    const entry: DeploymentEntry = {
+      repo_path: repoPath,
+      target: "claude-code",
+      mode: "copy",
+      actual_mode: "copy",
+      synced_at: "2026-04-29T00:00:00Z"
+    };
+
+    removeOldDeployment(entry, "profile-charmander");
+    expect(existsSync(skillsDir)).toBe(false);
+
+    // Second call must not throw (idempotent no-op).
+    expect(() => removeOldDeployment(entry, "profile-charmander")).not.toThrow();
+    expect(existsSync(skillsDir)).toBe(false);
+  });
+
+  it("doesn't throw on a missing skills dir (Case E)", () => {
+    const entry: DeploymentEntry = {
+      repo_path: repoPath,
+      target: "claude-code",
+      mode: "copy",
+      actual_mode: "copy",
+      synced_at: "2026-04-29T00:00:00Z"
+    };
+    // No skills dir was ever created.
+    const skillsDir = join(repoPath, ".claude", "skills", "charmander");
+    expect(existsSync(skillsDir)).toBe(false);
+
+    expect(() => removeOldDeployment(entry, "profile-charmander")).not.toThrow();
   });
 });

@@ -5,6 +5,32 @@ import { parseFrontmatter, toIsoDate } from "./frontmatter.js";
 import type { IndexedPage, IndexedWiki, PageTokens } from "./index.js";
 import { listProfiles } from "./profiles.js";
 import { readAliases } from "./aliases.js";
+import { loadWikiMeta } from "./wikis.js";
+import { aggregateFamilies } from "./family.js";
+
+/**
+ * Phase-2 T2-2 — converts the IndexedWiki[] array (current `_index/wikis.json`
+ * shape) into the `Record<string, { name, mode, family?, page_count? }>` shape
+ * `aggregateFamilies` expects. `page_count` is the sum of all entries in each
+ * wiki's `page_counts` (per-type) map. We intentionally keep the on-disk
+ * `wikis: [...]` array shape — only the new top-level `families: {...}` rollup
+ * is added. Migrating wikis to a map is a separate breaking change.
+ */
+function summariesToFamilyInput(
+  wikis: IndexedWiki[]
+): Record<string, { name: string; mode: string; family?: string; page_count: number }> {
+  const out: Record<string, { name: string; mode: string; family?: string; page_count: number }> = {};
+  for (const w of wikis) {
+    const page_count = Object.values(w.page_counts ?? {}).reduce((a, b) => a + b, 0);
+    out[w.name] = {
+      name: w.name,
+      mode: w.mode,
+      ...(w.family ? { family: w.family } : {}),
+      page_count,
+    };
+  }
+  return out;
+}
 
 const stemmer = natural.PorterStemmer;
 const STOP_WORDS = new Set(["the","and","of","a","an","in","to","is","for","on","with","as","at","by","or","be","this","that","it","from","are","was","were","not","but","if"]);
@@ -139,13 +165,19 @@ export function reindex(vaultPath: string, scopeWiki?: string): ReindexResult {
     const counts: Record<string, number> = {};
     for (const p of pages) counts[p.type] = (counts[p.type] ?? 0) + 1;
     const lastTouched = pages.map(p => p.updated).sort().reverse()[0] ?? "";
-    wikiSummaries.push({
+    // Phase-2 T2-1 — surface `family:` from `wikis/<w>/CLAUDE.md` onto the
+    // index entry. Default to omission when absent (Plan B back-compat).
+    // The `mode: "mixed"` hardcode below is a separate, out-of-Phase-2 TODO.
+    const meta = loadWikiMeta(vaultPath, w);
+    const summary: IndexedWiki = {
       name: w,
       mode: "mixed", // TODO read from wiki CLAUDE.md in v1.5
       scope: "",
       page_counts: counts,
       last_touched: lastTouched
-    });
+    };
+    if (meta.family) summary.family = meta.family;
+    wikiSummaries.push(summary);
   }
 
   // Build links: forward + inbound
@@ -172,7 +204,16 @@ export function reindex(vaultPath: string, scopeWiki?: string): ReindexResult {
     return rest;
   });
 
-  writeFileSync(join(vaultPath, "_index", "wikis.json"), JSON.stringify({ wikis: wikiSummaries }, null, 2));
+  // Phase-2 T2-2 — emit a top-level `families:` rollup alongside the existing
+  // `wikis: [...]` array. Plan B locks: when no wiki declares a family, write
+  // `families: {}` (empty object, always present) for shape stability. The
+  // wikis array shape is intentionally unchanged — array → map is a separate
+  // breaking change.
+  const families = aggregateFamilies(summariesToFamilyInput(wikiSummaries));
+  writeFileSync(
+    join(vaultPath, "_index", "wikis.json"),
+    JSON.stringify({ wikis: wikiSummaries, families }, null, 2)
+  );
   writeFileSync(join(vaultPath, "_index", "pages.json"), JSON.stringify({ pages: sanitized }, null, 2));
   writeFileSync(join(vaultPath, "_index", "tokens.json"), JSON.stringify(tokensMap, null, 2));
   writeFileSync(join(vaultPath, "_index", "links.json"), JSON.stringify(links, null, 2));

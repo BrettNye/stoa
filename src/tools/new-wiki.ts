@@ -5,7 +5,10 @@ import { newWiki } from "../core/wikis.js";
 const Input = z.object({
   name: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
   mode: z.enum(["idea-map", "project-doc", "learning", "mixed"]),
-  scope: z.string().min(1)
+  scope: z.string().min(1),
+  // Phase-2 T3-1 — optional family group; when set, the scaffolded
+  // CLAUDE.md declares `**Family:** <name>` for reindex to surface.
+  family: z.string().optional()
 });
 
 export const newWikiTool = {

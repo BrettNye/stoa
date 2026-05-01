@@ -1,0 +1,176 @@
+// vault-mcp/src/tools/merge-queue.ts
+//
+// Phase-3 T3-1 — `vault.merge-queue` MCP tool: surface the bulk merge queue
+// for a coordination channel. Pure logic (ready-signal parsing, task→PR
+// mapping, topo sort) lives in `core/merge-queue.ts` (Wave 1 T1-1); this
+// layer does the IO + family resolution wiring:
+//
+//   1. Resolve `wiki` / `family` per spec §7.1 (`core/family.resolveFamily`).
+//   2. Tail the named channel from `since` (default: 7 days ago) via
+//      `core/channel.tailChannel`. For family scope, tail each member and
+//      concatenate. The channel-tail helper already alias-resolves authors,
+//      so the `author` we pass to `parseReadySignals` is current-id-aware.
+//   3. List tasks scoped to the same wiki/family via `core/tasks.listTasks`,
+//      then convert `TaskSummary[]` → `TaskRef[]` (the shape `buildMergeQueue`
+//      expects). The new optional `branch_suffix` field on `TaskSummary` (also
+//      Phase-3 T3-1) makes this conversion lossless.
+//   4. Call `buildMergeQueue(channelEntries, tasks, channel)` and return its
+//      output verbatim.
+//
+// Pure read — no state mutation, no file writes. `ci_status` is always
+// `"unknown"` (vault-mcp does not shell out to `gh`); `core/merge-queue` already
+// hardcodes that, this layer just preserves it.
+//
+// Flat zod schema. `z.discriminatedUnion` is incompatible with the MCP SDK
+// per the carry-forward gotcha documented on `rewrite-links.ts`.
+import { z } from "zod";
+import { tailChannel, type TailEntry } from "../core/channel.js";
+import { listTasks, type TaskSummary } from "../core/tasks.js";
+import { loadIndex } from "../core/index.js";
+import { resolveFamily, membersOf } from "../core/family.js";
+import {
+  buildMergeQueue,
+  type MergeQueueOutput,
+  type TaskRef,
+} from "../core/merge-queue.js";
+
+const Input = z.object({
+  channel: z.string(),
+  wiki: z.string().optional(),
+  family: z.string().optional(),
+  since: z.string().datetime().optional(),
+});
+
+/** 7-days-ago ISO timestamp, used when `since` is unset. */
+function defaultSince(): string {
+  return new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+}
+
+/**
+ * Pulls every channel entry visible across `wikis` (or all wikis when undefined)
+ * since `since`. We invoke `tailChannel` per-wiki because its `wiki:` filter is
+ * single-valued — calling it once per family member and concatenating gives us
+ * the family-scoped tail without duplicating its alias-overlay logic here.
+ *
+ * `limit` is set to `MAX_SAFE_INTEGER` per call: the merge queue wants every
+ * `ready:` signal in the window, not just the last 50.
+ */
+function tailAcross(
+  vaultPath: string,
+  channel: string,
+  since: string,
+  wikis: string[] | undefined
+): TailEntry[] {
+  if (wikis === undefined) {
+    // Single-vault default: one tail, no wiki filter (matches everything).
+    return tailChannel(vaultPath, {
+      channel,
+      since,
+      limit: Number.MAX_SAFE_INTEGER,
+    }).entries;
+  }
+  const out: TailEntry[] = [];
+  for (const wiki of wikis) {
+    const r = tailChannel(vaultPath, {
+      channel,
+      since,
+      wiki,
+      limit: Number.MAX_SAFE_INTEGER,
+    });
+    out.push(...r.entries);
+  }
+  return out;
+}
+
+/**
+ * Convert `TailEntry[]` (from channel-tail) → the shape `parseReadySignals`
+ * expects. `current_alias` (when present) is the alias-resolved current agent
+ * id — preferred over the historical `author` so a journal posted under
+ * `charmander` surfaces as `charmeleon` after rename. Mirrors the spec §7.5
+ * alias-overlay convention.
+ */
+function toChannelEntries(
+  entries: TailEntry[]
+): Array<{ journal_id: string; body: string; posted_at: string; author: string }> {
+  return entries.map(e => ({
+    journal_id: e.id,
+    body: e.body,
+    posted_at: e.created,
+    author: e.current_alias ? `agent:${e.current_alias}` : e.author,
+  }));
+}
+
+/**
+ * Convert `TaskSummary[]` (from task-list) → `TaskRef[]` (what `buildMergeQueue`
+ * consumes). `claimed_by` is left optional: the unready_prs path tolerates an
+ * empty string when the task is unclaimed.
+ */
+function toTaskRefs(tasks: TaskSummary[]): TaskRef[] {
+  return tasks.map(t => {
+    const ref: TaskRef = {
+      id: t.id,
+      channel: t.channel ?? "",
+      blocking: t.blocking ?? [],
+      status: t.status,
+    };
+    if (t.branch_suffix !== undefined) ref.branch_suffix = t.branch_suffix;
+    if (t.claimed_by !== undefined) ref.claimed_by = t.claimed_by;
+    return ref;
+  });
+}
+
+export const mergeQueueTool = {
+  name: "vault.merge-queue",
+  description:
+    "Surface the bulk merge queue for a coordination channel: ready PRs (parsed from `ready: branch=...` journal signals), unready tasks, and a topo-sorted dependency order keyed by task.blocking. Pure read; ci_status is always 'unknown'.",
+  inputSchema: Input,
+  handler: async (
+    input: z.infer<typeof Input>,
+    ctx: { vaultPath: string; defaultFamily?: string }
+  ): Promise<MergeQueueOutput> => {
+    const since = input.since ?? defaultSince();
+
+    // Family resolution: explicit `wiki:` always wins. If `wiki:` is unset and
+    // `family:` resolves (explicit / ctx.defaultFamily / .active-family), expand
+    // scope to all members. Both unset → undefined wikis array (all-wikis tail
+    // + all-wikis listTasks). Mirrors `tools/recall.ts`.
+    let wikis: string[] | undefined;
+    if (!input.wiki) {
+      const idx = loadIndex(ctx.vaultPath);
+      const knownWikis: Record<string, { family?: string | null }> = {};
+      for (const w of idx.wikis) {
+        knownWikis[w.name] = { family: w.family ?? null };
+      }
+      const resolvedFamily = resolveFamily(
+        { vaultPath: ctx.vaultPath, defaultFamily: ctx.defaultFamily ?? undefined },
+        input.family,
+        input.wiki,
+        knownWikis
+      );
+      if (resolvedFamily !== null) {
+        wikis = membersOf(resolvedFamily, knownWikis);
+      }
+    } else {
+      // Explicit single-wiki — scope tail + tasks to it.
+      wikis = [input.wiki];
+    }
+
+    const tail = tailAcross(ctx.vaultPath, input.channel, since, wikis);
+    const channelEntries = toChannelEntries(tail);
+
+    // Task scope mirrors the channel scope: explicit wiki → that wiki, family
+    // → each member, neither → all wikis (listTasks with `wiki: undefined`).
+    let tasks: TaskSummary[];
+    if (wikis === undefined) {
+      tasks = listTasks(ctx.vaultPath, { limit: Number.MAX_SAFE_INTEGER });
+    } else {
+      tasks = [];
+      for (const wiki of wikis) {
+        tasks.push(...listTasks(ctx.vaultPath, { wiki, limit: Number.MAX_SAFE_INTEGER }));
+      }
+    }
+    const taskRefs = toTaskRefs(tasks);
+
+    return buildMergeQueue(channelEntries, taskRefs, input.channel);
+  },
+};

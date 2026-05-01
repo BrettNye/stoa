@@ -39,6 +39,12 @@ function score(page: IndexedPage, queryTokens: Set<string>): number {
 export interface RecallInput {
   topic: string;
   wiki?: string;
+  // Phase-2 T3-2 — pre-resolved family-member set (the tool layer expands a
+  // `family:` arg into this list of wikis via `core/family.membersOf`). When
+  // non-empty AND `wiki` is unset, scope is the union of these members. The
+  // tool layer holds the resolution policy (explicit `wiki:` wins over
+  // `family:`); `core/recall` just consumes the resolved scope.
+  wikis?: string[];
   layer?: "knowledge" | "execution" | "all";
   include_archive?: boolean;
   limit?: number;
@@ -74,7 +80,7 @@ export function recall(vaultPath: string, input: RecallInput): RecallResult {
     return { hits: [], synthesis_inline: [], total_candidates: 0, segmented: { knowledge: 0, execution: 0, archive: 0 } };
   }
 
-  const candidates = queryPages(idx, { wiki: input.wiki, layer })
+  const candidates = queryPages(idx, { wiki: input.wiki, wikis: input.wikis, layer })
     .map(p => ({ ...p, tokens: tokensById[p.id] }));
   const scored = candidates
     .map(p => ({ page: p, score: score(p, queryTokens) }))

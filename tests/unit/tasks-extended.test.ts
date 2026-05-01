@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { createTask, listTasks, updateTask } from "../../src/core/tasks.js";
+import { createTask, listTasks, updateTask, findTaskOnDisk } from "../../src/core/tasks.js";
 
 describe("v1.5 — task lifecycle", () => {
   let vaultPath: string;
@@ -64,5 +64,65 @@ describe("v1.5 — task lifecycle", () => {
         expected_updated: "2020-01-01", agent_id: "agent:tester"
       })
     ).toThrow();
+  });
+
+  describe("findTaskOnDisk (phase-3 closeout)", () => {
+    function writeRawTask(
+      vp: string, wiki: string, id: string, fields: Record<string, any>
+    ): void {
+      const dir = join(vp, "wikis", wiki, "tasks");
+      mkdirSync(dir, { recursive: true });
+      const lines = [
+        "---",
+        `id: ${fields.idOverride ?? id}`,
+        `title: ${fields.title ?? id}`,
+        "type: task",
+        `wiki: ${wiki}`,
+        `status: ${fields.status ?? "claimed"}`,
+        `created: ${fields.created ?? "2026-04-30"}`,
+        `updated: ${fields.updated ?? "2026-04-30"}`,
+        `summary: ${fields.summary ?? id}`,
+        "---"
+      ];
+      writeFileSync(join(dir, `${id}.md`), `${lines.join("\n")}\n# ${id}\n`);
+    }
+
+    it("returns null when no task with the id exists", () => {
+      expect(findTaskOnDisk(vaultPath, "task-not-here")).toBeNull();
+    });
+
+    it("returns {wiki, updated, status} for a task found on disk", () => {
+      writeRawTask(vaultPath, "alpha", "task-a-thing", {
+        status: "claimed",
+        updated: "2026-04-30"
+      });
+      const r = findTaskOnDisk(vaultPath, "task-a-thing");
+      expect(r).not.toBeNull();
+      expect(r!.wiki).toBe("alpha");
+      expect(r!.updated).toBe("2026-04-30");
+      expect(r!.status).toBe("claimed");
+    });
+
+    it("returns null when on-disk frontmatter id does not match requested id (defensive guard)", () => {
+      // File is named task-renamed.md but its `id:` frontmatter is something else.
+      writeRawTask(vaultPath, "alpha", "task-renamed", {
+        idOverride: "task-old-id",
+        status: "claimed"
+      });
+      expect(findTaskOnDisk(vaultPath, "task-renamed")).toBeNull();
+    });
+
+    it("iterates multiple wikis and finds the task in any of them", () => {
+      mkdirSync(join(vaultPath, "wikis", "beta", "tasks"), { recursive: true });
+      writeRawTask(vaultPath, "beta", "task-in-beta", {
+        status: "in_progress",
+        updated: "2026-04-29"
+      });
+      const r = findTaskOnDisk(vaultPath, "task-in-beta");
+      expect(r).not.toBeNull();
+      expect(r!.wiki).toBe("beta");
+      expect(r!.status).toBe("in_progress");
+      expect(r!.updated).toBe("2026-04-29");
+    });
   });
 });

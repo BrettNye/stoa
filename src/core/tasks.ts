@@ -1,7 +1,7 @@
 import { readPage, writePage } from "./pages.js";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseFrontmatter } from "./frontmatter.js";
+import { parseFrontmatter, toIsoDate } from "./frontmatter.js";
 import { readProfile, ProfileNotFoundError } from "./profiles.js";
 
 export class AlreadyClaimedError extends Error {
@@ -158,6 +158,11 @@ export interface TaskSummary {
   blocking?: string[];
   channel?: string;
   wiki: string;
+  // Phase-3 T3-1 — exposed for `vault.merge-queue` so the tool can build
+  // `TaskRef[]` (which `core/merge-queue` needs for branch→task mapping)
+  // without each consumer re-reading task pages from disk. Optional:
+  // tasks created before the convention landed simply omit it.
+  branch_suffix?: string;
 }
 
 export function listTasks(vaultPath: string, input: ListTasksInput = {}): TaskSummary[] {
@@ -190,7 +195,8 @@ export function listTasks(vaultPath: string, input: ListTasksInput = {}): TaskSu
           segregation: Array.isArray(fm.segregation) ? fm.segregation : undefined,
           blocking: Array.isArray(fm.blocking) ? fm.blocking : undefined,
           channel: fm.channel ? String(fm.channel) : undefined,
-          wiki
+          wiki,
+          branch_suffix: fm.branch_suffix ? String(fm.branch_suffix) : undefined
         });
       } catch {
         // skip malformed
@@ -208,6 +214,45 @@ function listWikiNames(vaultPath: string): string[] {
   return readdirSync(wikisDir, { withFileTypes: true })
     .filter(d => d.isDirectory())
     .map(d => d.name);
+}
+
+export interface TaskOnDisk {
+  wiki: string;
+  updated: string;
+  status: string;
+}
+
+/**
+ * Disk-scan fallback for finding a task by id.
+ *
+ * `tools/merge-record.ts:findTask` consults `_index/pages.json` first (fast path).
+ * If a task was created on disk since the last `vault.reindex`, the index lookup
+ * misses. This helper does a targeted scan of every `wikis/<wiki>/tasks/<id>.md`
+ * to recover the task without forcing a full reindex.
+ *
+ * Returns null when no task with the given id exists in any wiki's tasks/ dir.
+ */
+export function findTaskOnDisk(vaultPath: string, taskId: string): TaskOnDisk | null {
+  for (const wiki of listWikiNames(vaultPath)) {
+    const filePath = join(vaultPath, "wikis", wiki, "tasks", `${taskId}.md`);
+    if (!existsSync(filePath)) continue;
+    try {
+      const raw = readFileSync(filePath, "utf8");
+      const { frontmatter: fm } = parseFrontmatter(raw);
+      // Sanity check: the frontmatter id must match (defensive — protects against
+      // tasks that were renamed on disk without `id` being updated).
+      if (String(fm.id) !== taskId) continue;
+      return {
+        wiki,
+        // gray-matter parses unquoted YAML dates as JS Date objects; normalize.
+        updated: toIsoDate(fm.updated),
+        status: String(fm.status ?? "")
+      };
+    } catch {
+      // unreadable / unparseable → skip
+    }
+  }
+  return null;
 }
 
 export interface UpdateTaskInput {
