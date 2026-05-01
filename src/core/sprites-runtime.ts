@@ -4,9 +4,9 @@
  * Renders PokeAPI sprite PNGs to colored half-block ASCII portraits suitable
  * for embedding in `/start` headers and similar terminal-facing surfaces.
  *
- * Layout: 8 lines × 32 character cells. Each cell encodes 2 vertically-stacked
+ * Layout: 12 lines × 48 character cells. Each cell encodes 2 vertically-stacked
  * pixel halves using the Unicode upper/lower half-block characters (▀, ▄, █).
- * Effective resolution = 32 × 16 colored "pixels" downsampled from 96 × 96
+ * Effective resolution = 48 × 24 colored "pixels" downsampled from 96 × 96
  * source PNGs.
  *
  * Color emission depends on `colorMode`:
@@ -79,8 +79,8 @@ export class SpriteVariantNotAvailableError extends SpriteRenderError {
 // ---------------------------------------------------------------------------
 
 const RENDERED_SENTINEL_RE = /^# rendered: /;
-const COLS = 32;
-const ROWS = 8;          // 8 character rows = 16 pixel rows after half-block packing
+const COLS = 48;
+const ROWS = 12;         // 12 character rows = 24 pixel rows after half-block packing
 const HALVES_PER_ROW = 2;
 
 // Standard 16-color ANSI palette. Tuple is [R, G, B, offset], where:

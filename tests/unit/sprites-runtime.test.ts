@@ -137,7 +137,7 @@ describe("sprites-runtime — renderSprite", () => {
     const dir = join(vaultPath, "_index", "sprites");
     mkdirSync(dir, { recursive: true });
     const sentinelLine = "# rendered: 2026-04-30T00:00:00.000Z mode=truecolor";
-    const lines = Array.from({ length: 8 }, (_, i) => `line${i}`);
+    const lines = Array.from({ length: 12 }, (_, i) => `line${i}`);
     writeFileSync(join(dir, "mewtwo.txt"), [sentinelLine, ...lines].join("\n") + "\n");
 
     const spy = vi.fn();
@@ -177,7 +177,7 @@ describe("sprites-runtime — renderSprite", () => {
     expect(calls[0]).toBe(ENTRY_URL);
     expect(calls[1]).toBe(IMAGE_URL);
     expect(out.source).toBe("rendered");
-    expect(out.ascii_lines.length).toBe(8);
+    expect(out.ascii_lines.length).toBe(12);
     expect(out.cache_path).toBe(join(vaultPath, "_index", "sprites", "mewtwo.txt"));
     expect(existsSync(out.cache_path)).toBe(true);
 
@@ -312,13 +312,13 @@ describe("sprites-runtime — renderSprite", () => {
       fetcher
     });
 
-    // 96x96 → pxPerCellX = 3, pxPerCellHalfY = 6 (2 halves = 12 px tall row).
+    // 96x96 → pxPerCellX = 2, pxPerCellHalfY = 4 (2 halves = 8 px tall row).
     // Transparent quadrant is x>=48, y>=48. That maps to:
-    //   col >= 48/3 = 16   AND   row >= 48/12 = 4
-    // So cells in (col 16..31, row 4..7) — both halves entirely inside the
+    //   col >= 48/2 = 24   AND   row >= 48/8 = 6
+    // So cells in (col 24..47, row 6..11) — both halves entirely inside the
     // transparent quadrant — must be a literal space.
-    for (let row = 4; row < 8; row++) {
-      for (let col = 16; col < 32; col++) {
+    for (let row = 6; row < 12; row++) {
+      for (let col = 24; col < 48; col++) {
         expect(out.ascii_lines[row][col]).toBe(" ");
       }
     }
@@ -340,18 +340,18 @@ describe("sprites-runtime — renderSprite", () => {
       fetcher
     });
 
-    // Row 7, col 31 — deep in transparent quadrant
-    expect(out.ascii_lines[7][31]).toBe(" ");
+    // Row 11, col 47 — deep in transparent quadrant
+    expect(out.ascii_lines[11][47]).toBe(" ");
   });
 
   // -- 10. Top opaque, bottom transparent → ▀ with fg only (no bg escape).
   //
-  // The PokeAPI 96×96 → 32×16 downsample uses pxPerCellHalfY=6, so the
-  // 8-character row grid aligns perfectly to pixel y=48. To test "top half
+  // The PokeAPI 96×96 → 48×24 downsample uses pxPerCellHalfY=4, so each
+  // 12-character row covers 8 pixel rows (y=8N..8N+7). To test "top half
   // opaque, bottom half transparent within the same cell", build a fixture
-  // whose alpha boundary falls inside a cell: pixel rows 0..41 opaque,
-  // 42..95 transparent. Body row 3 (y 36..47) then has top-half (y 36..41)
-  // opaque and bottom-half (y 42..47) transparent.
+  // whose alpha boundary falls between the two halves of a cell: pixel rows
+  // 0..43 opaque, 44..95 transparent. Body row 5 (y 40..47) then has top-half
+  // (y 40..43) opaque and bottom-half (y 44..47) transparent.
   it("emits ▀ with fg-only escape when only the top half is opaque (truecolor)", async () => {
     const width = 96, height = 96;
     const data = Buffer.alloc(width * height * 4);
@@ -359,7 +359,7 @@ describe("sprites-runtime — renderSprite", () => {
       for (let x = 0; x < width; x++) {
         const i = (y * width + x) * 4;
         data[i] = 200; data[i + 1] = 50; data[i + 2] = 50;
-        data[i + 3] = y < 42 ? 255 : 0;
+        data[i + 3] = y < 44 ? 255 : 0;
       }
     }
     const bytes = PNG.sync.write({ width, height, data });
@@ -378,25 +378,25 @@ describe("sprites-runtime — renderSprite", () => {
       fetcher
     });
 
-    const bodyRow3 = out.ascii_lines[3];
-    expect(bodyRow3).toContain("▀");
-    expect(bodyRow3.includes("\x1b[48;2;")).toBe(false);
-    expect(bodyRow3.includes("\x1b[38;2;")).toBe(true);
+    const bodyRow5 = out.ascii_lines[5];
+    expect(bodyRow5).toContain("▀");
+    expect(bodyRow5.includes("\x1b[48;2;")).toBe(false);
+    expect(bodyRow5.includes("\x1b[38;2;")).toBe(true);
   });
 
   // -- 11. Bottom opaque, top transparent → ▄ with fg only
   it("emits ▄ with fg-only escape when only the bottom half is opaque (truecolor)", async () => {
-    // Inverse of stripe-mid: rows 0..41 transparent, rows 42..95 opaque.
-    // Body row 3 covers y 36..47:
-    //   top half = y 36..41 (transparent)
-    //   bottom half = y 42..47 (opaque)
+    // Inverse of stripe-top: rows 0..43 transparent, rows 44..95 opaque.
+    // Body row 5 covers y 40..47:
+    //   top half = y 40..43 (transparent)
+    //   bottom half = y 44..47 (opaque)
     const width = 96, height = 96;
     const data = Buffer.alloc(width * height * 4);
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const i = (y * width + x) * 4;
         data[i] = 50; data[i + 1] = 50; data[i + 2] = 200;
-        data[i + 3] = y >= 42 ? 255 : 0;
+        data[i + 3] = y >= 44 ? 255 : 0;
       }
     }
     const bytes = PNG.sync.write({ width, height, data });
@@ -415,14 +415,14 @@ describe("sprites-runtime — renderSprite", () => {
       fetcher
     });
 
-    const bodyRow3 = out.ascii_lines[3];
-    expect(bodyRow3).toContain("▄");
-    expect(bodyRow3.includes("\x1b[48;2;")).toBe(false);
-    expect(bodyRow3.includes("\x1b[38;2;")).toBe(true);
+    const bodyRow5 = out.ascii_lines[5];
+    expect(bodyRow5).toContain("▄");
+    expect(bodyRow5.includes("\x1b[48;2;")).toBe(false);
+    expect(bodyRow5.includes("\x1b[38;2;")).toBe(true);
   });
 
-  // -- 12. Output shape: in 'none' mode every line is exactly 32 chars
-  it("produces 8 lines of exactly 32 visible chars each in colorMode 'none'", async () => {
+  // -- 12. Output shape: in 'none' mode every line is exactly 48 chars
+  it("produces 12 lines of exactly 48 visible chars each in colorMode 'none'", async () => {
     const { fetcher } = makeFakeFetcher({
       spriteEntryUrl: ENTRY_URL,
       spriteImageUrl: IMAGE_URL
@@ -437,12 +437,12 @@ describe("sprites-runtime — renderSprite", () => {
       fetcher
     });
 
-    expect(out.ascii_lines.length).toBe(8);
+    expect(out.ascii_lines.length).toBe(12);
     for (const line of out.ascii_lines) {
       // Count code points, not UTF-16 units, since ▀ is BMP but split-safe.
       // Length in JS string units works because all the chars we emit
       // (space, ▀, ▄, █) are BMP single-unit characters.
-      expect(line.length).toBe(32);
+      expect(line.length).toBe(48);
     }
   });
 
