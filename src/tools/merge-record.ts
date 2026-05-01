@@ -41,7 +41,7 @@ import { dirname, join } from "node:path";
 import { serializeFrontmatter } from "../core/frontmatter.js";
 import { upsertPage, loadIndex } from "../core/index.js";
 import { readProfile, ProfileNotFoundError } from "../core/profiles.js";
-import { updateTask } from "../core/tasks.js";
+import { updateTask, findTaskOnDisk } from "../core/tasks.js";
 import {
   composeMergeJournal,
   computeTaskTransition,
@@ -158,20 +158,32 @@ function findReadySignal(
  * Look up a task by id across all wikis (the tool has no `wiki:` arg). Returns
  * the wiki + current `updated` (for OCC) so the update-task path can run with
  * a fresh expected_updated. Returns null when no task with this id exists.
+ *
+ * Two-phase lookup:
+ *   1. Fast path — `_index/pages.json` lookup. Hits whenever the task has been
+ *      seen by `vault.reindex` since it was created or last updated.
+ *   2. Slow path — disk-scan fallback (`findTaskOnDisk`). Catches tasks that
+ *      were authored directly on disk between reindexes, the case that surfaced
+ *      live in Phase-3 Wave 5 T5-3 (conflict-fixture verification: tasks
+ *      created via direct file authoring, immediately followed by a
+ *      `vault.merge-record` call that silently missed the transition).
  */
 function findTask(
   vaultPath: string,
   taskId: string
 ): { wiki: string; updated: string; status: string } | null {
-  // listTasks doesn't expose `updated`, so we go through the index instead.
+  // Fast path: index lookup.
   const idx = loadIndex(vaultPath);
   const hit = idx.pages.find(p => p.id === taskId && p.type === "task");
-  if (!hit) return null;
-  return {
-    wiki: hit.wiki,
-    updated: hit.updated,
-    status: String((hit as any).status ?? "")
-  };
+  if (hit) {
+    return {
+      wiki: hit.wiki,
+      updated: hit.updated,
+      status: String((hit as any).status ?? "")
+    };
+  }
+  // Slow path: disk-scan fallback for tasks not yet reindexed.
+  return findTaskOnDisk(vaultPath, taskId);
 }
 
 export const mergeRecordTool = {

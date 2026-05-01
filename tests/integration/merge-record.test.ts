@@ -299,6 +299,62 @@ describe("phase-3 T3-2 — vault.merge-record tool", () => {
     expect(merge99).toBeUndefined();
   });
 
+  it("disk-scan fallback: task created on disk after last reindex still resolves and transitions", async () => {
+    vault = seedVault();
+    writeProfile(vault, "profile-charmander");
+    // Reindex BEFORE the task exists, so the index does NOT know about it.
+    reindex(vault);
+    // Now create the task on disk (simulates direct file authoring between
+    // reindexes — the scenario that surfaced the bug in Phase-3 Wave 5 T5-3).
+    writeTask(vault, "alpha", "task-disk-only", {
+      channel: "feat-charmander-progress",
+      status: "claimed",
+      claimed_by: "agent:charmander"
+    });
+    // Deliberately do NOT reindex.
+
+    const result = await mergeRecordTool.handler(
+      {
+        pr_number: 77,
+        channel: "feat-charmander-progress",
+        agent_id: "charmander",
+        merge_commit_sha: "deadbeef",
+        status: "merged",
+        task_id: "task-disk-only"
+      },
+      { vaultPath: vault }
+    );
+
+    expect(result.task_updated).toBe(true);
+
+    // Task file on disk has been transitioned to completed.
+    const taskPath = join(vault, "wikis", "alpha", "tasks", "task-disk-only.md");
+    const { frontmatter: taskFm } = parseFrontmatter(readFileSync(taskPath, "utf8"));
+    expect(taskFm.status).toBe("completed");
+  });
+
+  it("disk-scan fallback: task truly missing → task_updated=false but journal still written", async () => {
+    vault = seedVault();
+    writeProfile(vault, "profile-charmander");
+    reindex(vault);
+
+    const result = await mergeRecordTool.handler(
+      {
+        pr_number: 78,
+        channel: "feat-charmander-progress",
+        agent_id: "charmander",
+        status: "merged",
+        task_id: "task-does-not-exist"
+      },
+      { vaultPath: vault }
+    );
+
+    expect(result.task_updated).toBe(false);
+    // Journal IS still written — the journal is the rule of record.
+    const journalPath = join(vault, "wikis", "_agents", "journal", `${result.journal_id}.md`);
+    expect(existsSync(journalPath)).toBe(true);
+  });
+
   it("idempotent re-run: same now + same input → same journal_id, file overwritten safely", async () => {
     vault = seedVault();
     writeProfile(vault, "profile-charmander");
