@@ -15,7 +15,7 @@ beforeEach(() => {
 });
 
 describe("lint", () => {
-  it("flags wiki missing map.md", () => {
+  it("flags wiki missing map.md", async () => {
     writeFileSync(join(vault, "wikis", "alpha", "concepts", "concept-x.md"), `---
 id: concept-x
 title: X
@@ -28,12 +28,12 @@ summary: x
 ---
 body
 `);
-    reindex(vault);
+    await reindex(vault);
     const result = lint(vault);
     expect(result.diagnostics.some(d => d.code === "MISSING_MAP")).toBe(true);
   });
 
-  it("flags pages with snippet but no implementation", () => {
+  it("flags pages with snippet but no implementation", async () => {
     writeFileSync(join(vault, "wikis", "alpha", "map.md"), `---
 id: map-alpha
 title: alpha
@@ -61,12 +61,12 @@ summary: s
 foo();
 \`\`\`
 `);
-    reindex(vault);
+    await reindex(vault);
     const result = lint(vault);
     expect(result.diagnostics.some(d => d.code === "SNIPPET_NO_IMPLEMENTATION")).toBe(true);
   });
 
-  it("returns empty diagnostics on a healthy fixture", () => {
+  it("returns empty diagnostics on a healthy fixture", async () => {
     writeFileSync(join(vault, "wikis", "alpha", "map.md"), `---
 id: map-alpha
 title: alpha
@@ -91,7 +91,7 @@ summary: c
 ---
 clean body, no snippet, no issues
 `);
-    reindex(vault);
+    await reindex(vault);
     const result = lint(vault);
     expect(result.summary.errors).toBe(0);
   });
@@ -195,7 +195,7 @@ ${Array.from({ length: 9 }, (_, i) => `  - move-${i}`).join("\n")}
     expect(r.diagnostics.some(d => d.code === "MOVESET_OVERSIZED")).toBe(true);
   });
 
-  it("MOVESET_TYPE_MISMATCH — warns when more than half a profile's moveset is off-type", () => {
+  it("MOVESET_TYPE_MISMATCH — warns when more than half a profile's moveset is off-type", async () => {
     const v = mkdtempSync(join(tmpdir(), "vault-lint-mtm-"));
     mkdirSync(join(v, "wikis", "_agents", "profiles"), { recursive: true });
     mkdirSync(join(v, "wikis", "_agents", "moves", "move-a"), { recursive: true });
@@ -249,7 +249,7 @@ description: c
 pokemon_type: fire
 ---
 `);
-    reindex(v);
+    await reindex(v);
     const r = lint(v, { wiki: "_agents" });
     const mtm = r.diagnostics.find(d => d.code === "MOVESET_TYPE_MISMATCH");
     expect(mtm).toBeDefined();
@@ -258,7 +258,7 @@ pokemon_type: fire
     rmSync(v, { recursive: true, force: true });
   });
 
-  it("ALIAS_DRIFT — warns when a recent journal author was an aliased-old id", () => {
+  it("ALIAS_DRIFT — warns when a recent journal author was an aliased-old id", async () => {
     const v = mkdtempSync(join(tmpdir(), "vault-lint-ad-"));
     mkdirSync(join(v, "wikis", "alpha", "journal"), { recursive: true });
     mkdirSync(join(v, "_index"), { recursive: true });
@@ -276,7 +276,7 @@ created: ${recent}
 author: agent:charmander
 ---
 `);
-    reindex(v);
+    await reindex(v);
     const r = lint(v, { wiki: "alpha" });
     const drift = r.diagnostics.find(d => d.code === "ALIAS_DRIFT");
     expect(drift).toBeDefined();
@@ -317,7 +317,7 @@ summary: s
 Body links to [[wikis/alpha/decisions/decision-2026-05-01-target]] for context.
 `);
       // First reindex — only concept-source is indexed.
-      reindex(v);
+      await reindex(v);
 
       // NOW write the target on disk WITHOUT reindexing again. The wikilink's
       // target id is therefore unknown to idx.pages but exists on disk.
@@ -350,7 +350,7 @@ target body
     }
   });
 
-  it("MOVE_APPLIES_TO_INCONSISTENT — info when a move's applies_to omits a runtime the profile uses", () => {
+  it("MOVE_APPLIES_TO_INCONSISTENT — info when a move's applies_to omits a runtime the profile uses", async () => {
     const v = mkdtempSync(join(tmpdir(), "vault-lint-mati-"));
     mkdirSync(join(v, "wikis", "_agents", "profiles"), { recursive: true });
     mkdirSync(join(v, "wikis", "_agents", "moves", "move-x"), { recursive: true });
@@ -381,7 +381,7 @@ description: x
 applies_to: [claude-code]
 ---
 `);
-    reindex(v);
+    await reindex(v);
     const r = lint(v, { wiki: "_agents" });
     const mati = r.diagnostics.find(d => d.code === "MOVE_APPLIES_TO_INCONSISTENT");
     expect(mati).toBeDefined();

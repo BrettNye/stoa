@@ -14,7 +14,7 @@ import { buildCtx } from "../../src/transport/stdio.js";
 import { evolveProfileTool } from "../../src/tools/evolve-profile.js";
 import { reindex } from "../../src/core/reindex.js";
 
-function seedEvolutionEligibleProfile(vaultPath: string): void {
+async function seedEvolutionEligibleProfile(vaultPath: string): Promise<void> {
   const profilesDir = join(vaultPath, "wikis", "_agents", "profiles");
   mkdirSync(profilesDir, { recursive: true });
   const tasksDir = join(vaultPath, "wikis", "alpha", "tasks");
@@ -55,7 +55,7 @@ claimed_by: agent:charmander
 `);
   }
 
-  reindex(vaultPath);
+  await reindex(vaultPath);
 }
 
 describe("MCP dispatch — fetcher threading (T0-1)", () => {
@@ -106,7 +106,7 @@ describe("MCP dispatch — fetcher threading (T0-1)", () => {
   });
 
   it("vault.evolve-profile proposal phase, dispatched through the production ctx, sets proposed.name from PokeAPI", async () => {
-    seedEvolutionEligibleProfile(vaultPath);
+    await seedEvolutionEligibleProfile(vaultPath);
 
     // Mock fetch to simulate a PokeAPI evolution chain. Restore on completion.
     const fetchCalls: string[] = [];

@@ -35,7 +35,7 @@ describe("computeChannelActivity", () => {
   it("counts unread entries and surfaces the last entry's body as summary", async () => {
     await postToChannel(vault, { channel: "active-chan", content: "first post body", wiki: "alpha", agent_id: "charmander" });
     await postToChannel(vault, { channel: "active-chan", content: "second post body", wiki: "alpha", agent_id: "charmander" });
-    reindex(vault);
+    await reindex(vault);
     const result = computeChannelActivity(vault, ["active-chan"], { wiki: "alpha" });
     expect(result).toHaveLength(1);
     expect(result[0].channel).toBe("active-chan");
@@ -46,14 +46,14 @@ describe("computeChannelActivity", () => {
   it("preserves the input channel order across multiple channels", async () => {
     await postToChannel(vault, { channel: "alpha-chan", content: "a", wiki: "alpha", agent_id: "x" });
     await postToChannel(vault, { channel: "beta-chan", content: "b", wiki: "alpha", agent_id: "x" });
-    reindex(vault);
+    await reindex(vault);
     const result = computeChannelActivity(vault, ["beta-chan", "alpha-chan", "gamma-chan"], { wiki: "alpha" });
     expect(result.map(r => r.channel)).toEqual(["beta-chan", "alpha-chan", "gamma-chan"]);
   });
 
   it("honors the since cutoff when tailing", async () => {
     await postToChannel(vault, { channel: "since-chan", content: "old entry", wiki: "alpha", agent_id: "x" });
-    reindex(vault);
+    await reindex(vault);
     const future = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     const result = computeChannelActivity(vault, ["since-chan"], { wiki: "alpha", since: future });
     expect(result[0].unread_count).toBe(0);
@@ -63,7 +63,7 @@ describe("computeChannelActivity", () => {
   it("truncates last_entry_summary to 120 characters by default", async () => {
     const longBody = "x".repeat(300);
     await postToChannel(vault, { channel: "long-chan", content: longBody, wiki: "alpha", agent_id: "x" });
-    reindex(vault);
+    await reindex(vault);
     const result = computeChannelActivity(vault, ["long-chan"], { wiki: "alpha" });
     expect(result[0].last_entry_summary.length).toBe(120);
   });

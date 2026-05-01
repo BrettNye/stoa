@@ -14,12 +14,12 @@ import { mergeRecordTool, __setNowFnForTests as setMergeRecordNowFn } from "../.
 describe("channel write-through (T2-1 fix)", () => {
   let vaultPath: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vaultPath = mkdtempSync(join(tmpdir(), "vault-cwt-"));
     mkdirSync(join(vaultPath, "wikis", "alpha", "journal"), { recursive: true });
     mkdirSync(join(vaultPath, "_index"), { recursive: true });
     writeFileSync(join(vaultPath, "_index", "aliases.json"), "{}");
-    reindex(vaultPath);
+    await reindex(vaultPath);
   });
 
   afterEach(() => {
@@ -50,12 +50,12 @@ describe("channel write-through (T2-1 fix)", () => {
 describe("vault.new write-through (v1.7 §5.1)", () => {
   let vaultPath: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vaultPath = mkdtempSync(join(tmpdir(), "vault-new-wt-"));
     mkdirSync(join(vaultPath, "wikis", "alpha", "concepts"), { recursive: true });
     mkdirSync(join(vaultPath, "_index"), { recursive: true });
     writeFileSync(join(vaultPath, "_index", "aliases.json"), "{}");
-    reindex(vaultPath);
+    await reindex(vaultPath);
   });
 
   afterEach(() => {
@@ -75,12 +75,12 @@ describe("vault.new write-through (v1.7 §5.1)", () => {
 describe("agent-journal write-through (v1.7 §5.1)", () => {
   let vaultPath: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vaultPath = mkdtempSync(join(tmpdir(), "vault-aj-wt-"));
     mkdirSync(join(vaultPath, "wikis", "alpha", "journal"), { recursive: true });
     mkdirSync(join(vaultPath, "_index"), { recursive: true });
     writeFileSync(join(vaultPath, "_index", "aliases.json"), "{}");
-    reindex(vaultPath);
+    await reindex(vaultPath);
   });
 
   afterEach(() => {
@@ -100,12 +100,12 @@ describe("agent-journal write-through (v1.7 §5.1)", () => {
 describe("vault.task-create write-through (v1.7 §5.1)", () => {
   let vaultPath: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vaultPath = mkdtempSync(join(tmpdir(), "vault-tc-wt-"));
     mkdirSync(join(vaultPath, "wikis", "alpha", "tasks"), { recursive: true });
     mkdirSync(join(vaultPath, "_index"), { recursive: true });
     writeFileSync(join(vaultPath, "_index", "aliases.json"), "{}");
-    reindex(vaultPath);
+    await reindex(vaultPath);
   });
 
   afterEach(() => {
@@ -125,12 +125,12 @@ describe("vault.task-create write-through (v1.7 §5.1)", () => {
 describe("vault.task-update write-through (v1.7 §5.1)", () => {
   let vaultPath: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vaultPath = mkdtempSync(join(tmpdir(), "vault-tu-wt-"));
     mkdirSync(join(vaultPath, "wikis", "alpha", "tasks"), { recursive: true });
     mkdirSync(join(vaultPath, "_index"), { recursive: true });
     writeFileSync(join(vaultPath, "_index", "aliases.json"), "{}");
-    reindex(vaultPath);
+    await reindex(vaultPath);
   });
 
   afterEach(() => {
@@ -169,7 +169,7 @@ describe("vault.task-update write-through (v1.7 §5.1)", () => {
 describe("vault.merge-record write-through (v1.7 §5.1)", () => {
   let vaultPath: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vaultPath = mkdtempSync(join(tmpdir(), "vault-mr-wt-"));
     // _agents wiki for journal + profile.
     mkdirSync(join(vaultPath, "wikis", "_agents", "journal"), { recursive: true });
@@ -195,7 +195,7 @@ evolution_stage: basic
 Charmander profile.
 `
     );
-    reindex(vaultPath);
+    await reindex(vaultPath);
   });
 
   afterEach(() => {

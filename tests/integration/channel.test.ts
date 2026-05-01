@@ -46,7 +46,7 @@ describe("tailChannel", () => {
     await postToChannel(vault, { channel: "ordered", content: "first", wiki: "alpha", agent_id: "a" });
     await postToChannel(vault, { channel: "ordered", content: "second", wiki: "alpha", agent_id: "a" });
     // Reindex so tailChannel can find the just-posted entries via pages.json
-    reindex(vault);
+    await reindex(vault);
     const result = tailChannel(vault, { channel: "ordered" });
     expect(result.entries).toHaveLength(2);
     expect(result.entries[0].body).toContain("first");

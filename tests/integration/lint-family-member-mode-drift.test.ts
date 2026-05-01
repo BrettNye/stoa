@@ -80,23 +80,23 @@ afterEach(() => {
 });
 
 describe("FAMILY_MEMBER_MODE_DRIFT", () => {
-  it("single member in a family → no diagnostic", () => {
+  it("single member in a family → no diagnostic", async () => {
     writeWiki({ name: "rastate-core", mode: "project-doc", family: "rastate" });
-    reindex(vault);
+    await reindex(vault);
     expect(runCheck()).toEqual([]);
   });
 
-  it("two members in same family with different modes → no diagnostic", () => {
+  it("two members in same family with different modes → no diagnostic", async () => {
     writeWiki({ name: "rastate-core", mode: "project-doc", family: "rastate" });
     writeWiki({ name: "rastate-ideas", mode: "idea-map", family: "rastate" });
-    reindex(vault);
+    await reindex(vault);
     expect(runCheck()).toEqual([]);
   });
 
-  it("two members in same family with same mode → ONE warning naming both", () => {
+  it("two members in same family with same mode → ONE warning naming both", async () => {
     writeWiki({ name: "rastate-a", mode: "idea-map", family: "rastate" });
     writeWiki({ name: "rastate-b", mode: "idea-map", family: "rastate" });
-    reindex(vault);
+    await reindex(vault);
     const hits = runCheck();
     expect(hits.length).toBe(1);
     expect(hits[0].severity).toBe("warning");
@@ -108,11 +108,11 @@ describe("FAMILY_MEMBER_MODE_DRIFT", () => {
     expect(hits[0].message).toContain("rastate-b");
   });
 
-  it("three members; two share a mode + one differs → ONE diagnostic for the pair", () => {
+  it("three members; two share a mode + one differs → ONE diagnostic for the pair", async () => {
     writeWiki({ name: "rastate-a", mode: "idea-map", family: "rastate" });
     writeWiki({ name: "rastate-b", mode: "idea-map", family: "rastate" });
     writeWiki({ name: "rastate-c", mode: "project-doc", family: "rastate" });
-    reindex(vault);
+    await reindex(vault);
     const hits = runCheck();
     expect(hits.length).toBe(1);
     expect(hits[0].severity).toBe("warning");
@@ -123,10 +123,10 @@ describe("FAMILY_MEMBER_MODE_DRIFT", () => {
     expect(hits[0].message).not.toContain("rastate-c");
   });
 
-  it("no families at all → no diagnostic", () => {
+  it("no families at all → no diagnostic", async () => {
     writeWiki({ name: "alpha", mode: "mixed" });
     writeWiki({ name: "beta", mode: "mixed" });
-    reindex(vault);
+    await reindex(vault);
     expect(runCheck()).toEqual([]);
   });
 });

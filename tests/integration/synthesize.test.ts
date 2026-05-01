@@ -7,7 +7,7 @@ import { reindex } from "../../src/core/reindex.js";
 
 let vault: string;
 
-beforeEach(() => {
+beforeEach(async () => {
   vault = mkdtempSync(join(tmpdir(), "vault-syn-"));
   mkdirSync(join(vault, "wikis", "alpha", "concepts"), { recursive: true });
   mkdirSync(join(vault, "wikis", "alpha", "synthesis"), { recursive: true });
@@ -27,7 +27,7 @@ tags: [auth]
 ---
 Body.
 `);
-  reindex(vault);
+  await reindex(vault);
 });
 
 describe("synthesize", () => {
@@ -40,9 +40,9 @@ describe("synthesize", () => {
     expect(content).toMatch(/last_compiled/);
   });
 
-  it("idempotent — re-running overwrites the same file", () => {
+  it("idempotent — re-running overwrites the same file", async () => {
     const r1 = synthesize(vault, { topic: "auth", wiki: "alpha" });
-    reindex(vault);
+    await reindex(vault);
     const r2 = synthesize(vault, { topic: "auth", wiki: "alpha" });
     expect(r2.path).toBe(r1.path);
     expect(r2.was_overwrite).toBe(true);
@@ -52,7 +52,7 @@ describe("synthesize", () => {
 describe("synthesize — by_agent + scope (Plan C.1b)", () => {
   let memVault: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     memVault = mkdtempSync(join(tmpdir(), "vault-syn-mem-"));
     mkdirSync(join(memVault, "wikis", "_agents", "synthesis"), { recursive: true });
     mkdirSync(join(memVault, "wikis", "alpha", "synthesis"), { recursive: true });
@@ -106,7 +106,7 @@ updated: 2026-04-29
 claimed_by: agent:charmander
 ---
 `);
-    reindex(memVault);
+    await reindex(memVault);
   });
 
   afterEach(() => {

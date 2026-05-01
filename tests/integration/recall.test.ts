@@ -8,7 +8,7 @@ import { reindex } from "../../src/core/reindex.js";
 
 let vault: string;
 
-beforeEach(() => {
+beforeEach(async () => {
   vault = mkdtempSync(join(tmpdir(), "vault-recall-"));
   mkdirSync(join(vault, "wikis", "alpha", "concepts"), { recursive: true });
   mkdirSync(join(vault, "wikis", "alpha", "synthesis"), { recursive: true });
@@ -59,7 +59,7 @@ confidence: high
 We chose JWT.
 `);
 
-  reindex(vault);
+  await reindex(vault);
 });
 
 describe("recall", () => {

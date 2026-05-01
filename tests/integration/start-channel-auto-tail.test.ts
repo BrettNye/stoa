@@ -71,7 +71,7 @@ describe("integration — start auto-tails channels declared on the active profi
     await postToChannel(vaultPath, { channel: "foo", content: "second", wiki: "alpha", agent_id: "charmander" });
     // Channel writes don't auto-reindex (Plan B Tier-2 friction; surfaced by UC3).
     // tailChannel reads from _index/pages.json, so a manual reindex is required for posts to appear.
-    reindex(vaultPath);
+    await reindex(vaultPath);
 
     const r = await startTool.handler(
       { wiki: "alpha", pokemon: "charmander" },
@@ -116,7 +116,7 @@ describe("integration — start auto-tails channels declared on the active profi
       idSuffix: "2026-04-30-1200-new"
     });
     // Direct journal writes also don't auto-reindex; same friction.
-    reindex(vaultPath);
+    await reindex(vaultPath);
 
     const r = await startTool.handler(
       {

@@ -106,7 +106,7 @@ describe("integration — start with family: filter", () => {
       name: "_meta", mode: "mixed", family: "",
       mapBody: "_meta CONTENT — should NOT appear"
     });
-    reindex(vaultPath);
+    await reindex(vaultPath);
 
     const r = await startTool.handler({ family: "rastate" }, { vaultPath });
 
@@ -146,7 +146,7 @@ describe("integration — start with family: filter", () => {
       mapBody: "dev content"
     });
     writeProfile(vaultPath, ["rastate-coord"]);
-    reindex(vaultPath);
+    await reindex(vaultPath);
 
     const r = await startTool.handler(
       { family: "rastate", pokemon: "charmander" },
@@ -172,7 +172,7 @@ describe("integration — start with family: filter", () => {
       name: "rastate-dev", mode: "coordination", family: "rastate",
       mapBody: "rastate-dev MAP — coordination"
     });
-    reindex(vaultPath);
+    await reindex(vaultPath);
 
     const r = await startTool.handler({ wiki: "rastate-core" }, { vaultPath });
 

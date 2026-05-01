@@ -72,7 +72,7 @@ describe("phase-2 T3-5 — vault.rewrite-links tool", () => {
     writeConcept(vault, "alpha", "concept-foo-1", "See [[wikis/rastate/concept/foo]].");
     writeConcept(vault, "alpha", "concept-foo-2", "Refs [[wikis/rastate/concept/bar]].");
     writeConcept(vault, "alpha", "concept-foo-3", "Or [[wikis/rastate/concept/baz]].");
-    reindex(vault);
+    await reindex(vault);
 
     const before1 = readFileSync(join(vault, "wikis", "alpha", "concepts", "concept-foo-1.md"), "utf8");
     const before2 = readFileSync(join(vault, "wikis", "alpha", "concepts", "concept-foo-2.md"), "utf8");
@@ -107,7 +107,7 @@ describe("phase-2 T3-5 — vault.rewrite-links tool", () => {
     writeConcept(vault, "alpha", "concept-foo-1", "See [[wikis/rastate/concept/foo]].");
     writeConcept(vault, "alpha", "concept-foo-2", "Refs [[wikis/rastate/concept/bar]].");
     writeConcept(vault, "alpha", "concept-foo-3", "Or [[wikis/rastate/concept/baz]].");
-    reindex(vault);
+    await reindex(vault);
 
     const result = await rewriteLinksTool.handler(
       {
@@ -139,7 +139,7 @@ describe("phase-2 T3-5 — vault.rewrite-links tool", () => {
 
   it("idempotency: second non-dry-run with same args is a no-op", async () => {
     writeConcept(vault, "alpha", "concept-foo-1", "See [[wikis/rastate/concept/foo]].");
-    reindex(vault);
+    await reindex(vault);
 
     await rewriteLinksTool.handler(
       {
@@ -175,7 +175,7 @@ describe("phase-2 T3-5 — vault.rewrite-links tool", () => {
       "Body link [[wikis/rastate/concept/foo]].",
       ["[[wikis/rastate/concept/bar]]"]
     );
-    reindex(vault);
+    await reindex(vault);
 
     const result = await rewriteLinksTool.handler(
       {
@@ -204,7 +204,7 @@ describe("phase-2 T3-5 — vault.rewrite-links tool", () => {
       "Body link [[wikis/rastate/concept/foo]].",
       ["[[wikis/rastate/concept/bar]]"]
     );
-    reindex(vault);
+    await reindex(vault);
 
     const result = await rewriteLinksTool.handler(
       {
@@ -235,7 +235,7 @@ describe("phase-2 T3-5 — vault.rewrite-links tool", () => {
       ""
     ].join("\n");
     writeConcept(vault, "alpha", "concept-fenced", fencedBody);
-    reindex(vault);
+    await reindex(vault);
 
     const result = await rewriteLinksTool.handler(
       {

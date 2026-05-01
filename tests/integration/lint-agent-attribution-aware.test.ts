@@ -110,28 +110,28 @@ afterEach(() => {
 });
 
 describe("AGENT_ATTRIBUTION_DRIFT", () => {
-  it("Case A — recorded alias: charmander → charmeleon, recent journal as agent:charmander → no diagnostic", () => {
+  it("Case A — recorded alias: charmander → charmeleon, recent journal as agent:charmander → no diagnostic", async () => {
     writeProfileFile("profile-charmeleon");
     writeAliases({
       "profile-charmander": { current: "profile-charmeleon", history: ["profile-charmander"] }
     });
     writeJournal("alpha", "journal-2026-04-29-1500-a", "agent:charmander", new Date().toISOString());
-    reindex(vault);
+    await reindex(vault);
     const diags = runCheck();
     expect(diags).toEqual([]);
   });
 
-  it("Case B — current profile: agent:charmeleon matches profile-charmeleon → no diagnostic", () => {
+  it("Case B — current profile: agent:charmeleon matches profile-charmeleon → no diagnostic", async () => {
     writeProfileFile("profile-charmeleon");
     writeJournal("alpha", "journal-2026-04-29-1500-b", "agent:charmeleon", new Date().toISOString());
-    reindex(vault);
+    await reindex(vault);
     const diags = runCheck();
     expect(diags).toEqual([]);
   });
 
-  it("Case C — orphan id: agent:pikachu, no profile, no alias → one warning", () => {
+  it("Case C — orphan id: agent:pikachu, no profile, no alias → one warning", async () => {
     writeJournal("alpha", "journal-2026-04-29-1500-c", "agent:pikachu", new Date().toISOString());
-    reindex(vault);
+    await reindex(vault);
     const diags = runCheck();
     expect(diags.length).toBe(1);
     expect(diags[0].severity).toBe("warning");
@@ -141,10 +141,10 @@ describe("AGENT_ATTRIBUTION_DRIFT", () => {
     expect(diags[0].message).toContain("pikachu");
   });
 
-  it("Case D — old journal (35 days ago) with orphan id → no diagnostic (recency window)", () => {
+  it("Case D — old journal (35 days ago) with orphan id → no diagnostic (recency window)", async () => {
     const oldDate = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000).toISOString();
     writeJournal("alpha", "journal-2026-03-25-1500-d", "agent:pikachu", oldDate);
-    reindex(vault);
+    await reindex(vault);
     const diags = runCheck();
     expect(diags).toEqual([]);
   });

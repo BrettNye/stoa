@@ -14,7 +14,7 @@ const npxCmd = isWindows ? "npx.cmd" : "npx";
 
 beforeAll(async () => {
   vault = copyFixtureVault();
-  reindex(vault);
+  await reindex(vault);
 
   const transport = new StdioClientTransport({
     command: npxCmd,

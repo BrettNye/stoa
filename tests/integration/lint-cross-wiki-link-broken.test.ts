@@ -83,17 +83,17 @@ afterEach(() => {
 });
 
 describe("CROSS_WIKI_LINK_BROKEN", () => {
-  it("clean: page A in foo links to existing page B in bar — no diagnostic", () => {
+  it("clean: page A in foo links to existing page B in bar — no diagnostic", async () => {
     writePage("bar", "concept", "concept-b", "B body");
     writePage("foo", "concept", "concept-a", "Link to [[wikis/bar/concept/concept-b|B]] here.");
-    reindex(vault);
+    await reindex(vault);
     expect(runCheck()).toEqual([]);
   });
 
-  it("missing target id: link to wikis/bar/concept/concept-b when concept-b is absent — flagged", () => {
+  it("missing target id: link to wikis/bar/concept/concept-b when concept-b is absent — flagged", async () => {
     // bar wiki exists, but concept-b does NOT
     writePage("foo", "concept", "concept-a", "Link to [[wikis/bar/concept/concept-b]] here.");
-    reindex(vault);
+    await reindex(vault);
     const broken = runCheck();
     expect(broken.length).toBe(1);
     expect(broken[0].severity).toBe("error");
@@ -103,9 +103,9 @@ describe("CROSS_WIKI_LINK_BROKEN", () => {
     expect(broken[0].message).toMatch(/unknown id/i);
   });
 
-  it("missing target wiki: link to wikis/nonexistent/... — flagged with 'unknown wiki'", () => {
+  it("missing target wiki: link to wikis/nonexistent/... — flagged with 'unknown wiki'", async () => {
     writePage("foo", "concept", "concept-a", "Link to [[wikis/nonexistent/concept/concept-x]] here.");
-    reindex(vault);
+    await reindex(vault);
     const broken = runCheck();
     expect(broken.length).toBe(1);
     expect(broken[0].severity).toBe("error");
@@ -114,7 +114,7 @@ describe("CROSS_WIKI_LINK_BROKEN", () => {
     expect(broken[0].message).toContain("nonexistent");
   });
 
-  it("ignores wikilinks inside fenced code blocks", () => {
+  it("ignores wikilinks inside fenced code blocks", async () => {
     const body = [
       "Outside is fine.",
       "",
@@ -126,13 +126,13 @@ describe("CROSS_WIKI_LINK_BROKEN", () => {
       "Done.",
     ].join("\n");
     writePage("foo", "concept", "concept-a", body);
-    reindex(vault);
+    await reindex(vault);
     expect(runCheck()).toEqual([]);
   });
 
-  it("flags broken link in frontmatter related: with frontmatter source noted", () => {
+  it("flags broken link in frontmatter related: with frontmatter source noted", async () => {
     writePage("foo", "concept", "concept-a", "body", ["[[wikis/bar/concept/concept-ghost]]"]);
-    reindex(vault);
+    await reindex(vault);
     const broken = runCheck();
     expect(broken.length).toBe(1);
     expect(broken[0].page_id).toBe("concept-a");
@@ -140,10 +140,10 @@ describe("CROSS_WIKI_LINK_BROKEN", () => {
     expect(broken[0].message).toMatch(/frontmatter/i);
   });
 
-  it("emits separate diagnostics for multiple broken links on the same page", () => {
+  it("emits separate diagnostics for multiple broken links on the same page", async () => {
     const body = "Bad wiki [[wikis/nonexistent/concept/concept-x]] and bad id [[wikis/bar/concept/concept-missing]].";
     writePage("foo", "concept", "concept-a", body);
-    reindex(vault);
+    await reindex(vault);
     const broken = runCheck();
     expect(broken.length).toBe(2);
     expect(broken.every(d => d.page_id === "concept-a")).toBe(true);

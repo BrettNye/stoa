@@ -9,7 +9,7 @@ import { recordRename } from "../../src/core/aliases.js";
 describe("channel-tail — alias overlay + author fix", () => {
   let vaultPath: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vaultPath = mkdtempSync(join(tmpdir(), "vault-cta-"));
     mkdirSync(join(vaultPath, "wikis", "alpha", "journal"), { recursive: true });
     mkdirSync(join(vaultPath, "_index"), { recursive: true });
@@ -38,7 +38,7 @@ channel: feat-x
 ---
 squirtle posted to feat-x
 `);
-    reindex(vaultPath);
+    await reindex(vaultPath);
   });
 
   afterEach(() => {

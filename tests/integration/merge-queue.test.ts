@@ -126,7 +126,7 @@ describe("phase-3 T3-1 — vault.merge-queue tool", () => {
       "agent:charmander", "2026-04-30T12:00:00Z",
       "ready: branch=feat/foo/a PR-2");
 
-    reindex(vault);
+    await reindex(vault);
 
     const result = await mergeQueueTool.handler(
       { channel, wiki: "alpha", since: "2026-01-01T00:00:00Z" },
@@ -160,7 +160,7 @@ describe("phase-3 T3-1 — vault.merge-queue tool", () => {
       "agent:squirtle", "2026-04-30T11:00:00Z",
       "ready: branch=feat/bar/ghost PR-99");
 
-    reindex(vault);
+    await reindex(vault);
 
     const result = await mergeQueueTool.handler(
       { channel, wiki: "alpha", since: "2026-01-01T00:00:00Z" },
@@ -196,7 +196,7 @@ describe("phase-3 T3-1 — vault.merge-queue tool", () => {
       "agent:squirtle", "2026-04-30T11:00:00Z",
       "ready: branch=feat/cycle/y PR-11");
 
-    reindex(vault);
+    await reindex(vault);
 
     const result = await mergeQueueTool.handler(
       { channel, wiki: "alpha", since: "2026-01-01T00:00:00Z" },
@@ -232,7 +232,7 @@ describe("phase-3 T3-1 — vault.merge-queue tool", () => {
       "agent:mewtwo", "2026-05-01T06:40:00Z",
       "# Merge PR #10 — halted-conflict\n\n**PR:** #10\n**Branch:** feat/recovery-test/recovery\n**Status:** halted-conflict\n\n## Ready signal\n[[wikis/_agents/journal/journal-2026-05-01-0623-ready-pr10]]\n\n## What happened\nConflict on shared.txt");
 
-    reindex(vault);
+    await reindex(vault);
 
     const result = await mergeQueueTool.handler(
       { channel, wiki: "alpha", since: "2026-01-01T00:00:00Z" },
@@ -256,7 +256,7 @@ describe("phase-3 T3-1 — vault.merge-queue tool", () => {
     });
 
     // Reindex: at this point pages.json knows about the task only.
-    reindex(vault);
+    await reindex(vault);
 
     // NOW write the ready-signal journal on disk WITHOUT reindexing again.
     // The index-based tailChannel will not see this entry.
@@ -313,7 +313,7 @@ describe("phase-3 T3-1 — vault.merge-queue tool", () => {
       "agent:squirtle", "2026-04-30T11:00:00Z",
       "ready: branch=feat/shared/dev PR-2");
 
-    reindex(vault);
+    await reindex(vault);
 
     const result = await mergeQueueTool.handler(
       { channel, family: "rastate", since: "2026-01-01T00:00:00Z" },
