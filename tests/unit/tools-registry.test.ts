@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { allTools } from "../../src/tools/index.js";
 
 describe("tool registry", () => {
-  it("exports exactly 27 tools", () => {
-    expect(allTools).toHaveLength(27);
+  it("exports exactly 28 tools", () => {
+    expect(allTools).toHaveLength(28);
   });
 
   it("every tool has name/description/inputSchema/handler", () => {

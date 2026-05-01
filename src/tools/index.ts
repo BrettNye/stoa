@@ -37,6 +37,11 @@ import { rewriteLinksTool } from "./rewrite-links.js";
 // core/merge-queue.
 import { mergeQueueTool } from "./merge-queue.js";
 
+// v1.6 Phase 3 — merge journal + task transition. Writes a merge outcome
+// journal entry under wikis/_agents/journal/ and, on status=merged with
+// task_id, transitions the task to completed. Pure logic in core/merge-record.
+import { mergeRecordTool } from "./merge-record.js";
+
 export const allTools = [
   recallTool, readTool, listWikisTool, lintTool, channelTailTool,
   inboxTool, processInboxTool, newTool, newWikiTool, setActiveTool,
@@ -47,7 +52,7 @@ export const allTools = [
   // v1.6 phase 2
   rewriteLinksTool,
   // v1.6 phase 3
-  mergeQueueTool
+  mergeQueueTool, mergeRecordTool
 ];
 
 export type ToolDefinition = (typeof allTools)[number];
