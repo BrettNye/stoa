@@ -4,10 +4,19 @@ import { join } from "node:path";
 import { parseFrontmatter } from "../core/frontmatter.js";
 import { readProfile, ProfileNotFoundError } from "../core/profiles.js";
 import { listTasks } from "../core/tasks.js";
-import { computeChannelActivity, loadAsciiHeader } from "../core/start.js";
+import { computeChannelActivity, loadAsciiHeader, formatAsciiHeader } from "../core/start.js";
 import { resolveFamily, membersOf } from "../core/family.js";
 import { loadIndex } from "../core/index.js";
 import { resolveWiki } from "./_resolve-wiki.js";
+import {
+  renderSprite,
+  SpriteRenderError,
+  SpriteVariantNotAvailableError,
+  type SpriteVariant,
+  type ColorMode,
+  type Fetcher
+} from "../core/sprites-runtime.js";
+import { readDisplayConfig } from "../core/display-config.js";
 
 const Input = z.object({
   wiki: z.string().optional(),
@@ -95,7 +104,7 @@ export const startTool = {
   outputSchema: Output,
   handler: async (
     input: z.infer<typeof Input>,
-    ctx: { vaultPath: string; defaultWiki?: string; defaultFamily?: string }
+    ctx: { vaultPath: string; defaultWiki?: string; defaultFamily?: string; fetcher?: typeof fetch }
   ): Promise<StartOutput> => {
     const sinceCutoff = input.since ?? new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
@@ -193,6 +202,8 @@ export const startTool = {
     // 3. Pokemon state + channels_tailed lookup
     let pokemonState: z.infer<typeof PokemonState> | undefined = undefined;
     let channelsTailed: string[] = [];
+    let pokeapiUrl: string | undefined = undefined;
+    let spriteVariant: SpriteVariant = "front_default";
     if (input.pokemon) {
       try {
         const profileId = input.pokemon.startsWith("profile-")
@@ -215,6 +226,13 @@ export const startTool = {
         if (Array.isArray(p.frontmatter.channels_tailed)) {
           channelsTailed = p.frontmatter.channels_tailed.map(String);
         }
+        // v1.6 Phase 3 T2-1 — sprite render inputs from profile frontmatter.
+        if (typeof p.frontmatter.pokeapi_url === "string" && p.frontmatter.pokeapi_url.length > 0) {
+          pokeapiUrl = p.frontmatter.pokeapi_url;
+        }
+        if (typeof p.frontmatter.sprite_variant === "string" && p.frontmatter.sprite_variant.length > 0) {
+          spriteVariant = p.frontmatter.sprite_variant as SpriteVariant;
+        }
       } catch (e) {
         if (!(e instanceof ProfileNotFoundError)) throw e;
       }
@@ -226,10 +244,64 @@ export const startTool = {
       wiki
     });
 
+    // 5. Sprite render path (v1.6 Phase 3 T2-1).
+    //
+    // Two-tier fallback:
+    //   - SpriteVariantNotAvailableError → retry once with `front_default`.
+    //   - any other SpriteRenderError (or unknown throw) → empty sprite block;
+    //     /start MUST still succeed.
+    //
+    // `renderSprite` already handles hand-authored precedence + cache hits
+    // internally; we just call it and trust the output. If `pokeapi_url` is
+    // unset on the profile we fall back to the legacy hand-authored-only path
+    // via `loadAsciiHeader` (existing behaviour for profiles authored before
+    // this field landed).
     let asciiHeader: string | undefined = undefined;
     if (pokemonState) {
       const unreadTotal = channelActivity.reduce((sum, c) => sum + c.unread_count, 0);
-      asciiHeader = loadAsciiHeader(ctx.vaultPath, pokemonState, { unread_total: unreadTotal });
+      const headerState = { unread_total: unreadTotal };
+
+      if (pokeapiUrl && ctx.fetcher) {
+        const colorMode: ColorMode = readDisplayConfig(ctx.vaultPath).sprites.color_mode;
+        const fetcher: Fetcher = ctx.fetcher;
+        const baseInput = {
+          pokeapiUrl,
+          bareSpriteName: pokemonState.name.toLowerCase(),
+          colorMode,
+          vaultPath: ctx.vaultPath,
+          fetcher
+        };
+        try {
+          const out = await renderSprite({ ...baseInput, spriteVariant });
+          asciiHeader = formatAsciiHeader(out.ascii_lines, pokemonState, headerState);
+        } catch (e) {
+          if (e instanceof SpriteVariantNotAvailableError && spriteVariant !== "front_default") {
+            // Tier-1 fallback: variant unavailable on the upstream entry, retry
+            // once with the canonical front_default sprite. Logged to stderr so
+            // operators can see the degradation; /start itself remains green.
+            process.stderr.write(
+              `[vault.start] sprite variant '${spriteVariant}' unavailable for ${pokemonState.name}; falling back to front_default\n`
+            );
+            try {
+              const out = await renderSprite({ ...baseInput, spriteVariant: "front_default" });
+              asciiHeader = formatAsciiHeader(out.ascii_lines, pokemonState, headerState);
+            } catch (e2) {
+              // Tier-2 fallback: any failure on the retry → no sprite.
+              if (!(e2 instanceof SpriteRenderError)) throw e2;
+              asciiHeader = undefined;
+            }
+          } else if (e instanceof SpriteRenderError) {
+            // Tier-2 fallback: generic render failure → no sprite, /start still wins.
+            asciiHeader = undefined;
+          } else {
+            throw e;
+          }
+        }
+      } else {
+        // No pokeapi_url declared on the profile → fall back to the v1.5
+        // hand-authored-only header path. Preserves the 6-cartoon UX.
+        asciiHeader = loadAsciiHeader(ctx.vaultPath, pokemonState, headerState);
+      }
     }
 
     return {

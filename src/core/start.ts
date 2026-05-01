@@ -56,7 +56,28 @@ export function loadAsciiHeader(
   const spritePath = join(vaultPath, "_index", "sprites", `${profile.name.toLowerCase()}.txt`);
   if (!existsSync(spritePath)) return undefined;
   const sprite = readFileSync(spritePath, "utf8");
-  const spriteLines = sprite.split("\n").filter(l => l.length > 0).slice(0, 3);
+  // Strip any rendered-sentinel header line (`# rendered: ...`) so callers
+  // that read raw cache files still produce clean header output.
+  const rawLines = sprite.split("\n").filter(l => l.length > 0);
+  const bodyLines = rawLines.length > 0 && /^# rendered: /.test(rawLines[0])
+    ? rawLines.slice(1)
+    : rawLines;
+  return formatAsciiHeader(bodyLines, profile, state);
+}
+
+/**
+ * Pure formatter — composes the 3-line ASCII header from pre-loaded sprite
+ * body lines (sentinel already stripped). v1.6 phase-3 T2-1: lets `tools/start.ts`
+ * feed lines straight from `core/sprites-runtime.renderSprite()` without writing
+ * back to a fixed path, supporting variant-suffixed cache paths.
+ */
+export function formatAsciiHeader(
+  asciiLines: string[],
+  profile: AsciiHeaderProfile,
+  state: AsciiHeaderState
+): string | undefined {
+  if (asciiLines.length === 0) return undefined;
+  const spriteLines = asciiLines.filter(l => l.length > 0).slice(0, 3);
   while (spriteLines.length < 3) spriteLines.push("");
   const titleName = profile.name.charAt(0).toUpperCase() + profile.name.slice(1);
   const summaryLine1 = `${titleName} · ${profile.evolution_stage} · ${profile.pokemon_type}`;
