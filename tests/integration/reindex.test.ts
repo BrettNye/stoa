@@ -108,6 +108,27 @@ describe("reindex", () => {
     expect(wikis.families).toEqual({});
   });
 
+  it("indexes plan files at wikis/<wiki>/plans/*.md (v1.7 §5.7)", async () => {
+    const vaultPath = mkdtempSync(join(tmpdir(), "vault-plans-index-"));
+    mkdirSync(join(vaultPath, "_index"), { recursive: true });
+    mkdirSync(join(vaultPath, "wikis", "_meta", "plans"), { recursive: true });
+    writeFileSync(join(vaultPath, "wikis", "_meta", "plans", "2026-05-02-plan-x.md"), [
+      "---",
+      "id: plan-x",
+      "title: Plan X",
+      "type: plan",
+      "wiki: _meta",
+      "created: '2026-05-02T12:00:00.000Z'",
+      "---",
+      "body"
+    ].join("\n"));
+
+    await reindex(vaultPath);
+
+    const pages = JSON.parse(readFileSync(join(vaultPath, "_index", "pages.json"), "utf8")).pages;
+    expect(pages.some((p: any) => p.id === "plan-x")).toBe(true);
+  });
+
   it("emits a families rollup grouping wikis that share a family", () => {
     // Phase-2 T2-2 — two wikis with `family: rastate` plus the existing
     // `alpha` wiki (no family) → families.rastate has both rastate-* wikis

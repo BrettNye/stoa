@@ -56,7 +56,7 @@ function extractWikilinks(body: string): string[] {
   return out;
 }
 
-const TYPE_FOLDERS = ["concepts","guides","decisions","specs","synthesis","ideas","questions","sources","journal","tasks","profiles"];
+const TYPE_FOLDERS = ["concepts","guides","decisions","specs","synthesis","ideas","questions","sources","journal","tasks","profiles","plans"];
 
 function discoverPages(vaultPath: string, wiki: string): IndexedPage[] {
   const pages: IndexedPage[] = [];
