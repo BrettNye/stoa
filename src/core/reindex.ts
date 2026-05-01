@@ -203,7 +203,9 @@ function reindexScoped(vaultPath: string, scopeWiki: string, start: number): Rei
   const meta = loadWikiMeta(vaultPath, scopeWiki);
   const freshSummary: IndexedWiki = {
     name: scopeWiki,
-    mode: "mixed",
+    // v1.7 §5.7 — read mode from each wiki's CLAUDE.md. Fallback to
+    // "mixed" preserves old behavior when CLAUDE.md is absent.
+    mode: meta.mode ?? "mixed",
     scope: "",
     page_counts: counts,
     last_touched: lastTouched
@@ -350,11 +352,13 @@ function reindexFull(vaultPath: string, start: number): ReindexResult {
     const lastTouched = pages.map(p => p.updated).sort().reverse()[0] ?? "";
     // Phase-2 T2-1 — surface `family:` from `wikis/<w>/CLAUDE.md` onto the
     // index entry. Default to omission when absent (Plan B back-compat).
-    // The `mode: "mixed"` hardcode below is a separate, out-of-Phase-2 TODO.
+    // v1.7 §5.7 — `mode:` is now also read from CLAUDE.md (was hardcoded
+    // to "mixed" pre-v1.7). Fallback to "mixed" when CLAUDE.md is absent
+    // or has no `mode:` line preserves the old behavior.
     const meta = loadWikiMeta(vaultPath, w);
     const summary: IndexedWiki = {
       name: w,
-      mode: "mixed", // TODO read from wiki CLAUDE.md in v1.5
+      mode: meta.mode ?? "mixed",
       scope: "",
       page_counts: counts,
       last_touched: lastTouched

@@ -165,11 +165,11 @@ Body.
     // → 3 total
     expect(wikis.families.rastate.total_pages).toBe(3);
 
-    // mode hardcode is currently "mixed" for every wiki (see TODO in
-    // core/reindex.ts), so modes_used dedups to just ["mixed"]. Once that
-    // hardcode is replaced this becomes a richer assertion; for now it
-    // locks the dedup behaviour.
-    expect(wikis.families.rastate.modes_used).toEqual(["mixed"]);
+    // v1.7 §5.7 — `mode:` is now read from each wiki's CLAUDE.md
+    // (`loadWikiMeta`). Fixtures above declare `**Mode:** project-doc`
+    // (rastate-core) and `**Mode:** idea-map` (rastate-dev), so the
+    // family's modes_used set should be both, sorted alphabetically.
+    expect(wikis.families.rastate.modes_used).toEqual(["idea-map", "project-doc"]);
   });
 });
 
