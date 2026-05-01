@@ -210,6 +210,41 @@ describe("phase-3 T3-1 — vault.merge-queue tool", () => {
     expect(cycleWarned).toBe(true);
   });
 
+  it("recovery: merge-record journal on channel is filtered out, not parsed as ready signal", async () => {
+    vault = seedSingleWikiVault();
+    const channel = "feat-recovery-test-progress";
+
+    // One task with branch_suffix=recovery on the recovery channel.
+    writeTask(vault, "alpha", "task-recovery", {
+      channel, branch_suffix: "recovery", status: "claimed",
+      claimed_by: "agent:bulbasaur", blocking: []
+    });
+
+    // Real ready signal posted by bulbasaur for PR #10.
+    writeJournal(vault, "alpha", "journal-2026-05-01-0623-ready-pr10", channel,
+      "agent:bulbasaur", "2026-05-01T06:23:00Z",
+      "ready: branch=feat/recovery-test/recovery PR-10");
+
+    // Merge-record outcome on the SAME channel: halted-conflict for PR #10
+    // posted by mewtwo. Body contains both `## Ready signal` H2 and `**PR:** #10`,
+    // which would trip the regex pass without the id-prefix filter.
+    writeJournal(vault, "alpha", "journal-2026-05-01-0640-merge-10-halted-conflict", channel,
+      "agent:mewtwo", "2026-05-01T06:40:00Z",
+      "# Merge PR #10 — halted-conflict\n\n**PR:** #10\n**Branch:** feat/recovery-test/recovery\n**Status:** halted-conflict\n\n## Ready signal\n[[wikis/_agents/journal/journal-2026-05-01-0623-ready-pr10]]\n\n## What happened\nConflict on shared.txt");
+
+    reindex(vault);
+
+    const result = await mergeQueueTool.handler(
+      { channel, wiki: "alpha", since: "2026-01-01T00:00:00Z" },
+      { vaultPath: vault }
+    );
+
+    expect(result.ready_prs).toHaveLength(1);
+    expect(result.ready_prs[0].pr_number).toBe(10);
+    expect(result.ready_prs[0].author).toBe("agent:bulbasaur");
+    expect(result.warnings).toEqual([]);
+  });
+
   it("family: filter pulls tasks + journals across all family members", async () => {
     vault = mkdtempSync(join(tmpdir(), "vault-mq-fam-"));
     mkdirSync(join(vault, "_index"), { recursive: true });
