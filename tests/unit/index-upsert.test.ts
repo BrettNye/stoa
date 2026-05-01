@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { upsertPage, loadIndex } from "../../src/core/index.js";
@@ -82,5 +82,109 @@ second body
     const path = join(vaultPath, "wikis", "alpha", "journal", "bad.md");
     writeFileSync(path, "no frontmatter here, just body");
     expect(() => upsertPage(vaultPath, path)).not.toThrow();
+  });
+});
+
+describe("upsertPage — wikis.json write-through (v1.7 §5.1)", () => {
+  let vaultPath: string;
+
+  beforeEach(() => {
+    vaultPath = mkdtempSync(join(tmpdir(), "vault-upsert-wikis-"));
+    mkdirSync(join(vaultPath, "_index"), { recursive: true });
+    mkdirSync(join(vaultPath, "wikis", "alpha", "journal"), { recursive: true });
+    // Seed wikis.json with an empty alpha entry so write-through has something to mutate.
+    writeFileSync(
+      join(vaultPath, "_index", "wikis.json"),
+      JSON.stringify({
+        wikis: [{ name: "alpha", mode: "mixed", scope: "", page_counts: {}, last_touched: "2026-01-01T00:00:00.000Z" }]
+      }, null, 2)
+    );
+  });
+
+  afterEach(() => {
+    rmSync(vaultPath, { recursive: true, force: true });
+  });
+
+  it("increments page_counts[type] when a new page is upserted", () => {
+    const pagePath = join(vaultPath, "wikis", "alpha", "journal", "journal-2026-05-02-1200-test.md");
+    writeFileSync(pagePath, [
+      "---",
+      "id: journal-2026-05-02-1200-test",
+      "title: Test",
+      "type: journal",
+      "wiki: alpha",
+      "created: '2026-05-02T12:00:00.000Z'",
+      "---",
+      "body"
+    ].join("\n"));
+
+    upsertPage(vaultPath, pagePath);
+
+    const wikisData = JSON.parse(readFileSync(join(vaultPath, "_index", "wikis.json"), "utf8"));
+    const alpha = wikisData.wikis.find((w: any) => w.name === "alpha");
+    expect(alpha.page_counts.journal).toBe(1);
+  });
+
+  it("updates last_touched to the page's updated/created timestamp", () => {
+    const pagePath = join(vaultPath, "wikis", "alpha", "journal", "journal-2026-05-02-1200-test.md");
+    writeFileSync(pagePath, [
+      "---",
+      "id: journal-2026-05-02-1200-test",
+      "title: Test",
+      "type: journal",
+      "wiki: alpha",
+      "created: '2026-05-02T12:00:00.000Z'",
+      "---",
+      "body"
+    ].join("\n"));
+
+    upsertPage(vaultPath, pagePath);
+
+    const wikisData = JSON.parse(readFileSync(join(vaultPath, "_index", "wikis.json"), "utf8"));
+    const alpha = wikisData.wikis.find((w: any) => w.name === "alpha");
+    expect(alpha.last_touched).toBe("2026-05-02T12:00:00.000Z");
+  });
+
+  it("does not double-count when the same page is upserted twice", () => {
+    const pagePath = join(vaultPath, "wikis", "alpha", "journal", "journal-2026-05-02-1200-test.md");
+    writeFileSync(pagePath, [
+      "---",
+      "id: journal-2026-05-02-1200-test",
+      "title: Test",
+      "type: journal",
+      "wiki: alpha",
+      "created: '2026-05-02T12:00:00.000Z'",
+      "---",
+      "body"
+    ].join("\n"));
+
+    upsertPage(vaultPath, pagePath);
+    upsertPage(vaultPath, pagePath);
+
+    const wikisData = JSON.parse(readFileSync(join(vaultPath, "_index", "wikis.json"), "utf8"));
+    const alpha = wikisData.wikis.find((w: any) => w.name === "alpha");
+    expect(alpha.page_counts.journal).toBe(1);
+  });
+
+  it("creates a wikis.json entry on-the-fly if the wiki is missing", () => {
+    mkdirSync(join(vaultPath, "wikis", "beta", "journal"), { recursive: true });
+    const pagePath = join(vaultPath, "wikis", "beta", "journal", "journal-2026-05-02-1200-new.md");
+    writeFileSync(pagePath, [
+      "---",
+      "id: journal-2026-05-02-1200-new",
+      "title: Test",
+      "type: journal",
+      "wiki: beta",
+      "created: '2026-05-02T12:00:00.000Z'",
+      "---",
+      "body"
+    ].join("\n"));
+
+    upsertPage(vaultPath, pagePath);
+
+    const wikisData = JSON.parse(readFileSync(join(vaultPath, "_index", "wikis.json"), "utf8"));
+    const beta = wikisData.wikis.find((w: any) => w.name === "beta");
+    expect(beta).toBeDefined();
+    expect(beta.page_counts.journal).toBe(1);
   });
 });

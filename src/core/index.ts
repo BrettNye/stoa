@@ -157,6 +157,7 @@ export function upsertPage(vaultPath: string, pagePath: string): void {
   if (existsSync(pagesPath)) {
     try { pagesData = JSON.parse(readFileSync(pagesPath, "utf8")); } catch { /* skip */ }
   }
+  const wasPresent = (pagesData.pages ?? []).some((p: any) => p.id === id);
   const filtered = (pagesData.pages ?? []).filter((p: any) => p.id !== id);
   filtered.push(entry);
   writeFileSync(pagesPath, JSON.stringify({ pages: filtered }, null, 2));
@@ -173,4 +174,32 @@ export function upsertPage(vaultPath: string, pagePath: string): void {
     tags: (Array.isArray(frontmatter.tags) ? frontmatter.tags : []).map((t: string) => upsertStemmer.stem(String(t).toLowerCase()))
   };
   writeFileSync(tokensPath, JSON.stringify(tokens, null, 2));
+
+  // v1.7 §5.1 — write-through for wikis.json (cheap aggregation).
+  // Page-counts: increment by 1 if this id was not previously in pages.json
+  // (`wasPresent` was captured above, before the same-id filter ran).
+  // last_touched: max(existing, this page's updated/created).
+  const wikiName = String(frontmatter.wiki ?? "");
+  if (wikiName) {
+    const wikisPath = join(vaultPath, "_index", "wikis.json");
+    let wikisData: { wikis: any[] } = { wikis: [] };
+    if (existsSync(wikisPath)) {
+      try { wikisData = JSON.parse(readFileSync(wikisPath, "utf8")); } catch { /* skip */ }
+    }
+    const wikis = wikisData.wikis ?? [];
+    let wikiEntry = wikis.find((w: any) => w.name === wikiName);
+    if (!wikiEntry) {
+      wikiEntry = { name: wikiName, mode: "mixed", scope: "", page_counts: {}, last_touched: "" };
+      wikis.push(wikiEntry);
+    }
+    if (!wasPresent) {
+      const t = String(frontmatter.type ?? "");
+      if (t) wikiEntry.page_counts[t] = (wikiEntry.page_counts[t] ?? 0) + 1;
+    }
+    const ts = String(frontmatter.updated ?? frontmatter.created ?? "");
+    if (ts && ts > wikiEntry.last_touched) {
+      wikiEntry.last_touched = ts;
+    }
+    writeFileSync(wikisPath, JSON.stringify({ wikis }, null, 2));
+  }
 }
