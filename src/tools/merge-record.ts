@@ -224,7 +224,7 @@ export const mergeRecordTool = {
     );
     mkdirSync(dirname(journalPath), { recursive: true });
     writeFileSync(journalPath, serializeFrontmatter(composed.frontmatter, composed.body));
-    upsertPage(ctx.vaultPath, journalPath);
+    await upsertPage(ctx.vaultPath, journalPath);
 
     // Step 5 — conditional task transition. computeTaskTransition is the
     // single rule: merged + non-empty task_id → transition; everything else

@@ -17,6 +17,6 @@ export const channelPostTool = {
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string; defaultWiki?: string }) => {
     const wiki = resolveWiki(input.wiki, ctx.defaultWiki, ctx.vaultPath);
-    return postToChannel(ctx.vaultPath, { ...input, wiki });
+    return await postToChannel(ctx.vaultPath, { ...input, wiki });
   }
 };

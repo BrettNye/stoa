@@ -20,16 +20,16 @@ describe("channel write-through (T2-1 fix)", () => {
     rmSync(vaultPath, { recursive: true, force: true });
   });
 
-  it("postToChannel makes the entry immediately visible to tailChannel — no manual reindex needed", () => {
-    postToChannel(vaultPath, { channel: "feat-x", content: "first", wiki: "alpha", agent_id: "charmander" });
+  it("postToChannel makes the entry immediately visible to tailChannel — no manual reindex needed", async () => {
+    await postToChannel(vaultPath, { channel: "feat-x", content: "first", wiki: "alpha", agent_id: "charmander" });
     const r = tailChannel(vaultPath, { channel: "feat-x", since: "2026-01-01" });
     expect(r.entries.length).toBe(1);
     expect(r.entries[0].body).toContain("first");
   });
 
-  it("two consecutive posts both visible without reindex", () => {
-    postToChannel(vaultPath, { channel: "feat-x", content: "first", wiki: "alpha", agent_id: "charmander" });
-    postToChannel(vaultPath, { channel: "feat-x", content: "second", wiki: "alpha", agent_id: "charmander" });
+  it("two consecutive posts both visible without reindex", async () => {
+    await postToChannel(vaultPath, { channel: "feat-x", content: "first", wiki: "alpha", agent_id: "charmander" });
+    await postToChannel(vaultPath, { channel: "feat-x", content: "second", wiki: "alpha", agent_id: "charmander" });
     const r = tailChannel(vaultPath, { channel: "feat-x", since: "2026-01-01" });
     expect(r.entries.length).toBe(2);
   });

@@ -2,6 +2,7 @@ import { readFileSync, existsSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import type { NoteType, PageStatus } from "./frontmatter.js";
 import { parseFrontmatter } from "./frontmatter.js";
+import { withSerializedIndexWrite } from "./index-locking.js";
 import natural from "natural";
 
 const KNOWLEDGE_TYPES: NoteType[] = ["concept", "spec", "decision", "synthesis", "guide", "source", "idea", "question"];
@@ -121,85 +122,92 @@ function upsertTokenize(text: string): string[] {
  * so newly-written entries become immediately visible to `tailChannel` and
  * `recall` without requiring callers to run `vault.reindex` first.
  */
-export function upsertPage(vaultPath: string, pagePath: string): void {
-  if (!existsSync(pagePath)) return;
-  let frontmatter: Record<string, any>;
-  let body: string;
-  try {
-    const raw = readFileSync(pagePath, "utf8");
-    const parsed = parseFrontmatter(raw);
-    frontmatter = parsed.frontmatter;
-    body = parsed.body;
-  } catch {
-    return;
-  }
-
-  const id = String(frontmatter.id ?? "");
-  if (!id) return;
-
-  const entry = {
-    id,
-    type: frontmatter.type,
-    wiki: String(frontmatter.wiki ?? ""),
-    title: String(frontmatter.title ?? ""),
-    summary: String(frontmatter.summary ?? ""),
-    tags: Array.isArray(frontmatter.tags) ? frontmatter.tags.map(String) : [],
-    status: String(frontmatter.status ?? "draft"),
-    confidence: frontmatter.confidence ? String(frontmatter.confidence) : undefined,
-    channel: frontmatter.channel ? String(frontmatter.channel) : undefined,
-    updated: String(frontmatter.updated ?? frontmatter.created ?? ""),
-    created: String(frontmatter.created ?? ""),
-    path: relative(vaultPath, pagePath).replace(/\\/g, "/")
-  };
-
-  const pagesPath = join(vaultPath, "_index", "pages.json");
-  let pagesData: { pages: any[] } = { pages: [] };
-  if (existsSync(pagesPath)) {
-    try { pagesData = JSON.parse(readFileSync(pagesPath, "utf8")); } catch { /* skip */ }
-  }
-  const wasPresent = (pagesData.pages ?? []).some((p: any) => p.id === id);
-  const filtered = (pagesData.pages ?? []).filter((p: any) => p.id !== id);
-  filtered.push(entry);
-  writeFileSync(pagesPath, JSON.stringify({ pages: filtered }, null, 2));
-
-  const tokensPath = join(vaultPath, "_index", "tokens.json");
-  let tokens: Record<string, any> = {};
-  if (existsSync(tokensPath)) {
-    try { tokens = JSON.parse(readFileSync(tokensPath, "utf8")); } catch { /* skip */ }
-  }
-  tokens[id] = {
-    title: upsertTokenize(String(frontmatter.title ?? "")),
-    summary: upsertTokenize(String(frontmatter.summary ?? "")),
-    body: upsertTokenize(body),
-    tags: (Array.isArray(frontmatter.tags) ? frontmatter.tags : []).map((t: string) => upsertStemmer.stem(String(t).toLowerCase()))
-  };
-  writeFileSync(tokensPath, JSON.stringify(tokens, null, 2));
-
-  // v1.7 §5.1 — write-through for wikis.json (cheap aggregation).
-  // Page-counts: increment by 1 if this id was not previously in pages.json
-  // (`wasPresent` was captured above, before the same-id filter ran).
-  // last_touched: max(existing, this page's updated/created).
-  const wikiName = String(frontmatter.wiki ?? "");
-  if (wikiName) {
-    const wikisPath = join(vaultPath, "_index", "wikis.json");
-    let wikisData: { wikis: any[] } = { wikis: [] };
-    if (existsSync(wikisPath)) {
-      try { wikisData = JSON.parse(readFileSync(wikisPath, "utf8")); } catch { /* skip */ }
+export async function upsertPage(vaultPath: string, pagePath: string): Promise<void> {
+  // v1.7 §5.2 — wrap the entire RMW across pages.json + tokens.json + wikis.json
+  // in a single multi-key serialization so concurrent upserts cannot lose writes
+  // and reindex (which acquires all four sidecar keys at once) cannot tear an
+  // upsert across sidecars. links.json is NOT a key here — upsertPage does not
+  // touch links.json (write-through deferred to v1.8 per spec §12.1).
+  await withSerializedIndexWrite(vaultPath, ["pages.json", "tokens.json", "wikis.json"], () => {
+    if (!existsSync(pagePath)) return;
+    let frontmatter: Record<string, any>;
+    let body: string;
+    try {
+      const raw = readFileSync(pagePath, "utf8");
+      const parsed = parseFrontmatter(raw);
+      frontmatter = parsed.frontmatter;
+      body = parsed.body;
+    } catch {
+      return;
     }
-    const wikis = wikisData.wikis ?? [];
-    let wikiEntry = wikis.find((w: any) => w.name === wikiName);
-    if (!wikiEntry) {
-      wikiEntry = { name: wikiName, mode: "mixed", scope: "", page_counts: {}, last_touched: "" };
-      wikis.push(wikiEntry);
+
+    const id = String(frontmatter.id ?? "");
+    if (!id) return;
+
+    const entry = {
+      id,
+      type: frontmatter.type,
+      wiki: String(frontmatter.wiki ?? ""),
+      title: String(frontmatter.title ?? ""),
+      summary: String(frontmatter.summary ?? ""),
+      tags: Array.isArray(frontmatter.tags) ? frontmatter.tags.map(String) : [],
+      status: String(frontmatter.status ?? "draft"),
+      confidence: frontmatter.confidence ? String(frontmatter.confidence) : undefined,
+      channel: frontmatter.channel ? String(frontmatter.channel) : undefined,
+      updated: String(frontmatter.updated ?? frontmatter.created ?? ""),
+      created: String(frontmatter.created ?? ""),
+      path: relative(vaultPath, pagePath).replace(/\\/g, "/")
+    };
+
+    const pagesPath = join(vaultPath, "_index", "pages.json");
+    let pagesData: { pages: any[] } = { pages: [] };
+    if (existsSync(pagesPath)) {
+      try { pagesData = JSON.parse(readFileSync(pagesPath, "utf8")); } catch { /* skip */ }
     }
-    if (!wasPresent) {
-      const t = String(frontmatter.type ?? "");
-      if (t) wikiEntry.page_counts[t] = (wikiEntry.page_counts[t] ?? 0) + 1;
+    const wasPresent = (pagesData.pages ?? []).some((p: any) => p.id === id);
+    const filtered = (pagesData.pages ?? []).filter((p: any) => p.id !== id);
+    filtered.push(entry);
+    writeFileSync(pagesPath, JSON.stringify({ pages: filtered }, null, 2));
+
+    const tokensPath = join(vaultPath, "_index", "tokens.json");
+    let tokens: Record<string, any> = {};
+    if (existsSync(tokensPath)) {
+      try { tokens = JSON.parse(readFileSync(tokensPath, "utf8")); } catch { /* skip */ }
     }
-    const ts = String(frontmatter.updated ?? frontmatter.created ?? "");
-    if (ts && ts > wikiEntry.last_touched) {
-      wikiEntry.last_touched = ts;
+    tokens[id] = {
+      title: upsertTokenize(String(frontmatter.title ?? "")),
+      summary: upsertTokenize(String(frontmatter.summary ?? "")),
+      body: upsertTokenize(body),
+      tags: (Array.isArray(frontmatter.tags) ? frontmatter.tags : []).map((t: string) => upsertStemmer.stem(String(t).toLowerCase()))
+    };
+    writeFileSync(tokensPath, JSON.stringify(tokens, null, 2));
+
+    // v1.7 §5.1 — write-through for wikis.json (cheap aggregation).
+    // Page-counts: increment by 1 if this id was not previously in pages.json
+    // (`wasPresent` was captured above, before the same-id filter ran).
+    // last_touched: max(existing, this page's updated/created).
+    const wikiName = String(frontmatter.wiki ?? "");
+    if (wikiName) {
+      const wikisPath = join(vaultPath, "_index", "wikis.json");
+      let wikisData: { wikis: any[] } = { wikis: [] };
+      if (existsSync(wikisPath)) {
+        try { wikisData = JSON.parse(readFileSync(wikisPath, "utf8")); } catch { /* skip */ }
+      }
+      const wikis = wikisData.wikis ?? [];
+      let wikiEntry = wikis.find((w: any) => w.name === wikiName);
+      if (!wikiEntry) {
+        wikiEntry = { name: wikiName, mode: "mixed", scope: "", page_counts: {}, last_touched: "" };
+        wikis.push(wikiEntry);
+      }
+      if (!wasPresent) {
+        const t = String(frontmatter.type ?? "");
+        if (t) wikiEntry.page_counts[t] = (wikiEntry.page_counts[t] ?? 0) + 1;
+      }
+      const ts = String(frontmatter.updated ?? frontmatter.created ?? "");
+      if (ts && ts > wikiEntry.last_touched) {
+        wikiEntry.last_touched = ts;
+      }
+      writeFileSync(wikisPath, JSON.stringify({ ...wikisData, wikis }, null, 2));
     }
-    writeFileSync(wikisPath, JSON.stringify({ ...wikisData, wikis }, null, 2));
-  }
+  });
 }

@@ -31,7 +31,7 @@ export function registerAgentJournal(p: Command) {
       if (opts.channel) fm.channel = opts.channel;
       const path = join(ctx.vaultPath, "wikis", wiki, "journal", `${id}.md`);
       writeFileSync(path, serializeFrontmatter(fm, text));
-      upsertPage(ctx.vaultPath, path);
+      await upsertPage(ctx.vaultPath, path);
       console.log(`logged: ${id}`);
     });
 }
