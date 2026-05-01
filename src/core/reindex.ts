@@ -7,6 +7,7 @@ import { listProfiles } from "./profiles.js";
 import { readAliases } from "./aliases.js";
 import { loadWikiMeta } from "./wikis.js";
 import { aggregateFamilies } from "./family.js";
+import { withSerializedIndexWrite } from "./index-locking.js";
 
 /**
  * Phase-2 T2-2 — converts the IndexedWiki[] array (current `_index/wikis.json`
@@ -153,7 +154,7 @@ export interface ReindexResult {
   duration_ms: number;
 }
 
-export function reindex(vaultPath: string, scopeWiki?: string): ReindexResult {
+export async function reindex(vaultPath: string, scopeWiki?: string): Promise<ReindexResult> {
   const start = Date.now();
   if (!scopeWiki) {
     return reindexFull(vaultPath, start);
@@ -174,69 +175,77 @@ export function reindex(vaultPath: string, scopeWiki?: string): ReindexResult {
  * Missing-sidecar fallback: if any of the four sidecars is missing or
  * unparseable, fall back to a full reindex — there's nothing to merge into.
  */
-function reindexScoped(vaultPath: string, scopeWiki: string, start: number): ReindexResult {
+function reindexScoped(vaultPath: string, scopeWiki: string, start: number): Promise<ReindexResult> {
   if (scopeWiki.startsWith("_") && !RESERVED_INCLUDED.has(scopeWiki)) {
     throw new Error(`Cannot reindex reserved wiki: ${scopeWiki}`);
   }
 
-  const existing = loadExistingIndex(vaultPath);
-  if (!existing) {
-    return reindexFull(vaultPath, start);
-  }
+  return withSerializedIndexWrite(
+    vaultPath,
+    ["pages.json", "tokens.json", "wikis.json", "links.json"],
+    () => {
+      const existing = loadExistingIndex(vaultPath);
+      if (!existing) {
+        // Missing-sidecar fallback: rebuild from scratch under the same lock
+        // we already hold (re-entry via reindexFull would deadlock).
+        return reindexFullBody(vaultPath, start);
+      }
 
-  const newScopePages = discoverPages(vaultPath, scopeWiki);
-  const oldScopeIds = new Set(
-    existing.pages.filter((p: any) => p.wiki === scopeWiki).map((p: any) => p.id)
+      const newScopePages = discoverPages(vaultPath, scopeWiki);
+      const oldScopeIds = new Set(
+        existing.pages.filter((p: any) => p.wiki === scopeWiki).map((p: any) => p.id)
+      );
+
+      const sanitizedFresh = newScopePages.map(p => {
+        const { __outbound, tokens, ...rest } = p as any;
+        return rest;
+      });
+      const combinedPages = mergePagesByWiki(existing.pages, scopeWiki, sanitizedFresh);
+
+      const tokensMap = mergeTokens(existing.tokens, oldScopeIds, newScopePages);
+
+      const counts: Record<string, number> = {};
+      for (const p of newScopePages) counts[p.type] = (counts[p.type] ?? 0) + 1;
+      const lastTouched = newScopePages.map(p => p.updated).sort().reverse()[0] ?? "";
+      const meta = loadWikiMeta(vaultPath, scopeWiki);
+      const freshSummary: IndexedWiki = {
+        name: scopeWiki,
+        // v1.7 §5.7 — read mode from each wiki's CLAUDE.md. Fallback to
+        // "mixed" preserves old behavior when CLAUDE.md is absent.
+        mode: meta.mode ?? "mixed",
+        scope: "",
+        page_counts: counts,
+        last_touched: lastTouched
+      };
+      if (meta.family) freshSummary.family = meta.family;
+      const combinedSummaries = mergeWikiSummaries(existing.wikis, scopeWiki, freshSummary);
+      const families = aggregateFamilies(summariesToFamilyInput(combinedSummaries));
+
+      const scopeOutbound: Record<string, string[]> = {};
+      for (const p of newScopePages) {
+        scopeOutbound[p.id] = ((p as any).__outbound ?? []) as string[];
+      }
+      const links = rebuildLinks(combinedPages, existing.links, scopeOutbound);
+
+      writeFileSync(
+        join(vaultPath, "_index", "wikis.json"),
+        JSON.stringify({ wikis: combinedSummaries, families }, null, 2)
+      );
+      writeFileSync(join(vaultPath, "_index", "pages.json"), JSON.stringify({ pages: combinedPages }, null, 2));
+      writeFileSync(join(vaultPath, "_index", "tokens.json"), JSON.stringify(tokensMap, null, 2));
+      writeFileSync(join(vaultPath, "_index", "links.json"), JSON.stringify(links, null, 2));
+
+      writeProfilesJson(vaultPath);
+      ensureAliasesJson(vaultPath);
+
+      return {
+        pages_indexed: combinedPages.length,
+        wikis_indexed: combinedSummaries.length,
+        links_indexed: Object.keys(links).length,
+        duration_ms: Date.now() - start
+      };
+    }
   );
-
-  const sanitizedFresh = newScopePages.map(p => {
-    const { __outbound, tokens, ...rest } = p as any;
-    return rest;
-  });
-  const combinedPages = mergePagesByWiki(existing.pages, scopeWiki, sanitizedFresh);
-
-  const tokensMap = mergeTokens(existing.tokens, oldScopeIds, newScopePages);
-
-  const counts: Record<string, number> = {};
-  for (const p of newScopePages) counts[p.type] = (counts[p.type] ?? 0) + 1;
-  const lastTouched = newScopePages.map(p => p.updated).sort().reverse()[0] ?? "";
-  const meta = loadWikiMeta(vaultPath, scopeWiki);
-  const freshSummary: IndexedWiki = {
-    name: scopeWiki,
-    // v1.7 §5.7 — read mode from each wiki's CLAUDE.md. Fallback to
-    // "mixed" preserves old behavior when CLAUDE.md is absent.
-    mode: meta.mode ?? "mixed",
-    scope: "",
-    page_counts: counts,
-    last_touched: lastTouched
-  };
-  if (meta.family) freshSummary.family = meta.family;
-  const combinedSummaries = mergeWikiSummaries(existing.wikis, scopeWiki, freshSummary);
-  const families = aggregateFamilies(summariesToFamilyInput(combinedSummaries));
-
-  const scopeOutbound: Record<string, string[]> = {};
-  for (const p of newScopePages) {
-    scopeOutbound[p.id] = ((p as any).__outbound ?? []) as string[];
-  }
-  const links = rebuildLinks(combinedPages, existing.links, scopeOutbound);
-
-  writeFileSync(
-    join(vaultPath, "_index", "wikis.json"),
-    JSON.stringify({ wikis: combinedSummaries, families }, null, 2)
-  );
-  writeFileSync(join(vaultPath, "_index", "pages.json"), JSON.stringify({ pages: combinedPages }, null, 2));
-  writeFileSync(join(vaultPath, "_index", "tokens.json"), JSON.stringify(tokensMap, null, 2));
-  writeFileSync(join(vaultPath, "_index", "links.json"), JSON.stringify(links, null, 2));
-
-  writeProfilesJson(vaultPath);
-  ensureAliasesJson(vaultPath);
-
-  return {
-    pages_indexed: combinedPages.length,
-    wikis_indexed: combinedSummaries.length,
-    links_indexed: Object.keys(links).length,
-    duration_ms: Date.now() - start
-  };
 }
 
 interface ExistingIndex {
@@ -339,7 +348,20 @@ function rebuildLinks(
   return links;
 }
 
-function reindexFull(vaultPath: string, start: number): ReindexResult {
+function reindexFull(vaultPath: string, start: number): Promise<ReindexResult> {
+  return withSerializedIndexWrite(
+    vaultPath,
+    ["pages.json", "tokens.json", "wikis.json", "links.json"],
+    () => reindexFullBody(vaultPath, start)
+  );
+}
+
+/**
+ * v1.7 §5.3 — pure body of `reindexFull`, extracted so `reindexScoped`'s
+ * missing-sidecar fallback can re-use it without re-entering the lock.
+ * Callers MUST hold all four sidecar locks before invoking.
+ */
+function reindexFullBody(vaultPath: string, start: number): ReindexResult {
   const wikis = discoverWikis(vaultPath);
   const allPages: IndexedPage[] = [];
   const wikiSummaries: IndexedWiki[] = [];

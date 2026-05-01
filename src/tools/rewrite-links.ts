@@ -141,7 +141,7 @@ export const rewriteLinksTool = {
     }
     const reindexRun = pendingWrites.length > 0;
     if (reindexRun) {
-      reindex(ctx.vaultPath);
+      await reindex(ctx.vaultPath);
     }
 
     return {

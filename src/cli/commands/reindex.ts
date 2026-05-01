@@ -8,7 +8,7 @@ export function registerReindex(p: Command) {
     .option("--wiki <name>", "limit to one wiki")
     .action(async (opts) => {
       const ctx = getCtx();
-      const r = reindex(ctx.vaultPath, opts.wiki);
+      const r = await reindex(ctx.vaultPath, opts.wiki);
       console.log(`reindexed: ${r.pages_indexed} pages, ${r.wikis_indexed} wikis, ${r.links_indexed} links (${r.duration_ms}ms)`);
     });
 }
