@@ -226,10 +226,9 @@ export const claudeCodeAdapter: RuntimeAdapter = {
     }
 
     // §6.4 invariant 5 — source_revision recorded in the registry.
-    const entry = getDeployment(target, intent.id, target);  // registry is at vaultPath, not target
-    // (Note: full registry-side check lives in the lint check, which has access
-    // to the vault path. verify() is target-relative; we pin invariants 1/2
-    // here and let the lint check round-trip the registry.)
+    // verify() is target-relative and has no vault path; the full registry-side
+    // round-trip lives in the SUBAGENT_DEF_INVARIANT_VIOLATION lint check.
+    // verify() pins invariants 1 + 2 against the on-disk artifact.
 
     return { ok: violations.length === 0, violations };
   },
