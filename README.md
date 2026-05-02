@@ -1,6 +1,8 @@
 # vault-mcp
 
-MCP server + CLI for the [knowledge vault](../).
+MCP server + CLI that powers the [knowledge vault](../) — the *engine* behind the workflows. This README covers install, MCP wiring, tool reference, and bootstrapping a consuming repo.
+
+For the **knowledge model** — what a `synthesis` is, what a `concept` is, how the lifecycle flows — see the [root README](../README.md). This doc focuses on running the engine, not authoring with it.
 
 ## Install
 
