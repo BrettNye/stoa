@@ -42,6 +42,12 @@ import { mergeQueueTool } from "./merge-queue.js";
 // task_id, transitions the task to completed. Pure logic in core/merge-record.
 import { mergeRecordTool } from "./merge-record.js";
 
+// v1.7 Phase 3 — vault.sync-agents. Builds a SubagentIntent from
+// profile + moveset and dispatches to the per-runtime adapter
+// (currently claude-code). Replaces sync-skills as the recommended
+// primary surface; sync-skills stays for moveset-only deploys.
+import { syncAgentsTool } from "./sync-agents.js";
+
 export const allTools = [
   recallTool, readTool, listWikisTool, lintTool, channelTailTool,
   inboxTool, processInboxTool, newTool, newWikiTool, setActiveTool,
@@ -52,7 +58,9 @@ export const allTools = [
   // v1.6 phase 2
   rewriteLinksTool,
   // v1.6 phase 3
-  mergeQueueTool, mergeRecordTool
+  mergeQueueTool, mergeRecordTool,
+  // v1.7 phase 3
+  syncAgentsTool
 ];
 
 export type ToolDefinition = (typeof allTools)[number];
