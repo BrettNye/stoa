@@ -89,7 +89,7 @@ auto-memory is short-term; the vault is canonical.
 
 **3. `.claude/skills/`** *(if `--profile=<id>` was passed)* — the named profile's moveset, deployed as one skill directory per move (`.claude/skills/<move-id>/SKILL.md`).
 
-> Today: Claude Code (`.claude/skills/`). Planned: **OpenClaw** — portable agent definitions sync to OpenClaw too, so you author once and deploy to multiple runtimes. The SKILL.md format is already the open standard shared by Claude Code, OpenClaw, Codex, and Gemini CLI; vault frontmatter is a superset that those consumers ignore.
+> Today: Claude Code (`.claude/skills/`). Planned: **OpenClaw** — portable agent definitions sync to OpenClaw too, so you author once and deploy to multiple runtimes. See [`../wikis/_agents/README.md`](../wikis/_agents/README.md) §Portability for the full cross-runtime story.
 
 After bootstrap, every Claude Code session in this repo has the vault tools available, knows the cross-session memory contract, and (if a profile was deployed) starts with a curated moveset.
 
