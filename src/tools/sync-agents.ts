@@ -33,7 +33,7 @@ const Input = z.object({
   include_moveset: z.boolean().default(true),
 });
 
-interface PerPokemonResult {
+export interface PerPokemonResult {
   pokemon: string;
   deployed: Record<string, string>;
   registry_entry: { runtime: RuntimeName; source_revision: string; subagent_def_path: string };
@@ -43,7 +43,7 @@ interface PerPokemonResult {
   error?: string;
 }
 
-interface ResultShape {
+export interface ResultShape {
   results: PerPokemonResult[];
   summary: { requested: number; deployed: number; skipped: number; failed: number };
 }
