@@ -101,15 +101,34 @@ vault sync-skills --profile=<profile-id> --target=.
 
 For full agent-substrate context (what a profile is, what a move is, how channels and tasks work), see [`../wikis/_agents/README.md`](../wikis/_agents/README.md).
 
-## Tools (15)
+## Tools
 
-See [the v1 spec](../wikis/_meta/specs/2026-04-28-vault-mcp-v1-design.md) §5
-for full input/output schemas. Quick reference:
+See [the v1 spec](../wikis/_meta/specs/2026-04-28-vault-mcp-v1-design.md) §5 for full input/output schemas. One-line reference:
 
-- **Read:** `vault.recall`, `vault.read`, `vault.list-wikis`, `vault.lint`, `vault.channel-tail`
-- **Write — content:** `vault.inbox`, `vault.process-inbox`, `vault.new`, `vault.new-wiki`, `vault.set-active`, `vault.synthesize`, `vault.agent-journal`
-- **Write — system:** `vault.reindex`
-- **Coordination:** `vault.channel-post`, `vault.task-claim`
+**Read:**
+- `vault.recall` — search vault, segmented by layer; reads matching synthesis content inline
+- `vault.read` — fetch a page by id or path
+- `vault.list-wikis` — list wikis with mode, scope, summary stats
+- `vault.lint` — read-only health check (orphans, schema violations, channel format)
+- `vault.channel-tail` — pull recent entries on a coordination channel
+
+**Write — content:**
+- `vault.inbox` — capture a fleeting thought to the active wiki's `inbox/`
+- `vault.process-inbox` — walk inbox items, propose types, promote on confirmation
+- `vault.new` — create a typed page from `_templates/<type>.md`
+- `vault.new-wiki` — scaffold a new wiki: folders, `map.md`, `index.md`, wiki-local `CLAUDE.md`
+- `vault.set-active` — write `.active-wiki` at vault root for ambient targeting
+- `vault.synthesize` — compile or refresh a synthesis page from current matching pages
+- `vault.agent-journal` — append a first-person agent reflection at end-of-task
+
+**Write — system:**
+- `vault.reindex` — regenerate `_index/{wikis,pages,tokens,links}.json` and per-wiki `index.md`
+
+**Coordination:**
+- `vault.channel-post` — post to a coordination channel (cross-instance comms)
+- `vault.task-claim` — atomically claim a pending task via mtime OCC; race-loser sees `AlreadyClaimedError`
+
+Plus v1.5+ agent-substrate tools (covered in [`../wikis/_agents/README.md`](../wikis/_agents/README.md)): `vault.bootstrap-repo`, `vault.sync-skills`, `vault.start`, `vault.task-create`, `vault.task-list`, `vault.task-update`.
 
 ## Resolution order for `wiki:` parameter
 
@@ -124,3 +143,7 @@ for full input/output schemas. Quick reference:
 npm test          # unit + integration
 npm test -- e2e   # end-to-end via real MCP client
 ```
+
+---
+
+*Doc ownership: this README owns **install, MCP wiring, the tools list, and the bootstrap workflow**. For the knowledge model see [`../README.md`](../README.md). For the agent substrate see [`../wikis/_agents/README.md`](../wikis/_agents/README.md). For schema see [`../CLAUDE.md`](../CLAUDE.md).*
