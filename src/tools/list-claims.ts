@@ -54,14 +54,17 @@ interface SidecarShape {
   schema_version?: number;
 }
 
-interface ListClaimsCtx {
+export interface ListClaimsCtx {
   vaultPath: string;
-  rawConfig: unknown;
+  // Optional so DispatchCtx (which carries an optional rawConfig) is
+  // structurally assignable. Handler treats undefined / non-object as
+  // "use spec §6.2 defaults" via `getClaimsConfig`.
+  rawConfig?: unknown;
   /** Test seam — clock injection. Defaults to `new Date()` in production. */
   today?: Date;
 }
 
-interface ClaimEntry {
+export interface ClaimEntry {
   id: string;
   key: string;
   title: string;
@@ -87,7 +90,7 @@ export const listClaimsTool = {
     "List claims with optional dimension filter, sorted by effective confidence descending.",
   inputSchema: Input,
   handler: async (input: ListInput, ctx: ListClaimsCtx) => {
-    const cfg = getClaimsConfig(ctx.rawConfig);
+    const cfg = getClaimsConfig(ctx.rawConfig ?? {});
     const today = ctx.today ?? new Date();
 
     const minEff = input.min_effective_confidence ?? cfg.render_min_confidence;

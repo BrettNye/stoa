@@ -59,7 +59,7 @@ const Input = z.object({
 });
 export type ClaimToolInput = z.infer<typeof Input>;
 
-interface ClaimToolCtx {
+export interface ClaimToolCtx {
   vaultPath: string;
   defaultWiki?: string;
   rawConfig?: unknown;

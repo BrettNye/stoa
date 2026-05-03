@@ -21,6 +21,12 @@ export interface DispatchCtx {
   defaultWiki?: string;
   defaultFamily?: string;
   fetcher: typeof fetch;
+  // Plan 1 (claims) — opaque pass-through of the raw vault config object so
+  // claim-aware tools can resolve `getClaimsConfig(ctx.rawConfig)`. Today
+  // `parseConfig` reads only CLI flags so this is always undefined; once a
+  // file-based config loader lands it should populate this slot. Tools that
+  // consume it MUST treat undefined as "use defaults".
+  rawConfig?: unknown;
 }
 
 /**
@@ -32,7 +38,11 @@ export function buildCtx(config: VaultConfig): DispatchCtx {
     vaultPath: config.vaultPath,
     defaultWiki: config.defaultWiki,
     defaultFamily: config.defaultFamily,
-    fetcher: globalThis.fetch.bind(globalThis)
+    fetcher: globalThis.fetch.bind(globalThis),
+    // No file-based config today; claim-aware tools fall back to spec defaults
+    // via `getClaimsConfig({})`. Slot is here so DispatchCtx structurally
+    // satisfies tool contexts that require `rawConfig?: unknown`.
+    rawConfig: undefined
   };
 }
 
