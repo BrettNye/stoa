@@ -443,6 +443,26 @@ describe("formatClaimBullet", () => {
     const out = formatClaimBullet(claim, customToday, cfg);
     expect(out).toContain("as of 2027-01-15");
   });
+
+  it("collapses embedded newlines in claim.body to a single line", () => {
+    // Regression: gray-matter leaves the post-frontmatter remainder in body,
+    // typically starting with `\n` and possibly containing internal newlines
+    // when the author wrote multi-paragraph body text. A bare `.trim()` only
+    // strips boundary whitespace; embedded `\n` would break the bullet line
+    // and corrupt the vault-claims:start..end block.
+    const claim = fakeParsed("c", {
+      key: "k.multi",
+      summary: undefined,
+      body: "\nfirst paragraph.\n\nsecond paragraph.\n",
+      confidence: 0.9,
+      last_validated: "2026-05-02",
+    });
+    const out = formatClaimBullet(claim, TODAY, defaultConfig);
+    expect(out).not.toContain("\n");
+    // Both sentences should still be present (collapsed, not truncated).
+    expect(out).toContain("first paragraph.");
+    expect(out).toContain("second paragraph.");
+  });
 });
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -737,6 +757,58 @@ describe("renderClaimSectionInSkillMd", () => {
     // Only top-1 — must be the boosted claim-b (k.b), not k.a.
     expect(out).toContain("**`k.b`**");
     expect(out).not.toContain("**`k.a`**");
+  });
+
+  it("treats string-valued claim_render: \"false\" the same as boolean false", async () => {
+    // Regression: gray-matter parses unquoted `false` as boolean but quoted
+    // `"false"` as the string "false". Both look identical in a Markdown
+    // editor; strict equality `=== false` silently ignored the string form,
+    // causing the orchestrator to render even though the author opted out.
+    const vault = await mkTempVault();
+    await writeClaimFile(vault, {
+      id: "claim-1",
+      key: "k.a",
+      status: "active",
+      confidence: 0.9,
+      last_validated: "2026-05-02",
+      move: ["move-tdd-cycle"],
+    });
+
+    const initial = [
+      "---",
+      "id: move-tdd-cycle",
+      "type: move",
+      'claim_render: "false"',
+      "---",
+      "",
+      "# TDD",
+      "",
+      "<!-- vault-claims:start (rendered: 2026-05-01) -->",
+      "## Learned",
+      "",
+      "- old bullet",
+      "<!-- vault-claims:end -->",
+      "",
+      "## Notes",
+      "",
+    ].join("\n");
+
+    const skill = await mkTempSkillFile(initial);
+    await renderClaimSectionInSkillMd({
+      skillMdPath: skill,
+      moveId: "move-tdd-cycle",
+      deployingProfileId: "profile-pikachu",
+      vaultPath: vault,
+      today: TODAY,
+      config: defaultConfig,
+    });
+
+    const out = await fs.readFile(skill, "utf8");
+    // Same expectations as the boolean-false test above.
+    expect(out).not.toContain("vault-claims:start");
+    expect(out).not.toContain("vault-claims:end");
+    expect(out).not.toContain("- old bullet");
+    expect(out).toContain("## Notes");
   });
 
   it("does not write the file when claim_render: false and no prior block exists", async () => {

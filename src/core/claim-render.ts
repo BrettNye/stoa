@@ -169,7 +169,13 @@ export function formatClaimBullet(
     },
   );
   const renderDate = today.toISOString().slice(0, 10);
-  const body = (claim.summary ?? claim.body ?? "").trim();
+  // Collapse all internal whitespace runs (incl. embedded newlines) to a
+  // single space. `.trim()` alone leaves embedded `\n` intact, which would
+  // break the single-line bullet and corrupt the vault-claims:start..end
+  // block when claim.body is the raw multi-line gray-matter remainder.
+  const body = (claim.summary ?? claim.body ?? "")
+    .trim()
+    .replace(/\s*\n\s*/g, " ");
   const firstEvidence = (claim.evidence ?? [])[0];
   const evidenceClause = firstEvidence ? `, evidence: [[${firstEvidence}]]` : "";
   return `- **\`${claim.key}\`** — ${body}. *(confidence ${eff.toFixed(2)} as of ${renderDate}, validated ${claim.last_validated}${evidenceClause})*`;
@@ -202,7 +208,14 @@ export async function renderClaimSectionInSkillMd(args: {
   const parsed = matter(raw);
 
   // Opt-out path: remove any existing rendered block and return.
-  if (parsed.data.claim_render === false) {
+  // Accept both the boolean `false` and the string `"false"` — gray-matter
+  // parses unquoted YAML `false` as boolean but quoted `"false"` as the
+  // string "false", and both spellings look identical in a Markdown editor.
+  // Strict equality on `=== false` would silently ignore the string form.
+  if (
+    parsed.data.claim_render === false ||
+    parsed.data.claim_render === "false"
+  ) {
     const cleaned = removeMarkerSection(raw, MARKER_NAME);
     if (cleaned !== raw) await fs.writeFile(args.skillMdPath, cleaned);
     return;
