@@ -5,6 +5,8 @@ import { syncMoveset, resolveSkillsDir } from "../core/skills.js";
 import { readDeployments, type DeploymentEntry } from "../core/deployments.js";
 import { detectDriftAt, deployMove, type DriftReport } from "../core/skills-platform.js";
 import { readProfile } from "../core/profiles.js";
+import { renderClaimSectionInSkillMd } from "../core/claim-render.js";
+import { getClaimsConfig } from "../config.js";
 
 const Input = z.object({
   repo_path: z.string(),
@@ -32,17 +34,62 @@ export const syncSkillsTool = {
   name: "vault.sync-skills",
   description: "Deploy a Pokemon's moveset into a target repo's local skills directory. With reverify=true, scans existing deployments for drift instead of deploying.",
   inputSchema: Input,
-  handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
+  handler: async (
+    input: z.infer<typeof Input>,
+    ctx: {
+      vaultPath: string;
+      // Claims Plan 3 Wave 2 — clock injection + raw vault config pass-through.
+      // Mirrors the pattern landed in evolve-profile (Plan 2). Both optional
+      // so DispatchCtx (which carries an optional rawConfig and no today)
+      // is structurally assignable. `today` defaults to `new Date()` when
+      // omitted; tests should always inject for deterministic outputs.
+      today?: Date;
+      rawConfig?: unknown;
+    }
+  ) => {
     if (input.fix && !input.reverify) {
       throw new Error("`fix: true` requires `reverify: true` (the fix path operates on the drift report produced by reverify).");
     }
 
     if (input.reverify) {
+      // Reverify path is unchanged — no claim rendering occurs here. The §8.2
+      // pre-render is a deploy-time concern; reverify only hashes existing
+      // deployed files against their canonical vault sources.
       return runReverify(input, ctx);
     }
 
     if (!input.pokemon) {
       throw new Error("`pokemon` is required when `reverify=false` (the default deploy path needs a profile to deploy).");
+    }
+
+    // §8.2 pre-render — for each move in the deploying profile's moveset,
+    // render the vault-claims:start..end block into the vault SKILL.md so the
+    // subsequent `syncMoveset` deploys the freshly-rendered file. A move
+    // whose vault SKILL.md does NOT exist is silently skipped — sync-skills
+    // must not throw on missing per-move SKILL.md (a profile may declare a
+    // move whose source page hasn't landed yet).
+    const profile = readProfile(ctx.vaultPath, input.pokemon);
+    const moveset: string[] = Array.isArray(profile.frontmatter.moveset)
+      ? (profile.frontmatter.moveset as string[])
+      : [];
+    const today = ctx.today ?? new Date();
+    const claimsConfig = getClaimsConfig(ctx.rawConfig ?? {});
+    for (const moveId of moveset) {
+      const skillMdPath = join(ctx.vaultPath, "wikis", "_agents", "moves", moveId, "SKILL.md");
+      try {
+        await renderClaimSectionInSkillMd({
+          skillMdPath,
+          moveId,
+          deployingProfileId: input.pokemon,
+          vaultPath: ctx.vaultPath,
+          today,
+          config: claimsConfig,
+        });
+      } catch {
+        // SKILL.md missing or unreadable — skip silently. The downstream
+        // syncMoveset will surface a more actionable error if the move
+        // source dir is genuinely required but absent.
+      }
     }
 
     const result = syncMoveset({
