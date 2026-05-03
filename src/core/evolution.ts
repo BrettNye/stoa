@@ -94,19 +94,25 @@ export interface EvolutionProposal {
 const MOVESET_ADDITION_THRESHOLD = 10;
 const MOVESET_ADDITION_CAP = 2;
 
-const EMPTY_EVIDENCE_SUMMARY: EvidenceSummary = {
+// Frozen module-level singletons returned by reference from the legacy
+// (no-vaultPath) code path. Freezing is defensive: in a long-running MCP
+// server, a caller that mutated `out.eligibility.eligible = true` or
+// `out.evidence_summary.top_clusters.push(...)` would silently corrupt
+// these constants for every subsequent call. With Object.freeze, such
+// mutations throw in strict mode (which ES modules use by default).
+const EMPTY_EVIDENCE_SUMMARY: EvidenceSummary = Object.freeze({
   total_active_claims: 0,
   above_threshold_count: 0,
   superseded_count: 0,
-  top_clusters: [],
-};
+  top_clusters: Object.freeze([]) as [],
+}) as unknown as EvidenceSummary;
 
-const SKIPPED_ELIGIBILITY: EligibilityReport = {
+const SKIPPED_ELIGIBILITY: EligibilityReport = Object.freeze({
   eligible: false,
   reason: "claims integration skipped (no vaultPath)",
   high_confidence_claim_count: 0,
   threshold: 0,
-};
+}) as EligibilityReport;
 
 export interface ProposeEvolutionInput {
   profile: ProfileForProposal;

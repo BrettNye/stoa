@@ -282,4 +282,33 @@ describe("proposeEvolution with claims (additive Plan 2 fields)", () => {
     expect(a.proposed.moveset_suggestions).toEqual(b.proposed.moveset_suggestions);
     expect(a.evidence_summary).toEqual(b.evidence_summary);
   });
+
+  it("returns frozen singletons from the legacy (no-vaultPath) path so caller mutations cannot corrupt shared state", () => {
+    // Two back-to-back calls share the same SKIPPED_ELIGIBILITY /
+    // EMPTY_EVIDENCE_SUMMARY by reference. Object.freeze means a hostile
+    // or buggy caller can't poison subsequent calls in the same process.
+    const a = proposeEvolution({
+      profile: baseProfile,
+      stats: { tasks_completed: 5, tasks_failed: 1, success_rate: 0.8, moves_used_freq: {} },
+    });
+    expect(Object.isFrozen(a.eligibility)).toBe(true);
+    expect(Object.isFrozen(a.evidence_summary)).toBe(true);
+    expect(Object.isFrozen(a.evidence_summary.top_clusters)).toBe(true);
+
+    // Attempting to mutate must throw in strict mode (ES modules are strict).
+    expect(() => {
+      (a.eligibility as { eligible: boolean }).eligible = true;
+    }).toThrow();
+    expect(() => {
+      a.evidence_summary.top_clusters.push({ tag: "x", count: 1 });
+    }).toThrow();
+
+    // A subsequent call still sees the pristine shape.
+    const b = proposeEvolution({
+      profile: baseProfile,
+      stats: { tasks_completed: 5, tasks_failed: 1, success_rate: 0.8, moves_used_freq: {} },
+    });
+    expect(b.eligibility.eligible).toBe(false);
+    expect(b.evidence_summary.top_clusters).toEqual([]);
+  });
 });
