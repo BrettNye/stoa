@@ -16,6 +16,11 @@ export interface LintCheckCtx {
   defaultWiki?: string;
   defaultFamily?: string;
   fetcher?: typeof fetch;
+  // Plan 1 (claims) — `today` is injected by the runner / tests so that
+  // confidence-decay-aware checks (CLAIM_EFFECTIVE_BELOW_FLOOR, …) are
+  // deterministic and never read the wall clock from inside a check body.
+  // Production callers may omit it; checks default to `new Date()`.
+  today?: Date;
 }
 
 /**
