@@ -167,7 +167,20 @@ describe("vault.evolve-profile", () => {
     ).rejects.toThrow(/conflict|OCC|expected_updated/i);
   });
 
-  it("proposal phase cites memory_page_id in rationale when synthesis-<bare>-memory.md exists", async () => {
+  it("proposal phase emits the claim-driven rationale shape when no claims are seeded (vaultPath always threaded post-Plan 2)", async () => {
+    // Plan 2 (commit 41c8acf) made the evolve-profile handler ALWAYS thread
+    // `vaultPath` into `proposeEvolution`, which routes to `enrichWithClaims`
+    // for the rationale. The previous v1.5 behavior — `memory_page_id` cited
+    // inline (`memory: [[synthesis-<bare>-memory]]`) and the task count (e.g.
+    // `30`) embedded in the rationale — was a property of the legacy
+    // stats-driven `computeLegacyProposal` rationale, which Plan 2 replaces.
+    //
+    // The original assertion (`r.rationale.toMatch(/synthesis-charmander-memory/)`)
+    // is no longer satisfiable: `enrichWithClaims` never reads `memory_page_id`
+    // when building the rationale. The substantive intent of this test —
+    // "the rationale path runs successfully with synthesis fixture present" —
+    // remains, so we keep the synthesis seed but assert on the new rationale
+    // shape (which is the only output the rationale path produces today).
     await seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
     const synthDir = join(vaultPath, "wikis", "_agents", "synthesis");
     mkdirSync(synthDir, { recursive: true });
@@ -192,11 +205,25 @@ charmander has shown a pattern of refactoring during long sprints.
       { vaultPath }
     );
 
+    // Stats-driven legacy `eligible` flag still holds (30 tasks at 100%).
     expect(r.eligible).toBe(true);
-    expect(r.rationale).toMatch(/synthesis-charmander-memory/);
+    // Claim-driven rationale shape per `core/evolution-claims.ts:renderRationale`.
+    // No claims seeded → "0 active claims, of which 0 exceed the …".
+    expect(r.rationale).toMatch(
+      /Profile profile-charmander has authored 0 active claims/
+    );
+    expect(r.rationale).toMatch(/Eligibility check: not eligible for basic/);
+    // memory_page_id is no longer a rationale input under the claim-driven path.
+    expect(r.rationale).not.toMatch(/synthesis-charmander-memory/);
   });
 
-  it("proposal phase falls back to base rationale when memory page does not exist", async () => {
+  it("proposal phase emits a well-formed claim-driven rationale when memory page is absent (no v1.5 stats text injected)", async () => {
+    // Companion to the previous test: same fixture but without the synthesis
+    // page on disk. The output is identical because `enrichWithClaims`
+    // doesn't consult `memory_page_id`. Pre-Plan-2 this assertion checked
+    // the v1.5 rationale embedded the literal `30` (task count); under the
+    // claim-driven path the rationale has no task count at all (the count
+    // it DOES surface is `active claims`, not `tasks_completed`).
     await seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
     const r = await evolveProfileTool.handler(
       { pokemon_id: "profile-charmander", commit: false },
@@ -205,7 +232,9 @@ charmander has shown a pattern of refactoring during long sprints.
 
     expect(r.eligible).toBe(true);
     expect(r.rationale).not.toMatch(/synthesis-charmander-memory/);
-    expect(r.rationale).toMatch(/30/);
+    // The new rationale is claim-driven; no claims seeded → 0 active claims.
+    expect(r.rationale).toMatch(/0 active claims/);
+    expect(r.rationale).toMatch(/effective-confidence threshold/);
   });
 
   it("commit phase auto-resyncs to deployed repos when registry has entries", async () => {
