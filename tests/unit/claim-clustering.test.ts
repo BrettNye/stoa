@@ -189,7 +189,7 @@ describe("loadActiveProfileClaims", () => {
     expect(out[0].id).toBe("claim-disk-1");
   });
 
-  it("falls back to disk walk when the sidecar exists but lacks by_profile entries for this id", async () => {
+  it("honors sidecar silence for an unknown profileId (no disk-walk fallback)", async () => {
     // Sidecar present (built from no-profile claims) but `profile-ghost` not indexed.
     const vault = await mkTempVaultWithSidecar([]);
     await writeClaimFile(vault, {
