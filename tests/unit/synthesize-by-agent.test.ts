@@ -107,11 +107,26 @@ describe("vault.synthesize --by-agent — Learnings section", () => {
     );
     const file2 = await fs.readFile(synthPath(vault, "profile-pikachu"), "utf8");
 
-    // Strip the rendered-date which may roll across a UTC day boundary.
+    // Strip every emitted date so the two reads compare equal even if a UTC
+    // midnight boundary fell between the two synthesize calls. Covers both the
+    // marker-line `rendered:` token, the frontmatter `created`/`updated`/
+    // `last_compiled` keys, and the prose `_Compiled <date>` line.
     const strip = (s: string) =>
       s.replace(/rendered: \d{4}-\d{2}-\d{2}/g, "rendered: <DATE>")
-       .replace(/(?:^|\n)(?:created|updated|last_compiled): \d{4}-\d{2}-\d{2}/g, "$&".replace(/\d{4}-\d{2}-\d{2}/, "<DATE>"))
+       .replace(/((?:^|\n)(?:created|updated|last_compiled): )\d{4}-\d{2}-\d{2}/g, "$1<DATE>")
        .replace(/_Compiled \d{4}-\d{2}-\d{2}/g, "_Compiled <DATE>");
+
+    // Self-test the strip function so a future regression to no-op behaviour
+    // is caught at the assertion site rather than masquerading as a flaky
+    // midnight-boundary failure.
+    expect(strip("last_compiled: 2026-05-03")).toBe("last_compiled: <DATE>");
+    expect(strip("created: 2026-05-03")).toBe("created: <DATE>");
+    expect(strip("updated: 2026-05-03")).toBe("updated: <DATE>");
+    expect(strip("_Compiled 2026-05-03")).toBe("_Compiled <DATE>");
+    expect(strip("rendered: 2026-05-03")).toBe("rendered: <DATE>");
+    // Idempotent.
+    expect(strip(strip("last_compiled: 2026-05-03"))).toBe("last_compiled: <DATE>");
+
     expect(strip(file2)).toBe(strip(file1));
   });
 
