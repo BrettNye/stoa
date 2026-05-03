@@ -135,6 +135,29 @@ describe("renderBetweenMarkers", () => {
     expect(out).toContain("head");
     expect(out).toContain("tail");
   });
+
+  it("with two start blocks of the same name, replaces only the first pair", () => {
+    // A human-edited file might accidentally contain duplicate marker
+    // sections. Spec choice: replace the FIRST start..end pair, leave the
+    // second pair intact. This is well-defined and avoids garbled slices.
+    const start =
+      "head\n\n<!-- m:start -->\nFIRST OLD\n<!-- m:end -->\n\nmid\n\n<!-- m:start -->\nSECOND OLD\n<!-- m:end -->\n\ntail";
+    const out = renderBetweenMarkers(start, "m", "NEW BODY");
+    expect(out).toContain("NEW BODY");
+    expect(out).not.toContain("FIRST OLD");
+    // Second marker block must remain intact.
+    expect(out).toContain("SECOND OLD");
+    expect(out).toContain("head");
+    expect(out).toContain("mid");
+    expect(out).toContain("tail");
+  });
+
+  it("throws a descriptive error when start marker is present but end marker is missing", () => {
+    const start = "head\n\n<!-- m:start -->\norphan body\n\ntail";
+    expect(() => renderBetweenMarkers(start, "m", "NEW")).toThrow(
+      /m:end/,
+    );
+  });
 });
 
 describe("removeMarkerSection", () => {
@@ -174,6 +197,23 @@ describe("removeMarkerSection", () => {
     expect(out).toContain("profile body");
     expect(out).toContain("vault-claims-profile:start");
     expect(out).toContain("vault-claims-profile:end");
+  });
+
+  it("with two start blocks of the same name, removes only the first pair", () => {
+    const start =
+      "head\n\n<!-- m:start -->\nFIRST\n<!-- m:end -->\n\nmid\n\n<!-- m:start -->\nSECOND\n<!-- m:end -->\n\ntail";
+    const out = removeMarkerSection(start, "m");
+    expect(out).not.toContain("FIRST");
+    // Second pair survives.
+    expect(out).toContain("SECOND");
+    expect(out).toContain("head");
+    expect(out).toContain("mid");
+    expect(out).toContain("tail");
+  });
+
+  it("throws a descriptive error when start marker is present but end marker is missing", () => {
+    const start = "head\n\n<!-- m:start -->\norphan body\n\ntail";
+    expect(() => removeMarkerSection(start, "m")).toThrow(/m:end/);
   });
 
   it("round-trip: render then remove returns close-to-original (modulo trailing newlines)", () => {

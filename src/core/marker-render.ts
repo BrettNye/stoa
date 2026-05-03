@@ -33,6 +33,14 @@ export interface MarkerOptions {
  * `replacement` is the section body — the markers themselves are added by
  * this function. The caller passes the section heading and bullets; this
  * function bounds them.
+ *
+ * Locates the FIRST `start` marker via `RegExp.exec()` (deterministic
+ * position) and searches for the matching `end` marker only in the
+ * substring after the start marker, so duplicate or out-of-order markers
+ * cannot produce a crossed/garbled slice. Throws a descriptive Error when
+ * a start marker is found but no end marker follows it — markers are a
+ * structured contract per the spec, and silent fallback would mask file
+ * corruption.
  */
 export function renderBetweenMarkers(
   content: string,
@@ -54,12 +62,17 @@ export function renderBetweenMarkers(
 
   const block = `${startMarker}\n${replacement.trimEnd()}\n${endMarker}`;
 
-  const startMatch = content.match(startMarkerRe);
-  const endMatch = content.match(endMarkerRe);
-
-  if (startMatch && endMatch) {
-    const startIdx = content.indexOf(startMatch[0]);
-    const endIdx = content.indexOf(endMatch[0]) + endMatch[0].length;
+  const startExec = startMarkerRe.exec(content);
+  if (startExec) {
+    const startIdx = startExec.index;
+    const afterStart = startIdx + startExec[0].length;
+    const endExec = endMarkerRe.exec(content.slice(afterStart));
+    if (!endExec) {
+      throw new Error(
+        `renderBetweenMarkers: found <!-- ${markerName}:start --> at offset ${startIdx} but no matching <!-- ${markerName}:end --> after it`,
+      );
+    }
+    const endIdx = afterStart + endExec.index + endExec[0].length;
     return content.slice(0, startIdx) + block + content.slice(endIdx);
   }
 
@@ -81,17 +94,28 @@ export function renderBetweenMarkers(
  * move, sync-skills removes the existing markers + content).
  *
  * Surrounding blank lines are collapsed so removal does not leave a visible
- * gap. If the markers are absent, returns `content` unchanged.
+ * gap. If neither marker is present, returns `content` unchanged. If a
+ * start marker is found but no end marker follows it, throws a descriptive
+ * Error — markers are a structured contract per the spec, and silent
+ * fallback would mask file corruption. Searches for the end marker only
+ * after the start marker, so duplicate / out-of-order markers cannot
+ * produce a crossed slice.
  */
 export function removeMarkerSection(content: string, markerName: string): string {
   const escaped = escapeRegex(markerName);
   const startMarkerRe = new RegExp(`<!--\\s*${escaped}:start[^>]*-->`);
   const endMarkerRe = new RegExp(`<!--\\s*${escaped}:end\\s*-->`);
-  const startMatch = content.match(startMarkerRe);
-  const endMatch = content.match(endMarkerRe);
-  if (!startMatch || !endMatch) return content;
-  const startIdx = content.indexOf(startMatch[0]);
-  const endIdx = content.indexOf(endMatch[0]) + endMatch[0].length;
+  const startExec = startMarkerRe.exec(content);
+  if (!startExec) return content;
+  const startIdx = startExec.index;
+  const afterStart = startIdx + startExec[0].length;
+  const endExec = endMarkerRe.exec(content.slice(afterStart));
+  if (!endExec) {
+    throw new Error(
+      `removeMarkerSection: found <!-- ${markerName}:start --> at offset ${startIdx} but no matching <!-- ${markerName}:end --> after it`,
+    );
+  }
+  const endIdx = afterStart + endExec.index + endExec[0].length;
   const before = content.slice(0, startIdx).replace(/\n+$/, "\n");
   const after = content.slice(endIdx).replace(/^\n+/, "\n");
   return before + after;
