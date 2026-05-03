@@ -8,6 +8,16 @@ import {
   thresholdFor
 } from "./pokemon.js";
 import type { EvolutionThresholds } from "./thresholds.js";
+import { clusterByTag, loadActiveProfileClaims } from "./claim-clustering.js";
+import {
+  computeEligibility,
+  suggestMoves,
+  renderRationale,
+  type EligibilityReport,
+  type MovesetSuggestion,
+} from "./evolution-claims.js";
+import { effectiveConfidence } from "./decay.js";
+import { getClaimsConfig, type ClaimsConfig } from "../config.js";
 
 export interface ProfileForProposal {
   id: string;
@@ -33,26 +43,131 @@ export interface EvolutionProposalCurrent {
   autonomy_level: string;
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// Claims Plan 2 — additive output shapes. The legacy v1.5 fields above this
+// fence stay shape-stable; the new fields below land on the proposal
+// alongside them. When the orchestrator is invoked without a `vaultPath`
+// the new fields default to empty/zero defaults — see proposeEvolution()
+// below for the back-compat path.
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface SpecialtyEntry {
+  tag: string;
+  claim_count: number;
+}
+
+export interface EvidenceSummary {
+  total_active_claims: number;
+  above_threshold_count: number;
+  superseded_count: number;
+  top_clusters: Array<{ tag: string; count: number }>;
+}
+
 export interface EvolutionProposalProposed {
   name: string | null;
   evolution_stage: EvolutionStage;
   moveset_additions: string[];
   moveset_removals: string[];
   autonomy_level: AutonomyLevel;
+  // Plan 2 additions — populated regardless of the vaultPath presence; default
+  // to [] when claims integration is skipped.
+  specialties: SpecialtyEntry[];
+  moveset_suggestions: MovesetSuggestion[];
 }
 
 export interface EvolutionProposal {
+  // ── v1.5 fields (shape-stable) ─────────────────────────────────────────
   eligible: boolean;
   reason?: string;
   current: EvolutionProposalCurrent;
   proposed: EvolutionProposalProposed;
   rationale: string;
+  // ── Plan 2 additions ───────────────────────────────────────────────────
+  // The new claim-driven `eligibility` block is ADVISORY and ADDITIVE; the
+  // top-level `eligible` field above stays driven by the v1.5 stats
+  // pathway (tasks_completed + success_rate vs. thresholds). Consumers can
+  // surface either or both.
+  eligibility: EligibilityReport;
+  evidence_summary: EvidenceSummary;
 }
 
 const MOVESET_ADDITION_THRESHOLD = 10;
 const MOVESET_ADDITION_CAP = 2;
 
-export function proposeEvolution(input: { profile: ProfileForProposal; stats: StatsForProposal; memory_page_id?: string; thresholds?: EvolutionThresholds }): EvolutionProposal {
+const EMPTY_EVIDENCE_SUMMARY: EvidenceSummary = {
+  total_active_claims: 0,
+  above_threshold_count: 0,
+  superseded_count: 0,
+  top_clusters: [],
+};
+
+const SKIPPED_ELIGIBILITY: EligibilityReport = {
+  eligible: false,
+  reason: "claims integration skipped (no vaultPath)",
+  high_confidence_claim_count: 0,
+  threshold: 0,
+};
+
+export interface ProposeEvolutionInput {
+  profile: ProfileForProposal;
+  stats: StatsForProposal;
+  memory_page_id?: string;
+  thresholds?: EvolutionThresholds;
+  // Plan 2 additions — all optional; supplying `vaultPath` enables the
+  // claim-driven extensions. `today` is required when `vaultPath` is set
+  // (the orchestrator never reads `Date.now()`); if omitted it defaults to
+  // the current date — but `today` SHOULD be injected by callers who want
+  // deterministic outputs (the unit suite always injects).
+  vaultPath?: string;
+  today?: Date;
+  claimsConfig?: ClaimsConfig;
+}
+
+// Synchronous overload for the legacy back-compat path (no vaultPath supplied).
+export function proposeEvolution(input: ProposeEvolutionInput & { vaultPath?: undefined }): EvolutionProposal;
+// Async overload for the claims-integrated path.
+export function proposeEvolution(input: ProposeEvolutionInput & { vaultPath: string }): Promise<EvolutionProposal>;
+export function proposeEvolution(input: ProposeEvolutionInput): EvolutionProposal | Promise<EvolutionProposal> {
+  const legacy = computeLegacyProposal(input);
+  if (!input.vaultPath) {
+    // Back-compat: no claims integration; return v1.5 shape with empty
+    // additive fields.
+    return {
+      ...legacy,
+      proposed: {
+        ...legacy.proposed,
+        specialties: [],
+        moveset_suggestions: [],
+      },
+      eligibility: SKIPPED_ELIGIBILITY,
+      evidence_summary: EMPTY_EVIDENCE_SUMMARY,
+    };
+  }
+  return enrichWithClaims(input as ProposeEvolutionInput & { vaultPath: string }, legacy);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Internal: split the v1.5 logic out so both paths reuse it. The shape it
+// returns matches the pre-Plan-2 `EvolutionProposal` (no `specialties`, no
+// `moveset_suggestions` on `proposed`; no top-level `eligibility` /
+// `evidence_summary`). Both call sites layer the additive fields on top.
+// ─────────────────────────────────────────────────────────────────────────
+
+interface LegacyProposal {
+  eligible: boolean;
+  reason?: string;
+  current: EvolutionProposalCurrent;
+  proposed: {
+    name: string | null;
+    evolution_stage: EvolutionStage;
+    moveset_additions: string[];
+    moveset_removals: string[];
+    autonomy_level: AutonomyLevel;
+  };
+  rationale: string;
+}
+
+function computeLegacyProposal(input: ProposeEvolutionInput): LegacyProposal {
   const { profile, stats } = input;
 
   // Resolve effective thresholds. When `thresholds` is supplied (v1.6 §4.4),
@@ -152,5 +267,129 @@ export function proposeEvolution(input: { profile: ProfileForProposal; stats: St
       autonomy_level: defaultAutonomyForStage(next)
     },
     rationale
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Internal: claim-driven extension (Plan 2 §8.1). Loads active claims for
+// the profile, clusters them by tag, computes specialties / moveset
+// suggestions / eligibility / evidence summary, and replaces the rationale
+// with the multi-line claim-aware version. The v1.5 top-level `eligible`
+// stays as-is for back-compat — the new `eligibility` block is advisory.
+// ─────────────────────────────────────────────────────────────────────────
+
+async function enrichWithClaims(
+  input: ProposeEvolutionInput & { vaultPath: string },
+  legacy: LegacyProposal,
+): Promise<EvolutionProposal> {
+  const today = input.today ?? new Date();
+  const config = input.claimsConfig ?? getClaimsConfig({});
+
+  const claims = await loadActiveProfileClaims(
+    input.vaultPath,
+    input.profile.id,
+    today,
+    config,
+  );
+  const clusters = clusterByTag(claims, config.specialty_min_cluster);
+
+  // Specialties: one entry per surviving cluster; preserve insertion order
+  // here so downstream consumers see the same ordering as the cluster map.
+  // (`evidence_summary.top_clusters` separately sorts by count desc.)
+  const specialties: SpecialtyEntry[] = [...clusters.entries()].map(
+    ([tag, arr]) => ({ tag, claim_count: arr.length }),
+  );
+
+  const moveset_suggestions = await suggestMoves(
+    clusters,
+    input.profile.moveset,
+    input.vaultPath,
+  );
+
+  const eligibility = computeEligibility(
+    claims.length,
+    input.profile.evolution_stage,
+    {
+      stage1: config.evolution_thresholds.stage1,
+      stage2: config.evolution_thresholds.stage2,
+    },
+  );
+
+  // top_clusters: top 3 by claim_count desc. Stable secondary sort by tag
+  // string so ties are reproducible.
+  const top_clusters = [...specialties]
+    .sort((a, b) => b.claim_count - a.claim_count || a.tag.localeCompare(b.tag))
+    .slice(0, 3)
+    .map((s) => ({ tag: s.tag, count: s.claim_count }));
+
+  const evidence_summary: EvidenceSummary = {
+    total_active_claims: claims.length,
+    // After loadActiveProfileClaims, every claim is at-or-above the
+    // render_min_confidence floor — so above_threshold_count equals the
+    // total. (A future expansion could distinguish floor vs. eligibility
+    // thresholds; today the loader has already filtered.)
+    above_threshold_count: claims.length,
+    // Plan 2 reference snippet leaves the superseded count to a sidecar
+    // walk; the current loader filters superseded out, so this field
+    // remains 0 until a sidecar pass lands. Defaulting to 0 is the
+    // documented fallback.
+    superseded_count: 0,
+    top_clusters,
+  };
+
+  // Top evidence: 3 highest-effective-confidence claims across surviving
+  // clusters. Use the cluster output (not raw claims) so a claim only
+  // counts once even if it carries multiple surviving tags.
+  const seen = new Set<string>();
+  const survivors: typeof claims = [];
+  for (const arr of clusters.values()) {
+    for (const c of arr) {
+      if (seen.has(c.id)) continue;
+      seen.add(c.id);
+      survivors.push(c);
+    }
+  }
+  const topEvidenceIds = survivors
+    .map((c) => ({
+      id: c.id,
+      eff: effectiveConfidence(
+        { confidence: c.confidence, last_validated: c.last_validated, status: c.status },
+        today,
+        {
+          half_life_days: config.half_life_days,
+          effective_floor: config.effective_floor,
+        },
+      ),
+    }))
+    .sort((a, b) => b.eff - a.eff || a.id.localeCompare(b.id))
+    .slice(0, 3)
+    .map((x) => x.id);
+
+  const uncoveredMoveHints = moveset_suggestions.map((s) => s.move_hint);
+
+  const claimRationale = renderRationale({
+    profileId: input.profile.id,
+    totalActive: claims.length,
+    aboveThreshold: claims.length,
+    renderMinConfidence: config.render_min_confidence,
+    eligibility,
+    currentStage: input.profile.evolution_stage,
+    topClusters: top_clusters,
+    uncoveredMoveHints,
+    topEvidenceClaimIds: topEvidenceIds,
+  });
+
+  return {
+    eligible: legacy.eligible,
+    reason: legacy.reason,
+    current: legacy.current,
+    proposed: {
+      ...legacy.proposed,
+      specialties,
+      moveset_suggestions,
+    },
+    rationale: claimRationale,
+    eligibility,
+    evidence_summary,
   };
 }
