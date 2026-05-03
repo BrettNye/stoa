@@ -8,6 +8,7 @@ import { readAliases } from "./aliases.js";
 import { loadWikiMeta } from "./wikis.js";
 import { aggregateFamilies } from "./family.js";
 import { withSerializedIndexWrite } from "./index-locking.js";
+import { buildClaimsIndex, writeClaimsIndex } from "./claims-index.js";
 
 /**
  * Phase-2 T2-2 — converts the IndexedWiki[] array (current `_index/wikis.json`
@@ -182,13 +183,13 @@ function reindexScoped(vaultPath: string, scopeWiki: string, start: number): Pro
 
   return withSerializedIndexWrite(
     vaultPath,
-    ["pages.json", "tokens.json", "wikis.json", "links.json"],
-    () => {
+    ["claims.json", "pages.json", "tokens.json", "wikis.json", "links.json"],
+    async () => {
       const existing = loadExistingIndex(vaultPath);
       if (!existing) {
         // Missing-sidecar fallback: rebuild from scratch under the same lock
         // we already hold (re-entry via reindexFull would deadlock).
-        return reindexFullBody(vaultPath, start);
+        return await reindexFullBody(vaultPath, start);
       }
 
       const newScopePages = discoverPages(vaultPath, scopeWiki);
@@ -237,6 +238,14 @@ function reindexScoped(vaultPath: string, scopeWiki: string, start: number): Pro
 
       writeProfilesJson(vaultPath);
       ensureAliasesJson(vaultPath);
+
+      // Claims sidecar — Plan 1 §task-reindex-claims-integration. The sidecar
+      // is built from a full disk scan over every wiki's `claim/` folder
+      // (see `buildClaimsIndex`), so scoped reindex still produces a complete
+      // picture rather than a wiki-local subset. The `claims.json` lock is
+      // acquired alongside the four core sidecar locks above.
+      const claimsIdx = await buildClaimsIndex(vaultPath);
+      await writeClaimsIndex(vaultPath, claimsIdx);
 
       return {
         pages_indexed: combinedPages.length,
@@ -351,7 +360,7 @@ function rebuildLinks(
 function reindexFull(vaultPath: string, start: number): Promise<ReindexResult> {
   return withSerializedIndexWrite(
     vaultPath,
-    ["pages.json", "tokens.json", "wikis.json", "links.json"],
+    ["claims.json", "pages.json", "tokens.json", "wikis.json", "links.json"],
     () => reindexFullBody(vaultPath, start)
   );
 }
@@ -359,9 +368,15 @@ function reindexFull(vaultPath: string, start: number): Promise<ReindexResult> {
 /**
  * v1.7 §5.3 — pure body of `reindexFull`, extracted so `reindexScoped`'s
  * missing-sidecar fallback can re-use it without re-entering the lock.
- * Callers MUST hold all four sidecar locks before invoking.
+ * Callers MUST hold all five sidecar locks (pages.json, tokens.json,
+ * wikis.json, links.json, claims.json) before invoking.
+ *
+ * Plan 1 §task-reindex-claims-integration — claims.json is now built and
+ * persisted alongside the core four sidecars. `buildClaimsIndex` walks the
+ * disk itself (not `allPages`), so the claims sidecar is independent of the
+ * page-discovery flow above.
  */
-function reindexFullBody(vaultPath: string, start: number): ReindexResult {
+async function reindexFullBody(vaultPath: string, start: number): Promise<ReindexResult> {
   const wikis = discoverWikis(vaultPath);
   const allPages: IndexedPage[] = [];
   const wikiSummaries: IndexedWiki[] = [];
@@ -436,6 +451,15 @@ function reindexFullBody(vaultPath: string, start: number): ReindexResult {
 
   writeProfilesJson(vaultPath);
   ensureAliasesJson(vaultPath);
+
+  // Plan 1 §task-reindex-claims-integration — emit `_index/claims.json`. Built
+  // from a full disk walk over `wikis/<wiki>/claim/*.md`; only `status: "active"`
+  // claims are bucketed (see `buildClaimsIndex` for the rules). An empty vault
+  // emits a sidecar with the full canonical shape and empty buckets — never a
+  // missing file, so downstream consumers can rely on it always being present
+  // after a reindex.
+  const claimsIdx = await buildClaimsIndex(vaultPath);
+  await writeClaimsIndex(vaultPath, claimsIdx);
 
   return {
     pages_indexed: allPages.length,
