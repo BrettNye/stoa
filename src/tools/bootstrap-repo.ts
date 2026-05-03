@@ -3,6 +3,12 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { syncMoveset } from "../core/skills.js";
 import { readProfile, ProfileNotFoundError } from "../core/profiles.js";
+import { loadActiveProfileClaims } from "../core/claim-clustering.js";
+import {
+  rankClaimsForDeployingProfile,
+  formatClaimBullet,
+} from "../core/claim-render.js";
+import { getClaimsConfig, type ClaimsConfig } from "../config.js";
 
 const Input = z.object({
   repo_path: z.string(),
@@ -15,14 +21,62 @@ const Input = z.object({
 const BOOTSTRAP_MARKER_START = "<!-- vault-mcp v1.5 bootstrap:start -->";
 const BOOTSTRAP_MARKER_END = "<!-- /vault-mcp-bootstrap -->";
 
-function buildClaudeMdFragment(args: {
+/**
+ * Claims spec §8.3 — when a profile is being deployed into the repo, render
+ * its profile-only learnings (claims with `move == []`) as a marker-bounded
+ * section co-located inside the v1.5 bootstrap fragment. Returns null when
+ * zero claims qualify so the caller can omit markers entirely (the §8.3
+ * acceptance criteria forbid empty markers).
+ */
+async function renderProfileLearnedSection(args: {
+  vaultPath: string;
+  profileId: string;
+  today: Date;
+  config: ClaimsConfig;
+}): Promise<string | null> {
+  const all = await loadActiveProfileClaims(
+    args.vaultPath,
+    args.profileId,
+    args.today,
+    args.config,
+  );
+  // §8.3 filter: claim.move == [] (profile-scoped, not move-specific).
+  const profileOnly = all.filter((c) => (c.move ?? []).length === 0);
+  if (profileOnly.length === 0) return null;
+  const ranked = rankClaimsForDeployingProfile(
+    profileOnly,
+    args.profileId,
+    args.today,
+    args.config,
+  );
+  const top = ranked.slice(0, args.config.render_default_limit);
+  const renderDate = args.today.toISOString().slice(0, 10);
+  const lines: string[] = [];
+  lines.push(
+    `<!-- vault-claims-profile:start (rendered: ${renderDate}, half-life: ${args.config.half_life_days}d) -->`,
+  );
+  lines.push("## Learned (this profile)");
+  lines.push("");
+  for (const c of top) lines.push(formatClaimBullet(c, args.today, args.config));
+  lines.push("");
+  lines.push(
+    `*If \`vault-claims-profile rendered:\` is more than ${args.config.staleness_warn_days} days old, run \`vault.bootstrap-repo\` again to refresh.*`,
+  );
+  lines.push(`<!-- vault-claims-profile:end -->`);
+  return lines.join("\n");
+}
+
+async function buildClaudeMdFragment(args: {
   repoPath: string;
   wiki: string;
   serverName: string;
   pokemon?: string;
   channels?: string[];
-  profile?: { name: string; title: string; pokemon_type: string; evolution_stage: string };
-}): string {
+  profile?: { name: string; title: string; pokemon_type: string; evolution_stage: string; canonical_id: string };
+  vaultPath: string;
+  today: Date;
+  claimsConfig: ClaimsConfig;
+}): Promise<string> {
   const lines: string[] = [];
   lines.push(BOOTSTRAP_MARKER_START);
   lines.push("");
@@ -44,6 +98,18 @@ function buildClaudeMdFragment(args: {
     lines.push(`### Operating as: **${args.profile.title}** (${args.profile.pokemon_type} / ${args.profile.evolution_stage})`);
     lines.push("");
     lines.push(`Skills are deployed under \`.claude/skills/${args.profile.name}/\`. Read the moveset's SKILL.md files for behavioral guidance.`);
+
+    // §8.3 — render the deploying profile's profile-only learnings.
+    const learned = await renderProfileLearnedSection({
+      vaultPath: args.vaultPath,
+      profileId: args.profile.canonical_id,
+      today: args.today,
+      config: args.claimsConfig,
+    });
+    if (learned) {
+      lines.push("");
+      lines.push(learned);
+    }
   }
   lines.push("");
   lines.push(BOOTSTRAP_MARKER_END);
@@ -113,24 +179,44 @@ export const bootstrapRepoTool = {
   name: "vault.bootstrap-repo",
   description: "Wire a repo to the vault MCP: writes .mcp.json + CLAUDE.md fragment; optionally deploys a Pokemon's moveset.",
   inputSchema: Input,
-  handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
+  handler: async (
+    input: z.infer<typeof Input>,
+    ctx: {
+      vaultPath: string;
+      // Claims Plan 3 Wave 2 — clock injection + raw vault config pass-through.
+      // Both optional so DispatchCtx (which carries an optional rawConfig) is
+      // structurally assignable. `today` defaults to `new Date()` when omitted;
+      // tests should always inject for deterministic outputs.
+      today?: Date;
+      rawConfig?: unknown;
+    }
+  ) => {
     const serverName = (input.mcp_server_name as string | undefined) ?? "vault";
+    const today = ctx.today ?? new Date();
+    const claimsConfig = getClaimsConfig(ctx.rawConfig ?? {});
     mkdirSync(input.repo_path, { recursive: true });
 
     // Write .mcp.json (merge — preserves existing mcpServers entries)
     const mcpJsonPath = mergeOrCreateMcpJson(input.repo_path, ctx.vaultPath, input.wiki, serverName);
 
     // Resolve profile if given
-    let profileSummary: { name: string; title: string; pokemon_type: string; evolution_stage: string } | undefined;
+    let profileSummary:
+      | { name: string; title: string; pokemon_type: string; evolution_stage: string; canonical_id: string }
+      | undefined;
     if (input.pokemon) {
       try {
         const p = readProfile(ctx.vaultPath, input.pokemon);
         const slug = input.pokemon.startsWith("profile-") ? input.pokemon.slice("profile-".length) : input.pokemon;
+        // Canonical id from frontmatter when present (alias-resolved); fall
+        // back to a normalized form of the input. The §8.3 loader needs the
+        // full `profile-<slug>` key that claims store in `c.profile`.
+        const canonicalId = String(p.frontmatter.id ?? (input.pokemon.startsWith("profile-") ? input.pokemon : `profile-${input.pokemon}`));
         profileSummary = {
           name: slug,
           title: String(p.frontmatter.title ?? slug),
           pokemon_type: String(p.frontmatter.pokemon_type ?? "normal"),
-          evolution_stage: String(p.frontmatter.evolution_stage ?? "basic")
+          evolution_stage: String(p.frontmatter.evolution_stage ?? "basic"),
+          canonical_id: canonicalId
         };
       } catch (e) {
         if (e instanceof ProfileNotFoundError) {
@@ -141,13 +227,16 @@ export const bootstrapRepoTool = {
     }
 
     // Build + write CLAUDE.md
-    const fragment = buildClaudeMdFragment({
+    const fragment = await buildClaudeMdFragment({
       repoPath: input.repo_path,
       wiki: input.wiki,
       serverName,
       pokemon: input.pokemon,
       channels: input.channels,
-      profile: profileSummary
+      profile: profileSummary,
+      vaultPath: ctx.vaultPath,
+      today,
+      claimsConfig
     });
     const claudeMdPath = mergeOrAppendClaudeMd(input.repo_path, fragment);
 
