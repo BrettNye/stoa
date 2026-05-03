@@ -271,13 +271,16 @@ describe("vault.bootstrap-repo §8.3 vault-claims-profile rendering", () => {
       key: "k.alpha",
       status: "active",
       confidence: 0.9,
-      last_validated: "2026-05-02",
+      last_validated: "2030-01-01",
       profile: ["profile-pikachu"],
       move: [],
     });
 
     // ctx without today / rawConfig — must not throw, must produce a §8.3
     // section with the default 30-day staleness footer.
+    // last_validated is far-future to make the fixture decay-safe: when
+    // last_validated > today, effectiveConfidence clamps to no-decay, so the
+    // assertion below stays green regardless of when the test runs.
     await bootstrapRepoTool.handler(
       { repo_path: repoPath, wiki: "alpha", pokemon: "profile-pikachu" },
       { vaultPath }
