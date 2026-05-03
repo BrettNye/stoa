@@ -18,6 +18,12 @@ import "../core/lint-checks/agent-attribution-aware.js";
 import "../core/lint-checks/family-member-mode-drift.js";
 import "../core/lint-checks/display-config-block-invalid.js";
 import "../core/lint-checks/subagent-def-invariant-violation.js";
+// Plan 1 (claims) — `registration.ts` is a barrel that side-effect-imports
+// the three Group A claim rules (claim-key-collision, claim-effective-below-
+// floor, claim-tag-repo-prefix-malformed) and adapter-registers the three
+// Group B rules (claim-without-evidence, claim-with-no-scope, claim-
+// superseded-without-supersedor). One import = all six claim rules wired.
+import "../core/lint-checks/registration.js";
 
 const Input = z.object({
   wiki: z.string().optional(),

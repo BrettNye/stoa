@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { registerLintCheck } from "../lint-check.js";
 import { parseFrontmatter } from "../frontmatter.js";
@@ -94,10 +94,15 @@ export function findClaimKeyCollisions(pages: ClaimLike[]): Diagnostic[] {
 registerLintCheck({
   code: CLAIM_KEY_COLLISION_CODE,
   run(ctx, idx, input) {
+    // Source 1 — `idx.pages`. Reindex doesn't currently include `claim` in
+    // NoteType, so claim files are typically absent here; this branch exists
+    // for forward-compat with the later wave that adds claim to NoteType,
+    // and to keep this rule's existing unit test (which injects synthetic
+    // claim entries into idx.pages) working.
     const claims: ClaimLike[] = [];
+    const seenIds = new Set<string>();
+    const idToWiki = new Map<string, string>();
     for (const page of idx.pages) {
-      // `NoteType` does not yet enumerate "claim" (added in a later wave of
-      // the claims plan); compare via String() to stay forward-compat.
       if (String(page.type) !== "claim") continue;
       if (input.wiki && page.wiki !== input.wiki) continue;
       const fullPath = join(ctx.vaultPath, page.path);
@@ -106,14 +111,66 @@ registerLintCheck({
         const raw = readFileSync(fullPath, "utf8");
         const { frontmatter } = parseFrontmatter(raw);
         claims.push({ frontmatter });
+        const id = String(frontmatter.id ?? page.id);
+        if (id) {
+          seenIds.add(id);
+          idToWiki.set(id, page.wiki);
+        }
       } catch {
         // Malformed frontmatter — skip; other lint checks flag those.
       }
     }
+
+    // Source 2 — disk walk of `wikis/<wiki>/claim/*.md`. Mirrors
+    // claim-effective-below-floor.ts / claim-tag-repo-prefix-malformed.ts so
+    // the rule fires under `vault.lint` end-to-end (the production callsite)
+    // without depending on whether reindex picks up claim files.
+    const wikisDir = join(ctx.vaultPath, "wikis");
+    if (existsSync(wikisDir)) {
+      let wikiNames: string[];
+      try {
+        wikiNames = readdirSync(wikisDir, { withFileTypes: true })
+          .filter(e => e.isDirectory())
+          .map(e => e.name);
+      } catch {
+        wikiNames = [];
+      }
+      const targetWikis = input.wiki ? wikiNames.filter(w => w === input.wiki) : wikiNames;
+      for (const wiki of targetWikis) {
+        const claimDir = join(wikisDir, wiki, "claim");
+        if (!existsSync(claimDir)) continue;
+        let entries: string[];
+        try {
+          entries = readdirSync(claimDir);
+        } catch {
+          continue;
+        }
+        for (const file of entries) {
+          if (!file.endsWith(".md")) continue;
+          const filePath = join(claimDir, file);
+          try {
+            const raw = readFileSync(filePath, "utf8");
+            const { frontmatter } = parseFrontmatter(raw);
+            if (frontmatter.type !== "claim") continue;
+            const id = String(frontmatter.id ?? file.replace(/\.md$/, ""));
+            // De-dupe against Source 1 so the unit test (which builds idx.pages
+            // referencing the same on-disk file) doesn't double-count.
+            if (id && seenIds.has(id)) continue;
+            claims.push({ frontmatter });
+            if (id) {
+              seenIds.add(id);
+              idToWiki.set(id, wiki);
+            }
+          } catch {
+            // Malformed frontmatter — skip.
+          }
+        }
+      }
+    }
+
     const findings = findClaimKeyCollisions(claims);
-    // Stamp the wiki on each finding using the index. The page_id was set in
-    // the helper from the alphabetically-first id; map it back to its wiki.
-    const idToWiki = new Map(idx.pages.map((p) => [p.id, p.wiki]));
+    // Stamp the wiki on each finding. The page_id was set in the helper from
+    // the alphabetically-first id; map it back via the merged idToWiki.
     return findings.map((d) => ({
       ...d,
       wiki: d.page_id ? idToWiki.get(d.page_id) : undefined,

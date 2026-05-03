@@ -1,0 +1,174 @@
+// vault-mcp/src/core/lint-checks/registration.ts
+//
+// Plan 1 §task-lint-checks-registration — wiring task.
+//
+// The Claims Plan 1 lint rules ship in TWO shapes by accident of the plan
+// template versus the existing `core/lint-check.ts` registry contract:
+//
+//   Group A — already self-registers via `registerLintCheck({code, run})`:
+//     - claim-key-collision.ts
+//     - claim-effective-below-floor.ts
+//     - claim-tag-repo-prefix-malformed.ts
+//
+//   Group B — exports a `{id, severity, appliesTo, check}` object per the
+//   plan template, but does NOT call `registerLintCheck` itself:
+//     - claim-without-evidence.ts → exports `claimWithoutEvidence`
+//     - claim-with-no-scope.ts → exports `claimWithNoScope`
+//     - claim-superseded-without-supersedor.ts → exports
+//       `claimSupersededWithoutSupersedor`
+//
+// This module:
+//   1. Imports Group A's three rule files for their `registerLintCheck`
+//      side effect, so a single side-effect import of `registration.ts`
+//      from `tools/lint.ts` wires all six rules.
+//   2. Imports Group B's three rule objects, wraps each in an adapter that
+//      walks `wikis/<wiki>/claim/*.md` from disk (the reindex pipeline does
+//      not yet treat `claim` as a NoteType, so claim files are absent from
+//      `idx.pages`), invokes the rule's `appliesTo`+`check` against parsed
+//      frontmatter, maps each LintFinding → Diagnostic, and registers under
+//      a per-rule registry code.
+//
+// Rationale for the adapter approach (vs. rewriting Group B in-place to
+// call `registerLintCheck` directly): Group B's existing unit tests import
+// the raw `claimWithoutEvidence` / `claimWithNoScope` /
+// `claimSupersededWithoutSupersedor` objects and exercise their
+// `appliesTo`+`check` methods. Keeping those objects intact means zero
+// risk to the upstream tests; the adapter is the only new code surface
+// this task adds.
+//
+// Idempotence: side-effect imports are deduped by Node's module cache;
+// `registerLintCheck` is called at most once per code per process. A
+// re-import is a no-op.
+
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { registerLintCheck } from "../lint-check.js";
+import { parseFrontmatter } from "../frontmatter.js";
+import type { Diagnostic } from "../lint.js";
+
+// Group A — pull the side-effect registrations in via this barrel so
+// `tools/lint.ts` only needs one import for the whole claims rule set.
+import "./claim-key-collision.js";
+import "./claim-effective-below-floor.js";
+import "./claim-tag-repo-prefix-malformed.js";
+
+// Group B — pull the rule objects in by name and adapt them.
+import { claimWithoutEvidence } from "./claim-without-evidence.js";
+import { claimWithNoScope } from "./claim-with-no-scope.js";
+import { claimSupersededWithoutSupersedor } from "./claim-superseded-without-supersedor.js";
+
+// Severity mapping. The Group B `LintFinding.severity` enum is `"warn" |
+// "error" | "info"`; the registry `Diagnostic.severity` enum is `"warning"
+// | "error" | "info"`. The mismatch is `"warn"` ↔ `"warning"`.
+function mapSeverity(s: "warn" | "error" | "info"): Diagnostic["severity"] {
+  return s === "warn" ? "warning" : s;
+}
+
+// Rule-id (kebab) → registry code (UPPER_SNAKE). Stays close to the existing
+// convention used by Group A and the v1.6/v1.7 lint rules.
+function ruleIdToCode(id: string): string {
+  return id.replace(/-/g, "_").toUpperCase();
+}
+
+// Minimal page-shape the Group B rules expect. Parsed lazily from disk per
+// claim file. We don't put `content` on this stub because none of the three
+// rules currently inspect it — if a future Group B rule does, extend here.
+interface AdapterPage {
+  frontmatter: Record<string, unknown>;
+  filePath: string;
+}
+
+// Walk `wikis/<wiki>/claim/*.md` and yield parsed frontmatter for each file
+// the wiki filter allows. Malformed files are silently skipped — same
+// posture as the rest of the lint runner.
+function* walkClaimPages(
+  vaultPath: string,
+  wikiFilter: string | undefined,
+): Generator<{ wiki: string; pageId: string; page: AdapterPage }> {
+  const wikisDir = join(vaultPath, "wikis");
+  if (!existsSync(wikisDir)) return;
+
+  let wikiNames: string[];
+  try {
+    wikiNames = readdirSync(wikisDir, { withFileTypes: true })
+      .filter(e => e.isDirectory())
+      .map(e => e.name);
+  } catch {
+    return;
+  }
+
+  const targetWikis = wikiFilter
+    ? wikiNames.filter(w => w === wikiFilter)
+    : wikiNames;
+
+  for (const wiki of targetWikis) {
+    const claimDir = join(wikisDir, wiki, "claim");
+    if (!existsSync(claimDir)) continue;
+
+    let entries: string[];
+    try {
+      entries = readdirSync(claimDir);
+    } catch {
+      continue;
+    }
+
+    for (const file of entries) {
+      if (!file.endsWith(".md")) continue;
+      const filePath = join(claimDir, file);
+      let fm: Record<string, unknown>;
+      try {
+        const raw = readFileSync(filePath, "utf8");
+        fm = parseFrontmatter(raw).frontmatter as Record<string, unknown>;
+      } catch {
+        continue;
+      }
+      if (fm.type !== "claim") continue;
+      const pageId = String(fm.id ?? file.replace(/\.md$/, ""));
+      yield { wiki, pageId, page: { frontmatter: fm, filePath } };
+    }
+  }
+}
+
+// One adapter type that fits all three Group B rule objects without forcing
+// the (slightly-divergent) local types in those files to share a module.
+interface PerPageRule {
+  id: string;
+  severity: "warn" | "error" | "info";
+  appliesTo: (page: { frontmatter?: Record<string, unknown> }) => boolean;
+  check: (page: { frontmatter?: Record<string, unknown> }) => Array<{
+    ruleId: string;
+    severity: "warn" | "error" | "info";
+    line: number;
+    message: string;
+  }>;
+}
+
+function registerPerPageRule(rule: PerPageRule): void {
+  const code = ruleIdToCode(rule.id);
+  registerLintCheck({
+    code,
+    run(ctx, _idx, input) {
+      const diagnostics: Diagnostic[] = [];
+      for (const { wiki, pageId, page } of walkClaimPages(ctx.vaultPath, input.wiki)) {
+        if (!rule.appliesTo(page)) continue;
+        const findings = rule.check(page);
+        for (const f of findings) {
+          diagnostics.push({
+            severity: mapSeverity(f.severity),
+            code,
+            page_id: pageId,
+            wiki,
+            message: f.message,
+          });
+        }
+      }
+      return diagnostics;
+    },
+  });
+}
+
+// Wire each Group B rule. Order matches the plan §task-lint-checks-
+// registration `depends_on:` list: no-evidence, no-scope, superseded.
+registerPerPageRule(claimWithoutEvidence as PerPageRule);
+registerPerPageRule(claimWithNoScope as PerPageRule);
+registerPerPageRule(claimSupersededWithoutSupersedor as PerPageRule);
