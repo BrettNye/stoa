@@ -75,6 +75,10 @@ import { trainerSubmitDraftTool } from "./trainer-submit-draft.js";
 import { trainerSubmitMoveTool } from "./trainer-submit-move.js";
 import { matchWatchTool } from "./match-watch.js";
 
+// Stadium substrate fix + discovery (spec-stadium-substrate-fix-and-discovery-design §1.1)
+// Draft-pool discovery primitive: list all platform-registered profiles in a wiki.
+import { listPlatformProfilesTool } from "./list-platform-profiles.js";
+
 export const allTools = [
   recallTool, readTool, listWikisTool, lintTool, channelTailTool,
   inboxTool, processInboxTool, newTool, newWikiTool, setActiveTool,
@@ -94,7 +98,9 @@ export const allTools = [
   trainerInitTool, profileRegisterTool, realSkillRegisterTool, realSkillRefreshTool,
   moveFuseTool, telemetryPushTool, trainerQueueMatchTool, listInvitesTool,
   trainerAcceptMatchTool, trainerGetStateTool, trainerSubmitDraftTool,
-  trainerSubmitMoveTool, matchWatchTool
+  trainerSubmitMoveTool, matchWatchTool,
+  // Stadium substrate fix + discovery
+  listPlatformProfilesTool
 ];
 
 export type ToolDefinition = (typeof allTools)[number];
