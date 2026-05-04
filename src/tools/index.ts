@@ -57,6 +57,24 @@ import { syncAgentsTool } from "./sync-agents.js";
 import { claimTool } from "./claim.js";
 import { listClaimsTool } from "./list-claims.js";
 
+// Stadium Plan B (vault-side MCP tools) — trainer init/registration,
+// real-skill register/refresh, move fusion, telemetry push, queue/accept
+// match flow, invite listing, draft + move submission, and match watch.
+// See `wikis/_meta/plans/2026-05-04-stadium-plan-b-dag.md`.
+import { trainerInitTool } from "./trainer-init.js";
+import { profileRegisterTool } from "./profile-register.js";
+import { realSkillRegisterTool } from "./real-skill-register.js";
+import { realSkillRefreshTool } from "./real-skill-refresh.js";
+import { moveFuseTool } from "./move-fuse.js";
+import { telemetryPushTool } from "./telemetry-push.js";
+import { trainerQueueMatchTool } from "./trainer-queue-match.js";
+import { listInvitesTool } from "./list-invites.js";
+import { trainerAcceptMatchTool } from "./trainer-accept-match.js";
+import { trainerGetStateTool } from "./trainer-get-state.js";
+import { trainerSubmitDraftTool } from "./trainer-submit-draft.js";
+import { trainerSubmitMoveTool } from "./trainer-submit-move.js";
+import { matchWatchTool } from "./match-watch.js";
+
 export const allTools = [
   recallTool, readTool, listWikisTool, lintTool, channelTailTool,
   inboxTool, processInboxTool, newTool, newWikiTool, setActiveTool,
@@ -71,7 +89,12 @@ export const allTools = [
   // v1.7 phase 3
   syncAgentsTool,
   // claims foundation (plan 1)
-  claimTool, listClaimsTool
+  claimTool, listClaimsTool,
+  // Stadium Plan B
+  trainerInitTool, profileRegisterTool, realSkillRegisterTool, realSkillRefreshTool,
+  moveFuseTool, telemetryPushTool, trainerQueueMatchTool, listInvitesTool,
+  trainerAcceptMatchTool, trainerGetStateTool, trainerSubmitDraftTool,
+  trainerSubmitMoveTool, matchWatchTool
 ];
 
 export type ToolDefinition = (typeof allTools)[number];
