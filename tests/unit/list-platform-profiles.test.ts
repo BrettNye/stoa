@@ -208,9 +208,12 @@ describe("listPlatformProfiles", () => {
     const result = await listPlatformProfiles({ wiki: "_agents" });
     expect(result.profiles).toHaveLength(1);
     const p = result.profiles[0];
-    // move-tdd-cycle has real_skill_id, move-pr-create does not
-    expect(p.real_skill_levels).toHaveProperty("move-tdd-cycle");
-    expect(typeof p.real_skill_levels["move-tdd-cycle"]).toBe("number");
+    // Key is real_skill_id (platform identifier), NOT moveId (vault concept).
+    // move-tdd-cycle has real_skill_id "01KQTRRRRRRRRRRRRRRRRRRRR1"; move-pr-create has none.
+    expect(p.real_skill_levels).toHaveProperty("01KQTRRRRRRRRRRRRRRRRRRRR1");
+    expect(typeof p.real_skill_levels["01KQTRRRRRRRRRRRRRRRRRRRR1"]).toBe("number");
+    // move-pr-create had no real_skill_id so it should not appear
+    expect(Object.keys(p.real_skill_levels)).toHaveLength(1);
   });
 
   it("returns empty real_skill_levels when profile has no moves", async () => {

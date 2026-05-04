@@ -166,9 +166,9 @@ function hydrateRealSkillLevels(
     const realSkillId = fm.real_skill_id;
     if (!realSkillId || typeof realSkillId !== "string") continue;
 
-    // Level is not fetchable without a stadium-platform GET endpoint.
-    // Report 0 as the baseline; telemetry.push updates the server-side XP.
-    result[moveId] = 0;
+    // TODO: replace with stadium-platform GET when available; current value is a registration baseline.
+    // Key is real_skill_id (the platform-registered skill identifier), NOT moveId (a vault concept).
+    result[realSkillId] = 0;
   }
 
   return result;
