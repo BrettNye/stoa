@@ -82,16 +82,19 @@ describe("resolveTrainerContext", () => {
   });
 
   it("NO_ACTIVE_TRAINER message lists all three resolution paths", () => {
+    let thrown: unknown;
     try {
       resolveTrainerContext({}, { home, vaultPath: vault });
+      expect.fail("should have thrown TrainerContextError");
     } catch (e) {
-      expect(e).toBeInstanceOf(TrainerContextError);
-      const err = e as TrainerContextError;
-      expect(err.code).toBe("NO_ACTIVE_TRAINER");
-      expect(err.message).toMatch(/trainer:/);
-      expect(err.message).toMatch(/STADIUM_TRAINER/);
-      expect(err.message).toMatch(/active/);
+      thrown = e;
     }
+    expect(thrown).toBeInstanceOf(TrainerContextError);
+    const err = thrown as TrainerContextError;
+    expect(err.code).toBe("NO_ACTIVE_TRAINER");
+    expect(err.message).toMatch(/trainer:/);
+    expect(err.message).toMatch(/STADIUM_TRAINER/);
+    expect(err.message).toMatch(/active/);
   });
 
   // ─── Trainer resolution priority ─────────────────────────────────────────
@@ -158,15 +161,15 @@ describe("resolveTrainerContext", () => {
     writeToml(home, `active = "ghost-slug"\n`);
     writeWikisIndex(vault, ["_agents"]);
     // No trainer file written
-    expect(() => resolveTrainerContext({}, { home, vaultPath: vault })).toThrow(
-      /TRAINER_NOT_FOUND/
-    );
+    let thrown: unknown;
     try {
       resolveTrainerContext({}, { home, vaultPath: vault });
+      expect.fail("should have thrown TrainerContextError");
     } catch (e) {
-      expect(e).toBeInstanceOf(TrainerContextError);
-      expect((e as TrainerContextError).code).toBe("TRAINER_NOT_FOUND");
+      thrown = e;
     }
+    expect(thrown).toBeInstanceOf(TrainerContextError);
+    expect((thrown as TrainerContextError).code).toBe("TRAINER_NOT_FOUND");
   });
 
   it("TRAINER_NOT_FOUND searches across multiple wikis", () => {
@@ -199,15 +202,15 @@ describe("resolveTrainerContext", () => {
       `---\n${fm}\n---\n\nBody.\n`,
       "utf8"
     );
-    expect(() => resolveTrainerContext({}, { home, vaultPath: vault })).toThrow(
-      /TRAINER_WIKI_UNSET/
-    );
+    let thrown: unknown;
     try {
       resolveTrainerContext({}, { home, vaultPath: vault });
+      expect.fail("should have thrown TrainerContextError");
     } catch (e) {
-      expect(e).toBeInstanceOf(TrainerContextError);
-      expect((e as TrainerContextError).code).toBe("TRAINER_WIKI_UNSET");
+      thrown = e;
     }
+    expect(thrown).toBeInstanceOf(TrainerContextError);
+    expect((thrown as TrainerContextError).code).toBe("TRAINER_WIKI_UNSET");
   });
 
   // ─── Happy path: returns correct tuple ───────────────────────────────────

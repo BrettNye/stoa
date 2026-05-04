@@ -50,7 +50,7 @@ export interface ResolveTrainerContextOpts {
 // ─── Process-level cache ──────────────────────────────────────────────────────
 
 interface TrainerCache {
-  byMtime: number;
+  byMtime: number | null;
   /** Map of slug → context (loaded from disk). */
   bySlug: Map<string, TrainerContext>;
   /** Active slug from toml, if present. */
@@ -86,7 +86,10 @@ export function resolveTrainerContext(
   // Cache key combines toml path + vault path to isolate test instances.
   const cacheKey = `${tomlPath}::${vaultPath ?? ""}`;
   let cache = cacheMap.get(cacheKey);
-  if (!cache || cache.byMtime !== mtime) {
+  // null mtime means the toml file is absent — treat as always stale so the cache
+  // is refreshed once the file is created (prevents stale no-slug entry after
+  // the process starts before stadium.toml exists).
+  if (!cache || mtime === null || cache.byMtime !== mtime) {
     const activeSlug = readActiveSlug(tomlPath);
     const bySlug = vaultPath
       ? loadTrainerPages(vaultPath)
@@ -98,7 +101,11 @@ export function resolveTrainerContext(
       tomlPath,
       vaultPath: vaultPath ?? "",
     };
-    cacheMap.set(cacheKey, cache);
+    // Only store in cache when the toml exists (i.e., mtime is non-null).
+    // When absent we skip caching so the next call re-checks disk.
+    if (mtime !== null) {
+      cacheMap.set(cacheKey, cache);
+    }
   }
 
   // Resolve slug per priority: explicit arg > STADIUM_TRAINER env > toml active
@@ -135,11 +142,11 @@ export function resolveTrainerContext(
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-function safeMtime(path: string): number {
+function safeMtime(path: string): number | null {
   try {
     return statSync(path).mtimeMs;
   } catch {
-    return 0;
+    return null;
   }
 }
 
