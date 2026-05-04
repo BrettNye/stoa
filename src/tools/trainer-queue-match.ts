@@ -6,7 +6,8 @@ import { resolveTrainerContext } from '../core/resolve-trainer-context.js';
 
 const Input = z.object({
   opponent_trainer_id: z.string().min(1),
-  ruleset: z.literal('standard').default('standard')
+  ruleset: z.literal('standard').default('standard'),
+  wiki: z.string().optional()
 });
 
 export const trainerQueueMatchTool = {
@@ -15,9 +16,11 @@ export const trainerQueueMatchTool = {
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>) => {
     const trainerCtx = resolveTrainerContext({});
+    const wiki = input.wiki ?? trainerCtx.wiki;
     const config = resolveStadiumConfig();
     const client = new StadiumClient({ api_key: config.api_key, base_url: config.base_url });
-    const result = await client.queueMatch(input);
-    return { ...result, caller_trainer_id: trainerCtx.trainerId };
+    const { opponent_trainer_id, ruleset } = input;
+    const result = await client.queueMatch({ opponent_trainer_id, ruleset });
+    return { ...result, caller_trainer_id: trainerCtx.trainerId, resolved_wiki: wiki };
   }
 };

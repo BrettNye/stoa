@@ -5,7 +5,8 @@ import { StadiumClient } from '../core/stadium-client.js';
 import { resolveTrainerContext } from '../core/resolve-trainer-context.js';
 
 const Input = z.object({
-  match_id: z.string().min(1)
+  match_id: z.string().min(1),
+  wiki: z.string().optional()
 });
 
 export const trainerAcceptMatchTool = {
@@ -14,9 +15,10 @@ export const trainerAcceptMatchTool = {
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>) => {
     const trainerCtx = resolveTrainerContext({});
+    const wiki = input.wiki ?? trainerCtx.wiki;
     const config = resolveStadiumConfig();
     const client = new StadiumClient({ api_key: config.api_key, base_url: config.base_url });
     const result = await client.acceptMatch(input.match_id);
-    return { ...result, caller_trainer_id: trainerCtx.trainerId };
+    return { ...result, caller_trainer_id: trainerCtx.trainerId, resolved_wiki: wiki };
   }
 };

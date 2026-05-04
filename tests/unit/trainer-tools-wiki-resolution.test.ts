@@ -365,4 +365,141 @@ describe("trainer-init caller_trainer_id resolution", () => {
       trainerInitTool.handler({ name: "NewTrainer" }, { vaultPath: vault })
     ).resolves.toBeDefined();
   });
+
+  it("throws TRAINER_WIKI_UNSET when trainer IS configured but frontmatter has no wiki: field", async () => {
+    // Trainer is configured in toml + trainer page exists, but page has no wiki: frontmatter
+    writeWikisIndex(vault, ["_agents"]);
+    writeTrainerPage(vault, "_agents", "no-wiki-trainer", "01AAAAAAAAAAAAAAAAAAAAAAAA1", undefined);
+    writeTomlWithTrainer(home, "no-wiki-trainer", "01AAAAAAAAAAAAAAAAAAAAAAAA1");
+
+    const fetchMock = makeFetchMock({ status: "ok" });
+    vi.stubGlobal("fetch", fetchMock);
+    const { trainerInitTool } = await import("../../src/tools/trainer-init.js");
+
+    await expect(
+      trainerInitTool.handler({ name: "AnotherTrainer" }, { vaultPath: vault })
+    ).rejects.toMatchObject({ code: "TRAINER_WIKI_UNSET" });
+  });
+});
+
+// ─── wiki: explicit arg override ─────────────────────────────────────────────
+
+describe("trainer-queue-match explicit wiki: arg override", () => {
+  let home: string;
+  let vault: string;
+
+  beforeEach(() => {
+    vi.resetModules();
+    vi.unstubAllGlobals();
+    ({ home, vault } = makeTempDirs());
+    delete process.env.STADIUM_TRAINER;
+    process.env.VAULT_PATH = vault;
+    process.env.STADIUM_HOME = home;
+    process.env.STADIUM_API_KEY = "sk_test";
+    process.env.STADIUM_BASE_URL = "https://api.test";
+    process.env.STADIUM_TRAINER_ID = "trn_test_caller";
+  });
+
+  afterEach(() => {
+    rmSync(home, { recursive: true, force: true });
+    rmSync(vault, { recursive: true, force: true });
+    delete process.env.STADIUM_TRAINER;
+    delete process.env.VAULT_PATH;
+    delete process.env.STADIUM_HOME;
+  });
+
+  it("accepts an explicit wiki: arg in the input schema", async () => {
+    writeTomlWithTrainer(home, "brett-trainer1", "01KQT3E0ABE70N8DMV6EQF1MA0");
+    writeWikisIndex(vault, ["_agents", "override-wiki"]);
+    writeTrainerPage(vault, "_agents", "brett-trainer1", "01KQT3E0ABE70N8DMV6EQF1MA0", "_agents");
+
+    const fetchMock = makeFetchMock({ match_id: "m_99", status: "pending_invite" });
+    vi.stubGlobal("fetch", fetchMock);
+    const { trainerQueueMatchTool } = await import("../../src/tools/trainer-queue-match.js");
+
+    // The tool must accept wiki: arg without throwing a schema validation error
+    const out = await trainerQueueMatchTool.handler({
+      opponent_trainer_id: "trn_bob",
+      ruleset: "standard",
+      wiki: "override-wiki",
+    });
+
+    expect(out).toHaveProperty("match_id", "m_99");
+    // resolved_wiki should reflect the explicit override
+    expect(out).toHaveProperty("resolved_wiki", "override-wiki");
+  });
+
+  it("uses trainer frontmatter wiki when no explicit wiki: arg provided", async () => {
+    writeTomlWithTrainer(home, "brett-trainer1", "01KQT3E0ABE70N8DMV6EQF1MA0");
+    writeWikisIndex(vault, ["_agents"]);
+    writeTrainerPage(vault, "_agents", "brett-trainer1", "01KQT3E0ABE70N8DMV6EQF1MA0", "_agents");
+
+    const fetchMock = makeFetchMock({ match_id: "m_99", status: "pending_invite" });
+    vi.stubGlobal("fetch", fetchMock);
+    const { trainerQueueMatchTool } = await import("../../src/tools/trainer-queue-match.js");
+
+    const out = await trainerQueueMatchTool.handler({
+      opponent_trainer_id: "trn_bob",
+      ruleset: "standard",
+    });
+
+    expect(out).toHaveProperty("resolved_wiki", "_agents");
+  });
+});
+
+describe("trainer-accept-match explicit wiki: arg override", () => {
+  let home: string;
+  let vault: string;
+
+  beforeEach(() => {
+    vi.resetModules();
+    vi.unstubAllGlobals();
+    ({ home, vault } = makeTempDirs());
+    delete process.env.STADIUM_TRAINER;
+    process.env.VAULT_PATH = vault;
+    process.env.STADIUM_HOME = home;
+    process.env.STADIUM_API_KEY = "sk_test";
+    process.env.STADIUM_BASE_URL = "https://api.test";
+    process.env.STADIUM_TRAINER_ID = "trn_test_caller";
+  });
+
+  afterEach(() => {
+    rmSync(home, { recursive: true, force: true });
+    rmSync(vault, { recursive: true, force: true });
+    delete process.env.STADIUM_TRAINER;
+    delete process.env.VAULT_PATH;
+    delete process.env.STADIUM_HOME;
+  });
+
+  it("accepts an explicit wiki: arg in the input schema", async () => {
+    writeTomlWithTrainer(home, "brett-trainer1", "01KQT3E0ABE70N8DMV6EQF1MA0");
+    writeWikisIndex(vault, ["_agents", "override-wiki"]);
+    writeTrainerPage(vault, "_agents", "brett-trainer1", "01KQT3E0ABE70N8DMV6EQF1MA0", "_agents");
+
+    const fetchMock = makeFetchMock({ match_id: "m_1", status: "drafting" });
+    vi.stubGlobal("fetch", fetchMock);
+    const { trainerAcceptMatchTool } = await import("../../src/tools/trainer-accept-match.js");
+
+    const out = await trainerAcceptMatchTool.handler({
+      match_id: "m_1",
+      wiki: "override-wiki",
+    });
+
+    expect(out).toHaveProperty("match_id", "m_1");
+    expect(out).toHaveProperty("resolved_wiki", "override-wiki");
+  });
+
+  it("uses trainer frontmatter wiki when no explicit wiki: arg provided", async () => {
+    writeTomlWithTrainer(home, "brett-trainer1", "01KQT3E0ABE70N8DMV6EQF1MA0");
+    writeWikisIndex(vault, ["_agents"]);
+    writeTrainerPage(vault, "_agents", "brett-trainer1", "01KQT3E0ABE70N8DMV6EQF1MA0", "_agents");
+
+    const fetchMock = makeFetchMock({ match_id: "m_1", status: "drafting" });
+    vi.stubGlobal("fetch", fetchMock);
+    const { trainerAcceptMatchTool } = await import("../../src/tools/trainer-accept-match.js");
+
+    const out = await trainerAcceptMatchTool.handler({ match_id: "m_1" });
+
+    expect(out).toHaveProperty("resolved_wiki", "_agents");
+  });
 });

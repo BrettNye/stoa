@@ -7,7 +7,7 @@ import { slugify } from '../core/ids.js';
 import { resolveStadiumConfig } from '../core/stadium-config.js';
 import { StadiumClient } from '../core/stadium-client.js';
 import { upsertPage } from '../core/index.js';
-import { resolveTrainerContext } from '../core/resolve-trainer-context.js';
+import { resolveTrainerContext, TrainerContextError } from '../core/resolve-trainer-context.js';
 
 const Input = z.object({
   name: z.string().min(1),
@@ -25,8 +25,15 @@ export const trainerInitTool = {
     try {
       const trainerCtx = resolveTrainerContext({});
       callerTrainerId = trainerCtx.trainerId;
-    } catch {
-      // First-time init: no trainer configured yet — this is expected
+    } catch (err) {
+      if (
+        err instanceof TrainerContextError &&
+        (err.code === 'NO_ACTIVE_TRAINER' || err.code === 'TRAINER_NOT_FOUND')
+      ) {
+        // First-time init: trainer not configured yet — this is expected
+      } else {
+        throw err; // TRAINER_WIKI_UNSET (or other unexpected errors) must propagate
+      }
     }
 
     const config = resolveStadiumConfig();

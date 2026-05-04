@@ -32,19 +32,24 @@ describe('vault.trainer-submit-draft', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('rejects pf_-prefixed picks (regression for synthesis A1)', async () => {
+  it('rejects pf_-prefixed picks with INVALID_PICKS_SHAPE (regression for synthesis A1)', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     vi.doMock('../../src/core/resolve-trainer-context.js', () => ({
       resolveTrainerContext: () => ({ trainerSlug: 'brett', trainerId: 'trn_brett', wiki: 'default' })
     }));
     const { trainerSubmitDraftTool } = await import('../../src/tools/trainer-submit-draft.js');
-    await expect(
-      trainerSubmitDraftTool.handler({
+    let caught: unknown;
+    try {
+      await trainerSubmitDraftTool.handler({
         match_id: '01KQT6ST8AHV2XG9JN6QX7H5EX',
         picks: ['pf_aerodactyl', 'pf_charmeleon', 'pf_squirtle', 'pf_bulbasaur', 'pf_gastly', 'pf_mewtwo'],
-      } as any)
-    ).rejects.toBeDefined();
+      } as any);
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeDefined();
+    expect((caught as any).code).toBe('INVALID_PICKS_SHAPE');
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -164,13 +169,22 @@ describe('vault.trainer-submit-draft', () => {
 });
 
 describe('trainerSubmitDraftInput schema (unit)', () => {
-  it('rejects pf_-prefixed picks (regression for synthesis A1)', async () => {
-    const { trainerSubmitDraftInput } = await import('../../src/tools/trainer-submit-draft.js');
-    const result = trainerSubmitDraftInput.safeParse({
-      match_id: '01KQT6ST8AHV2XG9JN6QX7H5EX',
-      picks: ['pf_aerodactyl', 'pf_charmeleon', 'pf_squirtle', 'pf_bulbasaur', 'pf_gastly', 'pf_mewtwo'],
-    });
-    expect(result.success).toBe(false);
+  it('rejects pf_-prefixed picks with INVALID_PICKS_SHAPE via handler (regression pinned to A1)', async () => {
+    vi.doMock('../../src/core/resolve-trainer-context.js', () => ({
+      resolveTrainerContext: () => ({ trainerSlug: 'brett', trainerId: 'trn_brett', wiki: 'default' })
+    }));
+    const { trainerSubmitDraftTool } = await import('../../src/tools/trainer-submit-draft.js');
+    let caught: unknown;
+    try {
+      await trainerSubmitDraftTool.handler({
+        match_id: '01KQT6ST8AHV2XG9JN6QX7H5EX',
+        picks: ['pf_aerodactyl', 'pf_charmeleon', 'pf_squirtle', 'pf_bulbasaur', 'pf_gastly', 'pf_mewtwo'],
+      } as any);
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeDefined();
+    expect((caught as any).code).toBe('INVALID_PICKS_SHAPE');
   });
 
   it('accepts 6 ULID-shaped picks and a ULID match_id', async () => {
