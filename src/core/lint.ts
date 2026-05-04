@@ -4,6 +4,12 @@ import { loadIndex } from "./index.js";
 import { parseFrontmatter } from "./frontmatter.js";
 import { POKEMON_TYPES, STAGE_TO_AUTONOMY } from "./pokemon.js";
 
+// Stadium trainer lint rules (§3.3) — side-effect imports register each check
+// into lintCheckRegistry. These run only when linting `_agents/`.
+import "./lint-checks/trainer-file-missing.js";
+import "./lint-checks/trainer-toml-missing.js";
+import "./lint-checks/trainer-id-mismatch.js";
+
 export interface Diagnostic {
   severity: "error" | "warning" | "info";
   code: string;
