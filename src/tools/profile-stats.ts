@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { thresholdFor, nextStage, EvolutionStage } from "../core/pokemon.js";
 import { readProfile, ProfileNotFoundError } from "../core/profiles.js";
+import { resolveTrainerContext, TrainerContextError, type TrainerContext } from "../core/resolve-trainer-context.js";
 
 const Input = z.object({
   pokemon_id: z.string()
@@ -13,6 +14,22 @@ export const profileStatsTool = {
   description: "Returns per-profile counts (tasks completed/failed/in-flight, journals, channels active, moves-used frequency) plus next-evolution threshold.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
+    // Resolve trainer context for ambient caller_trainer_id (spec §1.5).
+    // TRAINER_WIKI_UNSET propagates; NO_ACTIVE_TRAINER / TRAINER_NOT_FOUND → undefined.
+    let trainerCtx: TrainerContext | undefined;
+    try {
+      trainerCtx = resolveTrainerContext({}, { vaultPath: ctx.vaultPath });
+    } catch (err) {
+      if (
+        err instanceof TrainerContextError &&
+        (err.code === "NO_ACTIVE_TRAINER" || err.code === "TRAINER_NOT_FOUND")
+      ) {
+        trainerCtx = undefined;
+      } else {
+        throw err;
+      }
+    }
+
     const profilesJsonPath = join(ctx.vaultPath, "_index", "profiles.json");
     if (!existsSync(profilesJsonPath)) {
       throw new Error("PROFILE_NOT_FOUND: _index/profiles.json missing — run vault.reindex first");
@@ -70,7 +87,8 @@ export const profileStatsTool = {
       journals_count: row.journals_count,
       channels_active: row.channels_active,
       moves_used_freq: row.moves_used_freq,
-      next_evolution_threshold: nextEvolutionThreshold
+      next_evolution_threshold: nextEvolutionThreshold,
+      caller_trainer_id: trainerCtx?.trainerId
     };
   }
 };

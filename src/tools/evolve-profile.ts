@@ -11,6 +11,7 @@ import { syncMoveset, removeOldDeployment } from "../core/skills.js";
 import { nextEvolution } from "../core/pokeapi.js";
 import { readThresholds, DEFAULT_THRESHOLDS, ThresholdBlockError, type EvolutionThresholds } from "../core/thresholds.js";
 import { getClaimsConfig } from "../config.js";
+import { resolveTrainerContext, TrainerContextError, type TrainerContext } from "../core/resolve-trainer-context.js";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Claims Plan 2 Wave 3 (task-evolve-profile-tool-fields): additive
@@ -116,6 +117,22 @@ export const evolveProfileTool = {
       rawConfig?: unknown;
     }
   ) => {
+    // Resolve trainer context for ambient caller_trainer_id (spec §1.5).
+    // TRAINER_WIKI_UNSET propagates; NO_ACTIVE_TRAINER / TRAINER_NOT_FOUND → undefined.
+    let trainerCtx: TrainerContext | undefined;
+    try {
+      trainerCtx = resolveTrainerContext({}, { vaultPath: ctx.vaultPath });
+    } catch (err) {
+      if (
+        err instanceof TrainerContextError &&
+        (err.code === "NO_ACTIVE_TRAINER" || err.code === "TRAINER_NOT_FOUND")
+      ) {
+        trainerCtx = undefined;
+      } else {
+        throw err;
+      }
+    }
+
     if (!input.commit) {
       // Proposal phase
       const profile = readProfile(ctx.vaultPath, input.pokemon_id);
@@ -181,7 +198,7 @@ export const evolveProfileTool = {
           // Network failure or invalid Pokemon — keep name: null, fall back to no rename.
         }
       }
-      return proposal;
+      return { ...proposal, caller_trainer_id: trainerCtx?.trainerId };
     }
 
     // Commit phase — validate required commit fields at runtime
@@ -277,7 +294,8 @@ export const evolveProfileTool = {
       new_id: newId,
       files_renamed: filesRenamed,
       files_resynced: filesResynced,
-      alias_recorded: aliasRecorded
+      alias_recorded: aliasRecorded,
+      caller_trainer_id: trainerCtx?.trainerId
     };
   }
 };
