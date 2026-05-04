@@ -32,6 +32,29 @@ describe('vault.trainer-submit-draft', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('rejects malformed match_id with INVALID_PICKS_SHAPE mentioning match_id field', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    vi.doMock('../../src/core/resolve-trainer-context.js', () => ({
+      resolveTrainerContext: () => ({ trainerSlug: 'brett', trainerId: 'trn_brett', wiki: 'default' })
+    }));
+    const { trainerSubmitDraftTool } = await import('../../src/tools/trainer-submit-draft.js');
+    let caught: unknown;
+    try {
+      await trainerSubmitDraftTool.handler({
+        match_id: 'not-a-ulid',
+        picks: VALID_ULIDS,
+      } as any);
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeDefined();
+    expect((caught as any).code).toBe('INVALID_PICKS_SHAPE');
+    // message must mention the field that failed (match_id), not hardcode "picks must be..."
+    expect((caught as any).message).toContain('match_id');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('rejects pf_-prefixed picks with INVALID_PICKS_SHAPE (regression for synthesis A1)', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
@@ -91,6 +114,38 @@ describe('vault.trainer-submit-draft', () => {
     expect(body).toEqual({ picks: VALID_ULIDS });
     expect((out as any).match_id).toBe('01KQT6ST8AHV2XG9JN6QX7H5EX');
     expect((out as any).status).toBe('in_progress');
+  });
+
+  it('throws when platform returns null instead of an object', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        new Response('null', { status: 200 })
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    vi.doMock('../../src/core/resolve-trainer-context.js', () => ({
+      resolveTrainerContext: () => ({ trainerSlug: 'brett', trainerId: 'trn_brett', wiki: 'default' })
+    }));
+    const { trainerSubmitDraftTool } = await import('../../src/tools/trainer-submit-draft.js');
+    await expect(
+      trainerSubmitDraftTool.handler({ match_id: '01KQT6ST8AHV2XG9JN6QX7H5EX', picks: VALID_ULIDS })
+    ).rejects.toThrow('submitDraft: unexpected non-object response from platform');
+  });
+
+  it('throws when platform returns undefined (no response body parsed as undefined)', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        new Response('null', { status: 200 })
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    vi.doMock('../../src/core/resolve-trainer-context.js', () => ({
+      resolveTrainerContext: () => ({ trainerSlug: 'brett', trainerId: 'trn_brett', wiki: 'default' })
+    }));
+    const { trainerSubmitDraftTool } = await import('../../src/tools/trainer-submit-draft.js');
+    await expect(
+      trainerSubmitDraftTool.handler({ match_id: '01KQT6ST8AHV2XG9JN6QX7H5EX', picks: VALID_ULIDS })
+    ).rejects.toThrow('submitDraft: unexpected non-object response from platform');
   });
 
   it('includes caller_trainer_id in response matching resolveTrainerContext', async () => {

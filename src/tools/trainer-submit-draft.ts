@@ -1,5 +1,5 @@
 // vault-mcp/src/tools/trainer-submit-draft.ts
-import { z } from 'zod';
+import { z, ZodError } from 'zod';
 import { resolveStadiumConfig } from '../core/stadium-config.js';
 import { StadiumClient } from '../core/stadium-client.js';
 import { resolveTrainerContext } from '../core/resolve-trainer-context.js';
@@ -28,17 +28,22 @@ export const trainerSubmitDraftTool = {
     try {
       parsed = trainerSubmitDraftInput.parse(input);
     } catch (err) {
-      // Surface a structured error for picks shape failures so MCP callers can
-      // distinguish invalid picks (e.g. pf_* prefixed ids) from other failures.
-      throw new InvalidPicksShapeError(
-        'INVALID_PICKS_SHAPE',
-        'INVALID_PICKS_SHAPE: picks must be an array of exactly 6 ULID-shaped strings ([0-9A-Z]{26}).'
-      );
+      if (err instanceof ZodError) {
+        const fields = err.issues.map(i => i.path.join(".")).join(", ");
+        throw new InvalidPicksShapeError(
+          'INVALID_PICKS_SHAPE',
+          `INVALID_PICKS_SHAPE: invalid input shape on field(s): ${fields}`
+        );
+      }
+      throw err;
     }
     const ctx = resolveTrainerContext({});
     const config = resolveStadiumConfig();
     const client = new StadiumClient({ api_key: config.api_key, base_url: config.base_url });
     const result = await client.submitDraft(parsed.match_id, { picks: parsed.picks });
+    if (result == null || typeof result !== "object" || Array.isArray(result)) {
+      throw new Error("submitDraft: unexpected non-object response from platform");
+    }
     return { ...result, caller_trainer_id: ctx.trainerId };
   }
 };
