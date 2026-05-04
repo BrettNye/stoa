@@ -11,7 +11,7 @@ export class FrontmatterError extends Error {
 export const NoteType = z.enum([
   "idea", "question", "spec", "decision", "concept",
   "guide", "synthesis", "source", "map", "journal", "task",
-  "move", "profile"
+  "move", "profile", "trainer"
 ]);
 export type NoteType = z.infer<typeof NoteType>;
 
