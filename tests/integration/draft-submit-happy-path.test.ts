@@ -354,6 +354,7 @@ describe.skipIf(!PLATFORM_TESTS)(
         expect(Array.isArray((stateBeforeT1 as any).available_profiles)).toBe(true);
 
         // ── Step 4: trainer1 submits draft ────────────────────────────────────
+        process.env.STADIUM_HOME = homeT1;
         vi.resetModules();
         const { trainerSubmitDraftTool: submitT1 } = await import(
           "../../src/tools/trainer-submit-draft.js"
