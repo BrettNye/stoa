@@ -6,7 +6,11 @@ import { tmpdir } from 'node:os';
 beforeEach(() => vi.resetModules());
 
 describe('stadium-config', () => {
-  const tmpHome = join(tmpdir(), 'vault-stadium-config-test-' + Date.now());
+  let tmpHome: string;
+
+  beforeEach(() => {
+    tmpHome = join(tmpdir(), 'vault-stadium-config-test-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+  });
 
   beforeEach(() => {
     mkdirSync(join(tmpHome, '.vault'), { recursive: true });
@@ -89,5 +93,21 @@ describe('stadium-config', () => {
     const { resolveStadiumConfig } = await import('../../src/core/stadium-config.js');
     const cfg = resolveStadiumConfig({ home: tmpHome });
     expect(cfg.trainer_id).toBeUndefined();
+  });
+
+  it('strips inline comment from quoted TOML value', async () => {
+    writeFileSync(join(tmpHome, '.vault', 'stadium.toml'),
+      'api_key = "sk_abc" # comment\n');
+    const { resolveStadiumConfig } = await import('../../src/core/stadium-config.js');
+    const cfg = resolveStadiumConfig({ home: tmpHome });
+    expect(cfg.api_key).toBe('sk_abc');
+  });
+
+  it('strips inline comment from bare TOML value', async () => {
+    writeFileSync(join(tmpHome, '.vault', 'stadium.toml'),
+      'api_key = sk_abc # comment\n');
+    const { resolveStadiumConfig } = await import('../../src/core/stadium-config.js');
+    const cfg = resolveStadiumConfig({ home: tmpHome });
+    expect(cfg.api_key).toBe('sk_abc');
   });
 });

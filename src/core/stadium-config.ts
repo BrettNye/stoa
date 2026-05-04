@@ -46,9 +46,13 @@ function parseStadiumToml(content: string): Partial<StadiumConfig> {
     if (eq < 0) continue;
     const key = line.slice(0, eq).trim();
     let value = line.slice(eq + 1).trim();
-    if ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1);
+    if (value.startsWith('"') || value.startsWith("'")) {
+      const q = value[0];
+      const close = value.indexOf(q, 1);
+      value = close > 0 ? value.slice(1, close) : value.slice(1);
+    } else {
+      const commentIdx = value.indexOf(' #');
+      if (commentIdx >= 0) value = value.slice(0, commentIdx).trim();
     }
     if (key === 'api_key') out.api_key = value;
     else if (key === 'trainer_id') out.trainer_id = value;
