@@ -443,19 +443,68 @@ describe("profile-stats wiki resolution", () => {
     rmSync(noTrainerHome, { recursive: true, force: true });
   });
 
-  it("explicit wiki: arg works when no trainer configured (Issue 2 fix)", async () => {
+  it("explicit wiki: arg actually routes to the explicit wiki path (no-trainer, real routing verification)", async () => {
+    // Issue 2: after the _wiki -> wiki fix, the tool must actually read profile
+    // data from wikis/some-other-wiki/profiles/profile-pikachu.md.
+    // The profile-pikachu page is created ONLY in some-other-wiki (not in _agents)
+    // and has created:'2026-01-01' so days_since_creation > 0.
+    // Before the fix: readProfile(vaultPath, "profile-pikachu") throws
+    // ProfileNotFoundError (caught), daysSinceCreation stays 0 → test FAILS.
+    // After the fix: reads from some-other-wiki path → days_since_creation > 0 → PASSES.
     const { vaultPath: noTrainerVault, homePath: noTrainerHome } = makeVaultNoTrainer();
     process.env.VAULT_PATH = noTrainerVault;
     process.env.STADIUM_HOME = noTrainerHome;
+
+    // Add profile-pikachu to profiles.json (stats index)
+    writeFileSync(
+      join(noTrainerVault, "_index", "profiles.json"),
+      JSON.stringify({
+        "profile-pikachu": {
+          pokemon_type: "electric",
+          evolution_stage: "stage1",
+          tasks_completed: 5,
+          tasks_failed: 0,
+          tasks_in_flight: 0,
+          journals_count: 3,
+          channels_active: 2,
+          moves_used_freq: {}
+        }
+      })
+    );
+    // Create profile page ONLY in some-other-wiki (not in _agents)
+    mkdirSync(join(noTrainerVault, "wikis", "some-other-wiki", "profiles"), { recursive: true });
+    writeFileSync(
+      join(noTrainerVault, "wikis", "some-other-wiki", "profiles", "profile-pikachu.md"),
+      [
+        "---",
+        "id: profile-pikachu",
+        "type: profile",
+        "title: Pikachu",
+        "wiki: some-other-wiki",
+        "status: active",
+        "created: '2026-01-01'",
+        "updated: '2026-01-01'",
+        "pokemon: pikachu",
+        "evolution_stage: stage1",
+        "summary: Electric mouse",
+        "tags: [profile]",
+        "---",
+        "Body.",
+      ].join("\n")
+    );
+
     const { profileStatsTool } = await import(
       "../../src/tools/profile-stats.js"
     );
     const out = await profileStatsTool.handler(
-      { pokemon_id: "profile-charmander", wiki: "_agents" } as any,
+      { pokemon_id: "profile-pikachu", wiki: "some-other-wiki" } as any,
       { vaultPath: noTrainerVault }
     );
-    expect(out.profile_id).toBe("profile-charmander");
+    expect(out.profile_id).toBe("profile-pikachu");
     expect(out.caller_trainer_id).toBeUndefined();
+    // Profile was created 2026-01-01 → days_since_creation > 0 proves routing
+    // actually reached some-other-wiki (not the fallback _agents path which has no pikachu)
+    expect(out.days_since_creation).toBeGreaterThan(0);
     rmSync(noTrainerVault, { recursive: true, force: true });
     rmSync(noTrainerHome, { recursive: true, force: true });
   });
@@ -507,6 +556,29 @@ describe("refresh-profile-memory wiki resolution", () => {
   });
 
   it("accepts explicit wiki: arg that wins over trainer wiki (Issue 2 fix)", async () => {
+    // Set up profile-charmander in some-other-wiki so the tool can route there.
+    // The trainer's wiki is _agents; this confirms explicit wiki: wins.
+    mkdirSync(join(vaultPath, "wikis", "some-other-wiki", "profiles"), { recursive: true });
+    mkdirSync(join(vaultPath, "wikis", "some-other-wiki", "synthesis"), { recursive: true });
+    writeFileSync(
+      join(vaultPath, "wikis", "some-other-wiki", "profiles", "profile-charmander.md"),
+      [
+        "---",
+        "id: profile-charmander",
+        "type: profile",
+        "title: Charmander (some-other-wiki copy)",
+        "wiki: some-other-wiki",
+        "status: active",
+        "created: '2026-05-01'",
+        "updated: '2026-05-01'",
+        "pokemon: charmander",
+        "evolution_stage: basic",
+        "summary: Fire starter in some-other-wiki",
+        "tags: [profile]",
+        "---",
+        "Body.",
+      ].join("\n")
+    );
     const { refreshProfileMemoryTool } = await import(
       "../../src/tools/refresh-profile-memory.js"
     );
@@ -514,7 +586,7 @@ describe("refresh-profile-memory wiki resolution", () => {
       { pokemon_id: "profile-charmander", wiki: "some-other-wiki" } as any,
       { vaultPath }
     );
-    // Should succeed (explicit wiki: arg doesn't cause a parse error)
+    // Explicit wiki: some-other-wiki routes correctly; trainer resolves for caller_trainer_id
     expect(out.caller_trainer_id).toBe("trainer-brett");
   });
 
@@ -535,18 +607,52 @@ describe("refresh-profile-memory wiki resolution", () => {
     rmSync(noTrainerHome, { recursive: true, force: true });
   });
 
-  it("explicit wiki: arg works when no trainer configured (Issue 2 fix)", async () => {
+  it("explicit wiki: arg actually routes to the explicit wiki path (no-trainer, real routing verification)", async () => {
+    // Issue 2: after the _wiki -> wiki fix, the tool must verify profile existence
+    // from wikis/some-other-wiki/profiles/profile-pikachu.md.
+    // profile-pikachu is ONLY in some-other-wiki (not in _agents).
+    // Before the fix: readProfile(vaultPath, "profile-pikachu") throws ProfileNotFoundError
+    // → test FAILS (profile not found).
+    // After the fix: existence check uses wikis/some-other-wiki path → PASSES.
     const { vaultPath: noTrainerVault, homePath: noTrainerHome } = makeVaultNoTrainer();
     process.env.VAULT_PATH = noTrainerVault;
     process.env.STADIUM_HOME = noTrainerHome;
+
+    // Create profile page ONLY in some-other-wiki (not in _agents)
+    mkdirSync(join(noTrainerVault, "wikis", "some-other-wiki", "profiles"), { recursive: true });
+    // Also need synthesis dir for the output
+    mkdirSync(join(noTrainerVault, "wikis", "some-other-wiki", "synthesis"), { recursive: true });
+    writeFileSync(
+      join(noTrainerVault, "wikis", "some-other-wiki", "profiles", "profile-pikachu.md"),
+      [
+        "---",
+        "id: profile-pikachu",
+        "type: profile",
+        "title: Pikachu",
+        "wiki: some-other-wiki",
+        "status: active",
+        "created: '2026-01-01'",
+        "updated: '2026-01-01'",
+        "pokemon: pikachu",
+        "evolution_stage: stage1",
+        "summary: Electric mouse",
+        "tags: [profile]",
+        "---",
+        "Body.",
+      ].join("\n")
+    );
+
     const { refreshProfileMemoryTool } = await import(
       "../../src/tools/refresh-profile-memory.js"
     );
     const out = await refreshProfileMemoryTool.handler(
-      { pokemon_id: "profile-charmander", wiki: "_agents" } as any,
+      { pokemon_id: "profile-pikachu", wiki: "some-other-wiki" } as any,
       { vaultPath: noTrainerVault }
     );
+    // No trainer → caller_trainer_id is undefined
     expect(out.caller_trainer_id).toBeUndefined();
+    // memory_page_id confirms the synthesis was written
+    expect(out.memory_page_id).toContain("pikachu");
     rmSync(noTrainerVault, { recursive: true, force: true });
     rmSync(noTrainerHome, { recursive: true, force: true });
   });
@@ -598,6 +704,31 @@ describe("evolve-profile wiki resolution", () => {
   });
 
   it("accepts explicit wiki: arg that wins over trainer wiki (Issue 2 fix)", async () => {
+    // Set up profile-charmander in some-other-wiki so the tool can route there.
+    // The trainer's wiki is _agents; this confirms explicit wiki: wins.
+    mkdirSync(join(vaultPath, "wikis", "some-other-wiki", "profiles"), { recursive: true });
+    writeFileSync(
+      join(vaultPath, "wikis", "some-other-wiki", "profiles", "profile-charmander.md"),
+      [
+        "---",
+        "id: profile-charmander",
+        "type: profile",
+        "title: Charmander (some-other-wiki copy)",
+        "wiki: some-other-wiki",
+        "status: active",
+        "created: '2026-05-01'",
+        "updated: '2026-05-01'",
+        "pokemon: charmander",
+        "evolution_stage: basic",
+        "pokemon_type: fire",
+        "autonomy_level: restricted",
+        "moveset: []",
+        "summary: Fire starter in some-other-wiki",
+        "tags: [profile]",
+        "---",
+        "Body.",
+      ].join("\n")
+    );
     const { evolveProfileTool } = await import(
       "../../src/tools/evolve-profile.js"
     );
@@ -605,8 +736,10 @@ describe("evolve-profile wiki resolution", () => {
       { pokemon_id: "profile-charmander", commit: false, wiki: "some-other-wiki" } as any,
       { vaultPath, today: new Date("2026-05-04") }
     );
-    // Should succeed (explicit wiki: arg accepted in schema and doesn't cause parse error)
+    // Explicit wiki: some-other-wiki routes correctly; trainer resolves for caller_trainer_id
     expect((out as any).caller_trainer_id).toBe("trainer-brett");
+    // Proposal reflects data from some-other-wiki path
+    expect((out as any).current.evolution_stage).toBe("basic");
   });
 
   it("throws NO_ACTIVE_TRAINER when no trainer configured and no explicit wiki: arg (Issue 2 fix)", async () => {
@@ -626,18 +759,69 @@ describe("evolve-profile wiki resolution", () => {
     rmSync(noTrainerHome, { recursive: true, force: true });
   });
 
-  it("explicit wiki: arg works when no trainer configured (Issue 2 fix)", async () => {
+  it("explicit wiki: arg actually routes to the explicit wiki path (no-trainer, real routing verification)", async () => {
+    // Issue 2: after the _wiki -> wiki fix, the tool must read the profile
+    // from wikis/some-other-wiki/profiles/profile-pikachu.md.
+    // profile-pikachu is ONLY in some-other-wiki (not in _agents).
+    // Before the fix: readProfile(vaultPath, "profile-pikachu") throws ProfileNotFoundError
+    // → test FAILS.
+    // After the fix: reads from some-other-wiki path → proposal returned with pikachu data.
     const { vaultPath: noTrainerVault, homePath: noTrainerHome } = makeVaultNoTrainer();
     process.env.VAULT_PATH = noTrainerVault;
     process.env.STADIUM_HOME = noTrainerHome;
+
+    // Add profile-pikachu to profiles.json (needed for profileStatsTool sub-call)
+    writeFileSync(
+      join(noTrainerVault, "_index", "profiles.json"),
+      JSON.stringify({
+        "profile-pikachu": {
+          pokemon_type: "electric",
+          evolution_stage: "stage1",
+          tasks_completed: 5,
+          tasks_failed: 0,
+          tasks_in_flight: 0,
+          journals_count: 3,
+          channels_active: 2,
+          moves_used_freq: {}
+        }
+      })
+    );
+    // Create profile page ONLY in some-other-wiki (not in _agents)
+    mkdirSync(join(noTrainerVault, "wikis", "some-other-wiki", "profiles"), { recursive: true });
+    writeFileSync(
+      join(noTrainerVault, "wikis", "some-other-wiki", "profiles", "profile-pikachu.md"),
+      [
+        "---",
+        "id: profile-pikachu",
+        "type: profile",
+        "title: Pikachu",
+        "wiki: some-other-wiki",
+        "status: active",
+        "created: '2026-01-01'",
+        "updated: '2026-01-01'",
+        "pokemon: pikachu",
+        "evolution_stage: stage1",
+        "pokemon_type: electric",
+        "autonomy_level: feature-branch",
+        "moveset: []",
+        "summary: Electric mouse",
+        "tags: [profile]",
+        "---",
+        "Body.",
+      ].join("\n")
+    );
+
     const { evolveProfileTool } = await import(
       "../../src/tools/evolve-profile.js"
     );
     const out = await evolveProfileTool.handler(
-      { pokemon_id: "profile-charmander", commit: false, wiki: "_agents" } as any,
+      { pokemon_id: "profile-pikachu", commit: false, wiki: "some-other-wiki" } as any,
       { vaultPath: noTrainerVault, today: new Date("2026-05-04") }
     );
+    // No trainer → caller_trainer_id is undefined
     expect((out as any).caller_trainer_id).toBeUndefined();
+    // Proposal reflects pikachu's data from some-other-wiki path
+    expect((out as any).current.evolution_stage).toBe("stage1");
     rmSync(noTrainerVault, { recursive: true, force: true });
     rmSync(noTrainerHome, { recursive: true, force: true });
   });

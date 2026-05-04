@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { synthesize } from "../core/synthesize.js";
-import { readProfile } from "../core/profiles.js";
+import { ProfileNotFoundError } from "../core/profiles.js";
 import { resolveTrainerContext, type TrainerContext } from "../core/resolve-trainer-context.js";
 
 const Input = z.object({
@@ -31,10 +33,14 @@ export const refreshProfileMemoryTool = {
         trainerCtx = undefined;
       }
     }
-    const _wiki = parsed.wiki ?? trainerCtx!.wiki; // explicit wins; used for routing context
+    const wiki = parsed.wiki ?? trainerCtx?.wiki;
+    if (!wiki) throw new Error("wiki resolution failed: no explicit arg and no resolved trainer context");
 
-    // Verify the profile exists; readProfile throws ProfileNotFoundError otherwise
-    readProfile(ctx.vaultPath, input.pokemon_id);
+    // Verify the profile exists in the wiki-scoped path
+    const profilePath = join(ctx.vaultPath, "wikis", wiki, "profiles", `${input.pokemon_id}.md`);
+    if (!existsSync(profilePath)) {
+      throw new ProfileNotFoundError(input.pokemon_id);
+    }
 
     const agent = bareName(input.pokemon_id);
     const result = synthesize(ctx.vaultPath, {

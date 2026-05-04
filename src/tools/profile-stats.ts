@@ -2,7 +2,7 @@ import { z } from "zod";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { thresholdFor, nextStage, EvolutionStage } from "../core/pokemon.js";
-import { readProfile, ProfileNotFoundError } from "../core/profiles.js";
+import { parseFrontmatter } from "../core/frontmatter.js";
 import { resolveTrainerContext, type TrainerContext } from "../core/resolve-trainer-context.js";
 
 const Input = z.object({
@@ -30,7 +30,8 @@ export const profileStatsTool = {
         trainerCtx = undefined;
       }
     }
-    const _wiki = parsed.wiki ?? trainerCtx!.wiki; // explicit wins; used for routing context
+    const wiki = parsed.wiki ?? trainerCtx?.wiki;
+    if (!wiki) throw new Error("wiki resolution failed: no explicit arg and no resolved trainer context");
 
     const profilesJsonPath = join(ctx.vaultPath, "_index", "profiles.json");
     if (!existsSync(profilesJsonPath)) {
@@ -42,18 +43,22 @@ export const profileStatsTool = {
       throw new Error(`PROFILE_NOT_FOUND: ${input.pokemon_id}`);
     }
 
-    // Read profile to get created date for days_since_creation
+    // Read profile page from the wiki-scoped path to get created date for days_since_creation
     let daysSinceCreation = 0;
     try {
-      const profile = readProfile(ctx.vaultPath, input.pokemon_id);
-      const createdStr = String(profile.frontmatter.created ?? "");
-      if (createdStr) {
-        const created = new Date(createdStr);
-        const now = new Date();
-        daysSinceCreation = Math.max(0, Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)));
+      const profilePath = join(ctx.vaultPath, "wikis", wiki, "profiles", `${input.pokemon_id}.md`);
+      if (existsSync(profilePath)) {
+        const raw = readFileSync(profilePath, "utf8");
+        const { frontmatter } = parseFrontmatter(raw);
+        const createdStr = String(frontmatter.created ?? "");
+        if (createdStr) {
+          const created = new Date(createdStr);
+          const now = new Date();
+          daysSinceCreation = Math.max(0, Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)));
+        }
       }
-    } catch (e) {
-      if (!(e instanceof ProfileNotFoundError)) throw e;
+    } catch {
+      // ignore errors reading profile page; days_since_creation stays 0
     }
 
     const successRate = row.tasks_completed > 0

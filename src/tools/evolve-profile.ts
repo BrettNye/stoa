@@ -2,7 +2,7 @@ import { z } from "zod";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { proposeEvolution } from "../core/evolution.js";
-import { readProfile, renameProfile, ProfileNotFoundError } from "../core/profiles.js";
+import { renameProfile, ProfileNotFoundError } from "../core/profiles.js";
 import { profileStatsTool } from "./profile-stats.js";
 import { parseFrontmatter, serializeFrontmatter } from "../core/frontmatter.js";
 import { EvolutionStage } from "../core/pokemon.js";
@@ -12,6 +12,30 @@ import { nextEvolution } from "../core/pokeapi.js";
 import { readThresholds, DEFAULT_THRESHOLDS, ThresholdBlockError, type EvolutionThresholds } from "../core/thresholds.js";
 import { getClaimsConfig } from "../config.js";
 import { resolveTrainerContext, type TrainerContext } from "../core/resolve-trainer-context.js";
+
+// ─────────────────────────────────────────────────────────────────────────
+// Wiki-scoped profile reader: reads the profile from wikis/<wiki>/profiles/<id>.md
+// instead of the _agents-hardcoded readProfile helper in core/profiles.ts.
+// This is required so the wiki: arg routes correctly (synthesis A2 fix).
+// ─────────────────────────────────────────────────────────────────────────
+function readProfileFromWiki(
+  vaultPath: string,
+  wiki: string,
+  id: string
+): { frontmatter: Record<string, any>; body: string; updated: string; path: string } {
+  const profilePath = join(vaultPath, "wikis", wiki, "profiles", `${id}.md`);
+  if (!existsSync(profilePath)) {
+    throw new ProfileNotFoundError(id);
+  }
+  const raw = readFileSync(profilePath, "utf8");
+  const { frontmatter, body } = parseFrontmatter(raw);
+  return {
+    frontmatter,
+    body,
+    path: profilePath,
+    updated: String(frontmatter.updated ?? frontmatter.created ?? "")
+  };
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 // Claims Plan 2 Wave 3 (task-evolve-profile-tool-fields): additive
@@ -132,11 +156,12 @@ export const evolveProfileTool = {
         trainerCtx = undefined;
       }
     }
-    const _wiki = parsedInput.wiki ?? trainerCtx!.wiki; // explicit wins; used for routing context
+    const wiki = parsedInput.wiki ?? trainerCtx?.wiki;
+    if (!wiki) throw new Error("wiki resolution failed: no explicit arg and no resolved trainer context");
 
     if (!input.commit) {
       // Proposal phase
-      const profile = readProfile(ctx.vaultPath, input.pokemon_id);
+      const profile = readProfileFromWiki(ctx.vaultPath, wiki, input.pokemon_id);
       const stats = await profileStatsTool.handler({ pokemon_id: input.pokemon_id, wiki: parsedInput.wiki }, ctx);
 
       // Look up per-agent memory synthesis if present (Plan C.1b)
@@ -210,7 +235,7 @@ export const evolveProfileTool = {
       throw new Error("proposal is required when commit:true");
     }
 
-    const profile = readProfile(ctx.vaultPath, input.pokemon_id);
+    const profile = readProfileFromWiki(ctx.vaultPath, wiki, input.pokemon_id);
     if (String(profile.frontmatter.updated ?? profile.frontmatter.created ?? "") !== input.expected_updated) {
       throw new Error(`OCC conflict: expected_updated ${input.expected_updated} does not match current ${profile.frontmatter.updated ?? profile.frontmatter.created}`);
     }
@@ -231,7 +256,7 @@ export const evolveProfileTool = {
 
     // 2. Apply frontmatter changes (stage bump, autonomy, moveset additions/removals)
     const targetPath = join(
-      ctx.vaultPath, "wikis", "_agents", "profiles", `${newId}.md`
+      ctx.vaultPath, "wikis", wiki, "profiles", `${newId}.md`
     );
     const raw = readFileSync(targetPath, "utf8");
     const { frontmatter, body } = parseFrontmatter(raw);
