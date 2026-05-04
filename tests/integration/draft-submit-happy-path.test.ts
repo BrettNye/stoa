@@ -131,18 +131,37 @@ describe("trainer-submit-draft schema — A1 regression (always runs)", () => {
 //   STADIUM_PLATFORM_URL=http://localhost:3000
 //
 // How the test works:
-//   1. Sets up a vault fixture with two trainer pages (trainer1, trainer2)
-//      and 6 profile pages each (12 total), pre-seeded with platform_profile_id
-//      from a prior profile-register call (or provided via env).
-//   2. Calls vault.trainer-queue-match as trainer1 against trainer2.
-//   3. Calls vault.trainer-accept-match as trainer2.
-//   4. During drafting phase, calls vault.trainer-get-state as trainer1 and
+//   0. Calls vault.profile-register 12 times (6 per trainer) to register all
+//      profiles and capture the returned platform_profile_id values.
+//   1. Calls vault.trainer-queue-match as trainer1 against trainer2.
+//   2. Calls vault.trainer-accept-match as trainer2.
+//   3. During drafting phase, calls vault.trainer-get-state as trainer1 and
 //      verifies: status === "drafting", available_profiles present,
 //      caller_trainer_id === trainer1.trainerId, caller_side set.
-//   5. Both trainers submit 6 picks via vault.trainer-submit-draft.
-//   6. Calls vault.trainer-get-state as trainer1; expects status !== "drafting"
+//   4. Both trainers submit 6 picks (the registered platform_profile_ids) via
+//      vault.trainer-submit-draft.
+//   5. Calls vault.trainer-get-state as trainer1; expects status !== "drafting"
 //      and available_profiles absent.
-//   7. Calls vault.trainer-get-state as trainer2; validates caller_side.
+//   6. Calls vault.trainer-get-state as trainer2; validates caller_side.
+
+// Pokemon sets for each trainer (must resolve via the existing pokeapi helpers).
+const TRAINER1_POKEMON = [
+  "aerodactyl",
+  "charmander",
+  "charmeleon",
+  "squirtle",
+  "bulbasaur",
+  "gastly",
+] as const;
+
+const TRAINER2_POKEMON = [
+  "pikachu",
+  "mewtwo",
+  "jolteon",
+  "raichu",
+  "abra",
+  "kadabra",
+] as const;
 
 describe.skipIf(!PLATFORM_TESTS)(
   "draft-submit happy path e2e (requires VAULT_RUN_PLATFORM_TESTS=1)",
@@ -161,13 +180,6 @@ describe.skipIf(!PLATFORM_TESTS)(
       process.env.STADIUM_TRAINER2_ID ?? "";
     const trainer2ApiKey =
       process.env.STADIUM_TRAINER2_API_KEY ?? "";
-
-    // Profile IDs on the platform — callers register before running this suite,
-    // OR pass pre-registered IDs via env (comma-separated, 6 per trainer).
-    const profiles1Raw =
-      process.env.STADIUM_TRAINER1_PROFILE_IDS ?? "";
-    const profiles2Raw =
-      process.env.STADIUM_TRAINER2_PROFILE_IDS ?? "";
 
     beforeEach(() => {
       vi.resetModules();
@@ -226,21 +238,25 @@ describe.skipIf(!PLATFORM_TESTS)(
       // stadium.toml for trainer2 home
       writeStadiumToml(homeT2, "trainer2", trainer2ApiKey, platformUrl);
 
-      // Profile pages for trainer1 (6 profiles with platform_profile_id pre-set)
-      if (profiles1Raw) {
-        const ids = profiles1Raw.split(",").map((s) => s.trim());
-        ids.forEach((pid, i) =>
-          writeProfilePage(vaultPath, `profile-t1-${i}`, pid, trainer1Id)
-        );
-      }
+      // Profile pages for trainer1 (6 unregistered profiles — no platform_profile_id yet)
+      TRAINER1_POKEMON.forEach((pokemon) =>
+        writeUnregisteredProfilePage(
+          vaultPath,
+          `profile-t1-${pokemon}`,
+          pokemon,
+          trainer1Id
+        )
+      );
 
-      // Profile pages for trainer2
-      if (profiles2Raw) {
-        const ids = profiles2Raw.split(",").map((s) => s.trim());
-        ids.forEach((pid, i) =>
-          writeProfilePage(vaultPath, `profile-t2-${i}`, pid, trainer2Id)
-        );
-      }
+      // Profile pages for trainer2 (6 unregistered profiles)
+      TRAINER2_POKEMON.forEach((pokemon) =>
+        writeUnregisteredProfilePage(
+          vaultPath,
+          `profile-t2-${pokemon}`,
+          pokemon,
+          trainer2Id
+        )
+      );
 
       process.env.VAULT_PATH = vaultPath;
     });
@@ -255,20 +271,48 @@ describe.skipIf(!PLATFORM_TESTS)(
 
     it(
       "two trainers complete draft and enter in_progress without curl bypass",
-      { timeout: 30_000 },
+      { timeout: 60_000 },
       async () => {
         // Validate required env
         expect(trainer1Id, "STADIUM_TRAINER1_ID must be set").not.toBe("");
         expect(trainer1ApiKey, "STADIUM_TRAINER1_API_KEY must be set").not.toBe("");
         expect(trainer2Id, "STADIUM_TRAINER2_ID must be set").not.toBe("");
         expect(trainer2ApiKey, "STADIUM_TRAINER2_API_KEY must be set").not.toBe("");
-        expect(profiles1Raw, "STADIUM_TRAINER1_PROFILE_IDS must be set").not.toBe("");
-        expect(profiles2Raw, "STADIUM_TRAINER2_PROFILE_IDS must be set").not.toBe("");
 
-        const picks1 = profiles1Raw.split(",").map((s) => s.trim());
-        const picks2 = profiles2Raw.split(",").map((s) => s.trim());
+        // ── Step 0: register all 12 profiles (6 per trainer) ─────────────────
+        // trainer1 registers — use homeT1 so the api_key resolves correctly
+        process.env.STADIUM_HOME = homeT1;
+        vi.resetModules();
+        const { profileRegisterTool } = await import(
+          "../../src/tools/profile-register.js"
+        );
+        const picks1: string[] = [];
+        for (const pokemon of TRAINER1_POKEMON) {
+          const reg = await profileRegisterTool.handler(
+            { profile_id: `profile-t1-${pokemon}`, wiki: "_agents" },
+            { vaultPath }
+          );
+          picks1.push((reg as any).profile_id as string);
+        }
         expect(picks1.length).toBe(6);
+        expect(picks1.every((id) => typeof id === "string" && id.length > 0)).toBe(true);
+
+        // trainer2 registers — use homeT2 so the api_key resolves correctly
+        process.env.STADIUM_HOME = homeT2;
+        vi.resetModules();
+        const { profileRegisterTool: profileRegisterTool2 } = await import(
+          "../../src/tools/profile-register.js"
+        );
+        const picks2: string[] = [];
+        for (const pokemon of TRAINER2_POKEMON) {
+          const reg = await profileRegisterTool2.handler(
+            { profile_id: `profile-t2-${pokemon}`, wiki: "_agents" },
+            { vaultPath }
+          );
+          picks2.push((reg as any).profile_id as string);
+        }
         expect(picks2.length).toBe(6);
+        expect(picks2.every((id) => typeof id === "string" && id.length > 0)).toBe(true);
 
         // ── Step 1: trainer1 queues match ─────────────────────────────────────
         process.env.STADIUM_HOME = homeT1;
@@ -410,10 +454,15 @@ function writeStadiumToml(
   );
 }
 
-function writeProfilePage(
+/**
+ * Write a profile page that has NOT yet been registered with the platform
+ * (no platform_profile_id). Used in the gated e2e test before calling
+ * vault.profile-register.
+ */
+function writeUnregisteredProfilePage(
   vaultPath: string,
   profileId: string,
-  platformProfileId: string,
+  pokemon: string,
   ownerTrainerId: string
 ): void {
   writeFileSync(
@@ -432,9 +481,8 @@ function writeProfilePage(
       "wiki: _agents",
       "status: active",
       "created: 2026-05-04",
-      "pokemon: charmander",
+      `pokemon: ${pokemon}`,
       "evolution_stage: basic",
-      `platform_profile_id: ${platformProfileId}`,
       `owner_trainer_id: ${ownerTrainerId}`,
       "moveset: []",
       "summary: test profile",
