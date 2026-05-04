@@ -471,6 +471,45 @@ describe("trainer-queue-match explicit wiki: arg override", () => {
   });
 });
 
+// ─── wiki: "" empty string schema rejection ──────────────────────────────────
+
+describe("trainer-queue-match rejects empty string wiki at schema boundary", () => {
+  it("rejects wiki: \"\" with a Zod validation error before reaching the handler", async () => {
+    const { trainerQueueMatchTool } = await import("../../src/tools/trainer-queue-match.js");
+
+    // Zod should throw/reject before reaching any handler logic
+    const result = trainerQueueMatchTool.inputSchema.safeParse({
+      opponent_trainer_id: "trn_bob",
+      ruleset: "standard",
+      wiki: "",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const wikiError = result.error.errors.find((e) => e.path[0] === "wiki");
+      expect(wikiError).toBeDefined();
+    }
+  });
+});
+
+describe("trainer-accept-match rejects empty string wiki at schema boundary", () => {
+  it("rejects wiki: \"\" with a Zod validation error before reaching the handler", async () => {
+    const { trainerAcceptMatchTool } = await import("../../src/tools/trainer-accept-match.js");
+
+    // Zod should throw/reject before reaching any handler logic
+    const result = trainerAcceptMatchTool.inputSchema.safeParse({
+      match_id: "m_1",
+      wiki: "",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const wikiError = result.error.errors.find((e) => e.path[0] === "wiki");
+      expect(wikiError).toBeDefined();
+    }
+  });
+});
+
 describe("trainer-accept-match explicit wiki: arg override", () => {
   let home: string;
   let vault: string;

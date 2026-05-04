@@ -7,7 +7,7 @@ import { resolveTrainerContext, TrainerContext, TrainerContextError } from '../c
 const Input = z.object({
   opponent_trainer_id: z.string().min(1),
   ruleset: z.literal('standard').default('standard'),
-  wiki: z.string().optional()
+  wiki: z.string().min(1).optional()
 });
 
 export const trainerQueueMatchTool = {
