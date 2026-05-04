@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { typeFolder, slugify, generateId, parseId, isMoveDirectoryLayout } from "../../src/core/ids.js";
+import { typeFolder, slugify, generateId, parseId, isMoveDirectoryLayout, filenameForType } from "../../src/core/ids.js";
 
 describe("typeFolder", () => {
   it("maps types to folder names", () => {
@@ -73,5 +73,15 @@ describe("v1.5 — move directory layout detection", () => {
 
   it("returns false for concept type", () => {
     expect(isMoveDirectoryLayout("concept")).toBe(false);
+  });
+});
+
+describe("filenameForType — trainer", () => {
+  it("emits trainer-<slug>.md for plain names", () => {
+    expect(filenameForType("trainer", "Brett")).toBe("trainer-brett.md");
+  });
+
+  it("lowercases and slugifies multi-word names", () => {
+    expect(filenameForType("trainer", "Brett's Trainer")).toBe("trainer-bretts-trainer.md");
   });
 });

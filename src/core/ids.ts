@@ -11,8 +11,9 @@ const TYPE_FOLDERS: Record<NoteType, string> = {
   source: "sources",
   journal: "journal",
   task: "tasks",
-  move: "moves",       // v1.5
-  profile: "profiles", // v1.5
+  move: "moves",         // v1.5
+  profile: "profiles",   // v1.5
+  trainer: "trainers",   // v2
   map: ""
 };
 
@@ -57,4 +58,18 @@ export function parseId(id: string): { type: string; rest: string } {
  */
 export function isMoveDirectoryLayout(type: NoteType): boolean {
   return type === "move";
+}
+
+/**
+ * Returns the canonical filename for a given type + slug input.
+ * Mirrors the profile-<slug>.md convention for each type.
+ */
+export function filenameForType(type: NoteType, input: string): string {
+  const slug = slugify(input);
+  switch (type) {
+    case "trainer":
+      return `trainer-${slug}.md`;
+    default:
+      return `${type}-${slug}.md`;
+  }
 }
