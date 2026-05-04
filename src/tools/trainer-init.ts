@@ -7,6 +7,7 @@ import { slugify } from '../core/ids.js';
 import { resolveStadiumConfig } from '../core/stadium-config.js';
 import { StadiumClient } from '../core/stadium-client.js';
 import { upsertPage } from '../core/index.js';
+import { resolveTrainerContext } from '../core/resolve-trainer-context.js';
 
 const Input = z.object({
   name: z.string().min(1),
@@ -18,6 +19,16 @@ export const trainerInitTool = {
   description: 'Validate the configured Stadium API key and scaffold wikis/_agents/trainers/trainer-<name>.md with the initial strategy seed.',
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
+    // trainer-init is special — it CREATES a trainer; resolveTrainerContext may not yet have
+    // a target slug. Resolve only if env or toml provides one; otherwise fall through.
+    let callerTrainerId: string | null = null;
+    try {
+      const trainerCtx = resolveTrainerContext({});
+      callerTrainerId = trainerCtx.trainerId;
+    } catch {
+      // First-time init: no trainer configured yet — this is expected
+    }
+
     const config = resolveStadiumConfig();
     const client = new StadiumClient({ api_key: config.api_key, base_url: config.base_url });
     await client.getHealth(); // validates connectivity + auth context
@@ -45,6 +56,6 @@ export const trainerInitTool = {
     const path = join(dir, `${id}.md`);
     writeFileSync(path, serializeFrontmatter(fm, body));
     await upsertPage(ctx.vaultPath, path);
-    return { id, path, trainer_id: config.trainer_id ?? null };
+    return { id, path, trainer_id: config.trainer_id ?? null, caller_trainer_id: callerTrainerId };
   }
 };
