@@ -26,6 +26,15 @@ export interface StadiumConfig {
   api_key: string;
   trainer_id?: string;
   base_url: string;
+  /**
+   * Platform-side trainer name. Comes from the selected `[trainer.<header>]` section's
+   * explicit `name = "..."` field if present, else falls back to the section header itself.
+   * Undefined when no section is selected (legacy single-trainer flat-key TOML).
+   *
+   * The TOML section header is a private/local alias (used by `STADIUM_TRAINER` and `active`);
+   * `name` is the globally-shared identifier used in handles like `<account>:<name>`.
+   */
+  name?: string;
 }
 
 interface StadiumTomlShape {
@@ -33,13 +42,16 @@ interface StadiumTomlShape {
   trainer_id?: string;
   base_url?: string;
   active?: string;
-  trainers?: Record<string, { api_key?: string; trainer_id?: string; base_url?: string }>;
+  trainers?: Record<string, { api_key?: string; trainer_id?: string; base_url?: string; name?: string }>;
 }
 
 const DEFAULT_BASE_URL = 'https://stadium.app/api/v1';
 
 export function resolveStadiumConfig(opts: { home?: string } = {}): StadiumConfig {
-  const home = opts.home ?? homedir();
+  // Precedence: explicit opts.home > STADIUM_HOME env > homedir().
+  // STADIUM_HOME is testing/operations-friendly: tests point it at an isolated tmpdir
+  // so the user's real `~/.vault/stadium.toml` doesn't bleed into unit tests.
+  const home = opts.home ?? process.env.STADIUM_HOME ?? homedir();
   const tomlPath = join(home, '.vault', 'stadium.toml');
   const fromToml: StadiumTomlShape = existsSync(tomlPath)
     ? parseStadiumToml(readFileSync(tomlPath, 'utf8'))
@@ -53,7 +65,8 @@ export function resolveStadiumConfig(opts: { home?: string } = {}): StadiumConfi
   // Determine active trainer name: STADIUM_TRAINER env > top-level `active` field.
   const trainerName = process.env.STADIUM_TRAINER || fromToml.active;
 
-  let fromSection: Partial<StadiumConfig> = {};
+  let fromSection: { api_key?: string; trainer_id?: string; base_url?: string; name?: string } = {};
+  let resolvedName: string | undefined;
   if (trainerName) {
     const trainers = fromToml.trainers ?? {};
     const section = trainers[trainerName];
@@ -61,6 +74,9 @@ export function resolveStadiumConfig(opts: { home?: string } = {}): StadiumConfi
       throw new StadiumTrainerNotFoundError(trainerName, Object.keys(trainers));
     }
     fromSection = section;
+    // Explicit `name` field overrides the section header. Otherwise the section header
+    // (the part after `trainer.`) IS the platform-side trainer name.
+    resolvedName = section.name ?? trainerName;
   }
 
   const fromRoot: Partial<StadiumConfig> = {
@@ -83,7 +99,8 @@ export function resolveStadiumConfig(opts: { home?: string } = {}): StadiumConfi
   return {
     api_key: merged.api_key,
     trainer_id: merged.trainer_id,
-    base_url: merged.base_url ?? DEFAULT_BASE_URL
+    base_url: merged.base_url ?? DEFAULT_BASE_URL,
+    name: resolvedName
   };
 }
 
@@ -120,13 +137,14 @@ function parseStadiumToml(content: string): StadiumTomlShape {
       else if (key === 'base_url') out.base_url = value;
       else if (key === 'active') out.active = value;
     } else if (currentSection.startsWith('trainer.')) {
-      const name = currentSection.slice('trainer.'.length);
-      if (!name) continue; // malformed [trainer.] header
+      const headerName = currentSection.slice('trainer.'.length);
+      if (!headerName) continue; // malformed [trainer.] header
       if (!out.trainers) out.trainers = {};
-      const t = out.trainers[name] ?? (out.trainers[name] = {});
+      const t = out.trainers[headerName] ?? (out.trainers[headerName] = {});
       if (key === 'api_key') t.api_key = value;
       else if (key === 'trainer_id') t.trainer_id = value;
       else if (key === 'base_url') t.base_url = value;
+      else if (key === 'name') t.name = value;
     }
     // Unknown sections (e.g. `[stadium]`) are silently ignored — keys inside are not routed.
   }

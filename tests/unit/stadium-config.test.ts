@@ -132,7 +132,7 @@ trainer_id = "trn_test_b"
 `);
     const { resolveStadiumConfig } = await import('../../src/core/stadium-config.js');
     expect(resolveStadiumConfig({ home: tmpHome })).toEqual({
-      api_key: 'sk_main', trainer_id: 'trn_main', base_url: 'https://main.example.com'
+      api_key: 'sk_main', trainer_id: 'trn_main', base_url: 'https://main.example.com', name: 'main'
     });
   });
 
@@ -152,7 +152,7 @@ base_url = "https://b.example.com"
     process.env.STADIUM_TRAINER = 'test_b';
     const { resolveStadiumConfig } = await import('../../src/core/stadium-config.js');
     expect(resolveStadiumConfig({ home: tmpHome })).toEqual({
-      api_key: 'sk_test_b', trainer_id: 'trn_test_b', base_url: 'https://b.example.com'
+      api_key: 'sk_test_b', trainer_id: 'trn_test_b', base_url: 'https://b.example.com', name: 'test_b'
     });
   });
 
@@ -210,5 +210,55 @@ api_key = "sk_main"
     const { resolveStadiumConfig } = await import('../../src/core/stadium-config.js');
     const cfg = resolveStadiumConfig({ home: tmpHome });
     expect(cfg.base_url).toBe('https://from.env.example.com');
+  });
+
+  it('section header is the default platform-side name', async () => {
+    writeFileSync(join(tmpHome, '.vault', 'stadium.toml'),
+      `[trainer.main]
+api_key = "sk_main"
+`);
+    process.env.STADIUM_TRAINER = 'main';
+    const { resolveStadiumConfig } = await import('../../src/core/stadium-config.js');
+    const cfg = resolveStadiumConfig({ home: tmpHome });
+    expect(cfg.name).toBe('main');
+  });
+
+  it('explicit `name` field overrides section header for platform-side name', async () => {
+    // Section header "tdd" is a private alias used by STADIUM_TRAINER and `active`.
+    // Platform sees the trainer as "b-tdd-aggressive".
+    writeFileSync(join(tmpHome, '.vault', 'stadium.toml'),
+      `[trainer.tdd]
+name = "b-tdd-aggressive"
+api_key = "sk_tdd"
+`);
+    process.env.STADIUM_TRAINER = 'tdd';
+    const { resolveStadiumConfig } = await import('../../src/core/stadium-config.js');
+    const cfg = resolveStadiumConfig({ home: tmpHome });
+    expect(cfg.name).toBe('b-tdd-aggressive');
+    expect(cfg.api_key).toBe('sk_tdd');
+  });
+
+  it('legacy flat-key TOML has no `name` (no section selected)', async () => {
+    writeFileSync(join(tmpHome, '.vault', 'stadium.toml'),
+      'api_key = "sk_legacy"\n');
+    const { resolveStadiumConfig } = await import('../../src/core/stadium-config.js');
+    const cfg = resolveStadiumConfig({ home: tmpHome });
+    expect(cfg.name).toBeUndefined();
+  });
+
+  it('STADIUM_HOME env var overrides homedir() when opts.home is absent', async () => {
+    // Write a TOML at the STADIUM_HOME-pointed dir, then call without opts.home.
+    writeFileSync(join(tmpHome, '.vault', 'stadium.toml'),
+      'api_key = "sk_from_stadium_home"\n');
+    const origStadiumHome = process.env.STADIUM_HOME;
+    process.env.STADIUM_HOME = tmpHome;
+    try {
+      const { resolveStadiumConfig } = await import('../../src/core/stadium-config.js');
+      const cfg = resolveStadiumConfig(); // no opts — falls through to STADIUM_HOME
+      expect(cfg.api_key).toBe('sk_from_stadium_home');
+    } finally {
+      if (origStadiumHome === undefined) delete process.env.STADIUM_HOME;
+      else process.env.STADIUM_HOME = origStadiumHome;
+    }
   });
 });
