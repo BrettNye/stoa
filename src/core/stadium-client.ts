@@ -29,6 +29,82 @@ export class StadiumClient {
     return this.request('GET', '/health', undefined);
   }
 
+  // Profile / real-skill / move registration
+  async registerProfile(body: {
+    species_name: string;
+    evolution_stage: 'basic' | 'stage1' | 'stage2';
+    vault_profile_id: string;
+  }): Promise<{
+    profile_id: string;
+    stats: { hp: number; atk: number; def: number; spd: number; types: string[] };
+  }> {
+    return this.post('/profiles/register', body);
+  }
+
+  async registerRealSkill(body: {
+    skill_id: string;
+    skill_md_content: string;
+  }): Promise<{
+    real_skill_id: string;
+    modifier_function: { accuracy_mod: number; power_mod: number; effect_chance_mod: number; level_scaling: number };
+  }> {
+    return this.post('/real-skills/register', body);
+  }
+
+  async refreshRealSkill(real_skill_id: string, body: { skill_md_content: string }): Promise<{
+    real_skill_id: string;
+    modifier_function: { accuracy_mod: number; power_mod: number; effect_chance_mod: number; level_scaling: number };
+  }> {
+    return this.post(`/real-skills/${encodeURIComponent(real_skill_id)}/refresh`, body);
+  }
+
+  async fuseMove(body: { canonical_move_name: string; real_skill_id: string }): Promise<{ move_id: string }> {
+    return this.post('/moves/fuse', body);
+  }
+
+  // Telemetry
+  async pushTelemetry(body: { real_skill_id: string; source: string; reference_link: string }): Promise<{ ok: true; new_xp: number; level: number }> {
+    return this.post('/telemetry/move-usage', body);
+  }
+
+  // Matchmaking
+  async queueMatch(body: { opponent_trainer_id: string; ruleset?: 'standard' }): Promise<{ match_id: string; status: string }> {
+    return this.post('/matches', { ruleset: 'standard', ...body });
+  }
+
+  async listInvites(): Promise<{ invites: Array<{ match_id: string; from_trainer_id: string; created_at: string }> }> {
+    return this.get('/trainers/me/invites');
+  }
+
+  async acceptMatch(match_id: string): Promise<{ match_id: string; status: 'drafting' }> {
+    return this.post(`/matches/${encodeURIComponent(match_id)}/accept`, {});
+  }
+
+  async getMatchState(match_id: string, since_turn?: number): Promise<{
+    match_id: string;
+    status: string;
+    turn: number;
+    events: Array<Record<string, unknown>>;
+    state: Record<string, unknown> | null;
+  }> {
+    return this.get(`/matches/${encodeURIComponent(match_id)}`, since_turn !== undefined ? { since: since_turn } : undefined);
+  }
+
+  async submitDraft(match_id: string, body: { picks: string[] }): Promise<{ match_id: string; status: string }> {
+    return this.post(`/matches/${encodeURIComponent(match_id)}/draft`, body);
+  }
+
+  async submitMove(match_id: string, body: { turn: number; move_id: string; target?: string }): Promise<{ match_id: string; turn: number; status: string }> {
+    return this.post(`/matches/${encodeURIComponent(match_id)}/move`, body);
+  }
+
+  // Spectator (unauthenticated; same client still attaches the bearer — server ignores it)
+  async getSpectatorState(match_id: string): Promise<{
+    match_id: string; status: string; turn: number; events: Array<Record<string, unknown>>; state: Record<string, unknown> | null;
+  }> {
+    return this.get(`/matches/${encodeURIComponent(match_id)}/state`);
+  }
+
   async get<T = unknown>(path: string, query?: Record<string, string | number>): Promise<T> {
     const qs = query
       ? '?' + new URLSearchParams(Object.entries(query).map(([k, v]) => [k, String(v)])).toString()

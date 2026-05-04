@@ -152,3 +152,46 @@ describe('StadiumClient transport', () => {
     expect(calledUrl).toContain('limit=10');
   });
 });
+
+describe('StadiumClient typed methods', () => {
+  it('registerProfile POSTs to /profiles/register with the correct body', async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(
+      new Response(JSON.stringify({ profile_id: 'pf_1', stats: { hp: 100, atk: 50, def: 50, spd: 60, types: ['fire'] } }), { status: 200 })
+    ));
+    vi.stubGlobal('fetch', fetchMock);
+    const { StadiumClient } = await import('../../src/core/stadium-client.js');
+    const client = new StadiumClient({ api_key: 'sk', base_url: 'https://api.test' });
+    const out = await client.registerProfile({ species_name: 'charmander', evolution_stage: 'basic', vault_profile_id: 'profile-charmander' });
+    expect(out.profile_id).toBe('pf_1');
+    expect(fetchMock).toHaveBeenCalledWith('https://api.test/profiles/register',
+      expect.objectContaining({ method: 'POST' }));
+  });
+
+  it('listInvites GETs /trainers/me/invites', async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(new Response(JSON.stringify({ invites: [] }), { status: 200 })));
+    vi.stubGlobal('fetch', fetchMock);
+    const { StadiumClient } = await import('../../src/core/stadium-client.js');
+    const client = new StadiumClient({ api_key: 'sk', base_url: 'https://api.test' });
+    await client.listInvites();
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.test/trainers/me/invites');
+  });
+
+  it('acceptMatch POSTs to /matches/:id/accept', async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(new Response(JSON.stringify({ match_id: 'm1', status: 'drafting' }), { status: 200 })));
+    vi.stubGlobal('fetch', fetchMock);
+    const { StadiumClient } = await import('../../src/core/stadium-client.js');
+    const client = new StadiumClient({ api_key: 'sk', base_url: 'https://api.test' });
+    const out = await client.acceptMatch('m1');
+    expect(out.status).toBe('drafting');
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.test/matches/m1/accept');
+  });
+
+  it('getMatchState passes ?since=N when supplied', async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(new Response(JSON.stringify({ match_id: 'm1', status: 'in_progress', turn: 5, events: [], state: {} }), { status: 200 })));
+    vi.stubGlobal('fetch', fetchMock);
+    const { StadiumClient } = await import('../../src/core/stadium-client.js');
+    const client = new StadiumClient({ api_key: 'sk', base_url: 'https://api.test' });
+    await client.getMatchState('m1', 3);
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.test/matches/m1?since=3');
+  });
+});
