@@ -111,12 +111,15 @@ function parseTrainersFromToml(content: string): Map<string, { trainer_id: strin
     const line = rawLine.trim();
     if (!line || line.startsWith("#")) continue;
 
-    if (line.startsWith("[") && line.endsWith("]")) {
+    // Strip trailing inline comment from section header candidates
+    // e.g. "[trainer.brett] # comment" → "[trainer.brett]"
+    const headerLine = line.includes(" #") ? line.slice(0, line.indexOf(" #")).trimEnd() : line;
+    if (headerLine.startsWith("[") && headerLine.endsWith("]")) {
       // Flush previous section
       if (currentTrainerSlug !== null) {
         result.set(currentTrainerSlug, { trainer_id: currentTrainerId });
       }
-      const section = line.slice(1, -1).trim();
+      const section = headerLine.slice(1, -1).trim();
       if (section.startsWith("trainer.")) {
         const slug = section.slice("trainer.".length);
         if (slug) {

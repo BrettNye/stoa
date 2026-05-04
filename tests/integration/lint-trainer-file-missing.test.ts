@@ -48,6 +48,12 @@ function writeToml(slugs: Array<{ slug: string; trainer_id: string }>) {
   process.env.STADIUM_HOME = fakeHome;
 }
 
+function writeTomlRaw(content: string) {
+  mkdirSync(join(fakeHome, ".vault"), { recursive: true });
+  writeFileSync(join(fakeHome, ".vault", "stadium.toml"), content, "utf8");
+  process.env.STADIUM_HOME = fakeHome;
+}
+
 function writeTrainerFile(vault: string, slug: string, trainer_id: string) {
   const trainersDir = join(vault, "wikis", "_agents", "trainers");
   mkdirSync(trainersDir, { recursive: true });
@@ -130,5 +136,18 @@ describe("TRAINER_FILE_MISSING", () => {
     const findings = r.diagnostics.filter(d => d.code === "TRAINER_FILE_MISSING");
     expect(findings.length).toBe(1);
     expect(findings[0].message).toMatch(/trainer2/);
+  });
+
+  it("recognizes section headers with inline TOML comments (e.g. [trainer.brett] # main)", async () => {
+    // TOML allows inline comments on section headers; the parser must strip them
+    // so trainer-brett is correctly detected as missing its file.
+    writeTomlRaw(
+      `[trainer.brett] # main trainer\ntrainer_id = "01KQT3E0ABE70N8DMV6EQF1MA0"\n`
+    );
+    // No trainer-brett.md written — expect TRAINER_FILE_MISSING to fire
+    const r = await runLint("_agents");
+    const d = r.diagnostics.find(x => x.code === "TRAINER_FILE_MISSING");
+    expect(d).toBeDefined();
+    expect(d?.message).toMatch(/brett/);
   });
 });
