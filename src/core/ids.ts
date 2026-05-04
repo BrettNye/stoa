@@ -61,15 +61,20 @@ export function isMoveDirectoryLayout(type: NoteType): boolean {
 }
 
 /**
- * Returns the canonical filename for a given type + slug input.
- * Mirrors the profile-<slug>.md convention for each type.
+ * Types whose canonical filename is simply `<type>-<slug>.md`.
+ * Excluded:
+ *   - "decision"  → `decision-YYYY-MM-DD-<slug>.md` (date prefix required)
+ *   - "journal"   → `journal-YYYY-MM-DD-HHMM-<slug>.md` (date+time prefix required)
+ *   - "move"      → `move-<slug>/SKILL.md` (directory layout, not a single file)
  */
-export function filenameForType(type: NoteType, input: string): string {
-  const slug = slugify(input);
-  switch (type) {
-    case "trainer":
-      return `trainer-${slug}.md`;
-    default:
-      return `${type}-${slug}.md`;
-  }
+export type SimpleFilenameType = Exclude<NoteType, "decision" | "journal" | "move">;
+
+/**
+ * Returns the canonical filename for types that use the simple `<type>-<slug>.md`
+ * convention. Types requiring date prefixes (`decision`, `journal`) or directory
+ * layouts (`move`) are excluded at the TypeScript level to prevent silent
+ * production of malformed filenames.
+ */
+export function filenameForType(type: SimpleFilenameType, input: string): string {
+  return `${type}-${slugify(input)}.md`;
 }

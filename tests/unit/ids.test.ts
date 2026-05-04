@@ -85,3 +85,17 @@ describe("filenameForType — trainer", () => {
     expect(filenameForType("trainer", "Brett's Trainer")).toBe("trainer-bretts-trainer.md");
   });
 });
+
+describe("filenameForType — simple types (no date/directory prefix)", () => {
+  it("emits profile-<slug>.md for profile type", () => {
+    expect(filenameForType("profile", "Charmander")).toBe("profile-charmander.md");
+  });
+
+  it("emits concept-<slug>.md for concept type", () => {
+    expect(filenameForType("concept", "Auth Flow")).toBe("concept-auth-flow.md");
+  });
+
+  it("emits task-<slug>.md for task type", () => {
+    expect(filenameForType("task", "Fix Bug")).toBe("task-fix-bug.md");
+  });
+});
