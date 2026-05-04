@@ -66,8 +66,9 @@ export function isMoveDirectoryLayout(type: NoteType): boolean {
  *   - "decision"  → `decision-YYYY-MM-DD-<slug>.md` (date prefix required)
  *   - "journal"   → `journal-YYYY-MM-DD-HHMM-<slug>.md` (date+time prefix required)
  *   - "move"      → `move-<slug>/SKILL.md` (directory layout, not a single file)
+ *   - "map"       → `map.md` (fixed canonical filename; no slug, no type prefix)
  */
-export type SimpleFilenameType = Exclude<NoteType, "decision" | "journal" | "move">;
+export type SimpleFilenameType = Exclude<NoteType, "decision" | "journal" | "move" | "map">;
 
 /**
  * Returns the canonical filename for types that use the simple `<type>-<slug>.md`

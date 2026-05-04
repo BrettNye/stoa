@@ -99,3 +99,11 @@ describe("filenameForType — simple types (no date/directory prefix)", () => {
     expect(filenameForType("task", "Fix Bug")).toBe("task-fix-bug.md");
   });
 });
+
+describe("filenameForType — excluded types (compile-time guard)", () => {
+  it("rejects 'map' at the type level — map.md is fixed canonical filename with no slug", () => {
+    // 'map' must not be assignable to SimpleFilenameType.
+    // @ts-expect-error — 'map' is excluded from SimpleFilenameType; canonical filename is always map.md
+    filenameForType("map", "anything");
+  });
+});
