@@ -17,6 +17,7 @@ describe('stadium-config', () => {
     delete process.env.STADIUM_API_KEY;
     delete process.env.STADIUM_TRAINER_ID;
     delete process.env.STADIUM_BASE_URL;
+    delete process.env.STADIUM_TRAINER;
   });
   afterEach(() => rmSync(tmpHome, { recursive: true, force: true }));
 
@@ -47,7 +48,7 @@ describe('stadium-config', () => {
     expect(cfg.base_url).toBe('https://stadium.app/api/v1');
   });
 
-  it('TOML wins over env vars when both provide the same key', async () => {
+  it('TOML root wins over env vars when both provide the same key', async () => {
     writeFileSync(join(tmpHome, '.vault', 'stadium.toml'),
       'api_key = "sk_toml"\nbase_url = "https://toml.example.com"\n');
     process.env.STADIUM_API_KEY = 'sk_env_should_lose';
@@ -79,12 +80,15 @@ describe('stadium-config', () => {
     expect(cfg.api_key).toBe('single_quoted');
   });
 
-  it('skips comment lines and section headers in TOML', async () => {
+  it('ignores keys inside unknown section headers', async () => {
+    // Pre-multi-trainer behavior treated `[anything]` as a no-op skip and continued
+    // routing keys to root. Now sections matter: only `[trainer.<name>]` routes.
+    // Unknown sections (e.g. `[stadium]`) silently drop their keys.
     writeFileSync(join(tmpHome, '.vault', 'stadium.toml'),
-      '# This is a comment\n[stadium]\napi_key = "sk_section"\n');
+      'api_key = "sk_root"\n[stadium]\napi_key = "sk_section_ignored"\n');
     const { resolveStadiumConfig } = await import('../../src/core/stadium-config.js');
     const cfg = resolveStadiumConfig({ home: tmpHome });
-    expect(cfg.api_key).toBe('sk_section');
+    expect(cfg.api_key).toBe('sk_root');
   });
 
   it('trainer_id is optional and absent when not provided', async () => {
@@ -109,5 +113,102 @@ describe('stadium-config', () => {
     const { resolveStadiumConfig } = await import('../../src/core/stadium-config.js');
     const cfg = resolveStadiumConfig({ home: tmpHome });
     expect(cfg.api_key).toBe('sk_abc');
+  });
+
+  // Multi-trainer TOML
+
+  it('selects trainer via top-level `active` field', async () => {
+    writeFileSync(join(tmpHome, '.vault', 'stadium.toml'),
+      `active = "main"
+
+[trainer.main]
+api_key = "sk_main"
+trainer_id = "trn_main"
+base_url = "https://main.example.com"
+
+[trainer.test_b]
+api_key = "sk_test_b"
+trainer_id = "trn_test_b"
+`);
+    const { resolveStadiumConfig } = await import('../../src/core/stadium-config.js');
+    expect(resolveStadiumConfig({ home: tmpHome })).toEqual({
+      api_key: 'sk_main', trainer_id: 'trn_main', base_url: 'https://main.example.com'
+    });
+  });
+
+  it('STADIUM_TRAINER env var overrides the `active` field', async () => {
+    writeFileSync(join(tmpHome, '.vault', 'stadium.toml'),
+      `active = "main"
+
+[trainer.main]
+api_key = "sk_main"
+trainer_id = "trn_main"
+
+[trainer.test_b]
+api_key = "sk_test_b"
+trainer_id = "trn_test_b"
+base_url = "https://b.example.com"
+`);
+    process.env.STADIUM_TRAINER = 'test_b';
+    const { resolveStadiumConfig } = await import('../../src/core/stadium-config.js');
+    expect(resolveStadiumConfig({ home: tmpHome })).toEqual({
+      api_key: 'sk_test_b', trainer_id: 'trn_test_b', base_url: 'https://b.example.com'
+    });
+  });
+
+  it('section keys fall back to root keys when missing', async () => {
+    // base_url is shared at root; only api_key/trainer_id are per-trainer.
+    writeFileSync(join(tmpHome, '.vault', 'stadium.toml'),
+      `base_url = "https://shared.example.com"
+
+[trainer.main]
+api_key = "sk_main"
+trainer_id = "trn_main"
+`);
+    process.env.STADIUM_TRAINER = 'main';
+    const { resolveStadiumConfig } = await import('../../src/core/stadium-config.js');
+    const cfg = resolveStadiumConfig({ home: tmpHome });
+    expect(cfg.api_key).toBe('sk_main');
+    expect(cfg.base_url).toBe('https://shared.example.com');
+  });
+
+  it('throws StadiumTrainerNotFoundError when STADIUM_TRAINER points to missing section', async () => {
+    writeFileSync(join(tmpHome, '.vault', 'stadium.toml'),
+      `[trainer.main]
+api_key = "sk_main"
+`);
+    process.env.STADIUM_TRAINER = 'nonexistent';
+    const { resolveStadiumConfig, StadiumTrainerNotFoundError } = await import('../../src/core/stadium-config.js');
+    expect(() => resolveStadiumConfig({ home: tmpHome })).toThrow(StadiumTrainerNotFoundError);
+    try {
+      resolveStadiumConfig({ home: tmpHome });
+    } catch (e: unknown) {
+      expect((e as Error).message).toContain('nonexistent');
+      expect((e as Error).message).toContain('main');
+    }
+  });
+
+  it('section keys win over env vars when section is selected', async () => {
+    writeFileSync(join(tmpHome, '.vault', 'stadium.toml'),
+      `[trainer.main]
+api_key = "sk_section"
+`);
+    process.env.STADIUM_TRAINER = 'main';
+    process.env.STADIUM_API_KEY = 'sk_env_should_lose';
+    const { resolveStadiumConfig } = await import('../../src/core/stadium-config.js');
+    const cfg = resolveStadiumConfig({ home: tmpHome });
+    expect(cfg.api_key).toBe('sk_section');
+  });
+
+  it('env fills field when neither section nor root provides it', async () => {
+    writeFileSync(join(tmpHome, '.vault', 'stadium.toml'),
+      `[trainer.main]
+api_key = "sk_main"
+`);
+    process.env.STADIUM_TRAINER = 'main';
+    process.env.STADIUM_BASE_URL = 'https://from.env.example.com';
+    const { resolveStadiumConfig } = await import('../../src/core/stadium-config.js');
+    const cfg = resolveStadiumConfig({ home: tmpHome });
+    expect(cfg.base_url).toBe('https://from.env.example.com');
   });
 });
