@@ -140,3 +140,41 @@ describe("v1.5 — note types move and profile", () => {
     ).toThrow(FrontmatterError);
   });
 });
+
+describe("trainer type", () => {
+  it("round-trips a trainer through serialize → parse", () => {
+    const fm = {
+      id: "trainer-alice",
+      type: "trainer" as const,
+      title: "Alice",
+      wiki: "_agents",
+      status: "active" as const,
+      created: "2026-05-03",
+      updated: "2026-05-03",
+      owner_user: "usr_a",
+      trainer_id: "trn_a",
+      auto_accept_invites: false,
+      preferred_roster: ["profile-charizard"],
+      match_history_synced_through: "2026-05-03T00:00:00Z",
+      summary: "Aggressive",
+      tags: ["trainer", "agent"]
+    };
+    const md = serializeFrontmatter(fm, "Aggressive lead. Prefer Fire-typed openers.");
+    const parsed = parseFrontmatter(md);
+    expect(parsed.frontmatter).toMatchObject(fm);
+    expect(parsed.body.trim()).toContain("Aggressive lead");
+  });
+
+  it("parses an active trainer page from disk text", () => {
+    const md = `---\nid: trainer-brett\ntype: trainer\ntitle: "Brett"\nwiki: _agents\nstatus: active\ncreated: '2026-05-03'\nupdated: '2026-05-03'\nowner_user: usr_abc123\ntrainer_id: trn_xyz789\nauto_accept_invites: true\npreferred_roster: []\nsummary: "Conservative drafter"\ntags: [trainer, agent]\n---\nStrategy body.\n`;
+    const { frontmatter } = parseFrontmatter(md);
+    expect(frontmatter.type).toBe("trainer");
+    expect(frontmatter.trainer_id).toBe("trn_xyz789");
+    expect(frontmatter.auto_accept_invites).toBe(true);
+    expect(frontmatter.preferred_roster).toEqual([]);
+  });
+
+  it("accepts 'trainer' as a NoteType", () => {
+    expect(NoteType.safeParse("trainer").success).toBe(true);
+  });
+});

@@ -11,8 +11,9 @@ const TYPE_FOLDERS: Record<NoteType, string> = {
   source: "sources",
   journal: "journal",
   task: "tasks",
-  move: "moves",       // v1.5
-  profile: "profiles", // v1.5
+  move: "moves",         // v1.5
+  profile: "profiles",   // v1.5
+  trainer: "trainers",   // v2
   map: ""
 };
 
@@ -57,4 +58,24 @@ export function parseId(id: string): { type: string; rest: string } {
  */
 export function isMoveDirectoryLayout(type: NoteType): boolean {
   return type === "move";
+}
+
+/**
+ * Types whose canonical filename is simply `<type>-<slug>.md`.
+ * Excluded:
+ *   - "decision"  → `decision-YYYY-MM-DD-<slug>.md` (date prefix required)
+ *   - "journal"   → `journal-YYYY-MM-DD-HHMM-<slug>.md` (date+time prefix required)
+ *   - "move"      → `move-<slug>/SKILL.md` (directory layout, not a single file)
+ *   - "map"       → `map.md` (fixed canonical filename; no slug, no type prefix)
+ */
+export type SimpleFilenameType = Exclude<NoteType, "decision" | "journal" | "move" | "map">;
+
+/**
+ * Returns the canonical filename for types that use the simple `<type>-<slug>.md`
+ * convention. Types requiring date prefixes (`decision`, `journal`) or directory
+ * layouts (`move`) are excluded at the TypeScript level to prevent silent
+ * production of malformed filenames.
+ */
+export function filenameForType(type: SimpleFilenameType, input: string): string {
+  return `${type}-${slugify(input)}.md`;
 }

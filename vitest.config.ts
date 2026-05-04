@@ -6,6 +6,7 @@ export default defineConfig({
     environment: "node",
     globals: false,
     testTimeout: 10000,
-    pool: "threads"
+    pool: "threads",
+    setupFiles: ["./tests/setup.ts"]
   }
 });
