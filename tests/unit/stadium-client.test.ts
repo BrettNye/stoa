@@ -122,6 +122,24 @@ describe('StadiumClient transport', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it('reuses the same Idempotency-Key across retry attempts', async () => {
+    const responses = [
+      new Response('boom', { status: 503 }),
+      new Response(JSON.stringify({ ok: true }), { status: 200 })
+    ];
+    let idx = 0;
+    const fetchMock = vi.fn(() => Promise.resolve(responses[idx++]));
+    vi.stubGlobal('fetch', fetchMock);
+    const { StadiumClient } = await import('../../src/core/stadium-client.js');
+    const client = new StadiumClient({ api_key: 'sk', base_url: 'https://api.test', retryDelayMs: 1 });
+    await client.post('/anything', { foo: 'bar' });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const firstHeaders = (fetchMock.mock.calls[0][1] as RequestInit).headers as Record<string, string>;
+    const secondHeaders = (fetchMock.mock.calls[1][1] as RequestInit).headers as Record<string, string>;
+    expect(firstHeaders['Idempotency-Key']).toBeDefined();
+    expect(firstHeaders['Idempotency-Key']).toBe(secondHeaders['Idempotency-Key']);
+  });
+
   it('get<T> forwards query params as URL search params', async () => {
     const fetchMock = vi.fn(() => Promise.resolve(new Response(JSON.stringify([]), { status: 200 })));
     vi.stubGlobal('fetch', fetchMock);
