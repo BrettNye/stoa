@@ -58,7 +58,8 @@ export const profileRegisterTool = {
     }
 
     // Explicit wiki arg wins; otherwise use the trainer's wiki: frontmatter field.
-    const wiki = parsed.wiki ?? trainerCtx!.wiki;
+    const wiki = parsed.wiki ?? trainerCtx?.wiki;
+    if (!wiki) throw new Error("wiki resolution failed: no explicit arg and no resolved trainer context");
     const path = join(
       ctx.vaultPath,
       "wikis",

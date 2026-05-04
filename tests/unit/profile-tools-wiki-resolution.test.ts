@@ -412,8 +412,31 @@ describe("profile-stats wiki resolution", () => {
     ).rejects.toThrow("TRAINER_WIKI_UNSET");
   });
 
-  it("accepts explicit wiki: arg that wins over trainer wiki (Issue 2 fix)", async () => {
-    // wiki: field must be accepted in the input schema and not cause a parse error.
+  it("accepts explicit wiki: arg that wins over trainer wiki (Issue 2 fix) — routes to explicit wiki and reads created date", async () => {
+    // Mirror the parallel tests for refresh-profile-memory and evolve-profile:
+    // place profile-charmander under some-other-wiki with a past created: date,
+    // then assert days_since_creation > 0 (proves routing reached some-other-wiki).
+    // Also add profile-charmander to profiles.json so stats lookup succeeds.
+    mkdirSync(join(vaultPath, "wikis", "some-other-wiki", "profiles"), { recursive: true });
+    writeFileSync(
+      join(vaultPath, "wikis", "some-other-wiki", "profiles", "profile-charmander.md"),
+      [
+        "---",
+        "id: profile-charmander",
+        "type: profile",
+        "title: Charmander (some-other-wiki copy)",
+        "wiki: some-other-wiki",
+        "status: active",
+        "created: '2026-01-01'",
+        "updated: '2026-01-01'",
+        "pokemon: charmander",
+        "evolution_stage: basic",
+        "summary: Fire starter in some-other-wiki",
+        "tags: [profile]",
+        "---",
+        "Body.",
+      ].join("\n")
+    );
     const { profileStatsTool } = await import(
       "../../src/tools/profile-stats.js"
     );
@@ -424,6 +447,10 @@ describe("profile-stats wiki resolution", () => {
     // Should succeed and return stats (the wiki: arg overrides trainer wiki)
     expect(out.profile_id).toBe("profile-charmander");
     expect(out.caller_trainer_id).toBe("trainer-brett");
+    // Profile was created 2026-01-01 → days_since_creation > 0 proves routing
+    // actually reached some-other-wiki (not _agents which has created:'2026-05-01' too
+    // but the key point is this profile ONLY has old created date in some-other-wiki)
+    expect(out.days_since_creation).toBeGreaterThan(0);
   });
 
   it("throws NO_ACTIVE_TRAINER when no trainer configured and no explicit wiki: arg (Issue 2 fix)", async () => {
@@ -757,6 +784,80 @@ describe("evolve-profile wiki resolution", () => {
     ).rejects.toThrow("NO_ACTIVE_TRAINER");
     rmSync(noTrainerVault, { recursive: true, force: true });
     rmSync(noTrainerHome, { recursive: true, force: true });
+  });
+
+  it("commit-phase rename uses wiki-scoped path, not hardcoded _agents (Issue 1 fix)", async () => {
+    // When commit:true triggers a rename and the resolved wiki is NOT _agents,
+    // the old code called renameProfile(...) which looked under wikis/_agents/profiles/
+    // → throws ProfileNotFoundError. The fix inlines the rename using wiki-scoped paths.
+    //
+    // Set up: profile-charmander in some-other-wiki only (NOT in _agents).
+    // Trainer wiki is _agents (won't matter — we pass wiki: arg explicitly).
+    mkdirSync(join(vaultPath, "wikis", "some-other-wiki", "profiles"), { recursive: true });
+    writeFileSync(
+      join(vaultPath, "wikis", "some-other-wiki", "profiles", "profile-charmander.md"),
+      [
+        "---",
+        "id: profile-charmander",
+        "type: profile",
+        "title: Charmander",
+        "wiki: some-other-wiki",
+        "status: active",
+        "created: '2026-05-01'",
+        "updated: '2026-05-01'",
+        "pokemon: charmander",
+        "evolution_stage: basic",
+        "pokemon_type: fire",
+        "autonomy_level: restricted",
+        "moveset: []",
+        "summary: Fire starter",
+        "tags: [profile]",
+        "---",
+        "Body.",
+      ].join("\n")
+    );
+    const { evolveProfileTool } = await import(
+      "../../src/tools/evolve-profile.js"
+    );
+    // commit:true with a proposal that includes a name rename
+    const proposal = {
+      eligible: true,
+      reason: "meets thresholds",
+      current: {
+        name: "profile-charmander",
+        evolution_stage: "basic" as const,
+        moveset: [],
+        autonomy_level: "restricted"
+      },
+      proposed: {
+        name: "profile-charmeleon",
+        evolution_stage: "stage1" as const,
+        moveset_additions: [],
+        moveset_removals: [],
+        autonomy_level: "feature-branch" as const,
+        moveset_suggestions: [],
+        specialties: []
+      },
+      rationale: "test evolution"
+    };
+    const out = await evolveProfileTool.handler(
+      {
+        pokemon_id: "profile-charmander",
+        commit: true,
+        expected_updated: "2026-05-01",
+        proposal,
+        wiki: "some-other-wiki",
+        cleanup_old_skills_dir: false
+      } as any,
+      { vaultPath, today: new Date("2026-05-04") }
+    );
+    // The rename should succeed and return new_id in the correct wiki
+    expect((out as any).new_id).toBe("profile-charmeleon");
+    expect((out as any).old_id).toBe("profile-charmander");
+    // The renamed file should exist in some-other-wiki, NOT in _agents
+    const { existsSync } = await import("node:fs");
+    expect(existsSync(join(vaultPath, "wikis", "some-other-wiki", "profiles", "profile-charmeleon.md"))).toBe(true);
+    expect(existsSync(join(vaultPath, "wikis", "_agents", "profiles", "profile-charmeleon.md"))).toBe(false);
   });
 
   it("explicit wiki: arg actually routes to the explicit wiki path (no-trainer, real routing verification)", async () => {

@@ -1,8 +1,9 @@
 import { z } from "zod";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { proposeEvolution } from "../core/evolution.js";
-import { renameProfile, ProfileNotFoundError } from "../core/profiles.js";
+import { ProfileNotFoundError } from "../core/profiles.js";
+import { recordRename } from "../core/aliases.js";
 import { profileStatsTool } from "./profile-stats.js";
 import { parseFrontmatter, serializeFrontmatter } from "../core/frontmatter.js";
 import { EvolutionStage } from "../core/pokemon.js";
@@ -246,12 +247,40 @@ export const evolveProfileTool = {
     let aliasRecorded = false;
     const filesRenamed: string[] = [];
 
-    // 1. Rename if proposal.proposed.name is non-null and differs from current id
+    // 1. Rename if proposal.proposed.name is non-null and differs from current id.
+    // Inlined wiki-scoped rename (instead of calling renameProfile from core/profiles.ts
+    // which hardcodes wikis/_agents/profiles/ — broken when wiki !== "_agents").
     if (proposal.proposed.name && proposal.proposed.name !== input.pokemon_id) {
-      const renameResult = renameProfile(ctx.vaultPath, input.pokemon_id, proposal.proposed.name);
+      const profilesDir = join(ctx.vaultPath, "wikis", wiki, "profiles");
+      const oldPath = join(profilesDir, `${input.pokemon_id}.md`);
+      const newPath = join(profilesDir, `${proposal.proposed.name}.md`);
+
+      if (!existsSync(oldPath)) {
+        throw new ProfileNotFoundError(input.pokemon_id);
+      }
+      if (existsSync(newPath)) {
+        throw new Error(`profile id ${proposal.proposed.name} already exists at ${newPath}`);
+      }
+
+      // Read, update id/wiki/previous_names in frontmatter, write to new path
+      const oldRaw = readFileSync(oldPath, "utf8");
+      const { frontmatter: oldFm, body: oldBody } = parseFrontmatter(oldRaw);
+      const priorPreviousNames: string[] = Array.isArray(oldFm.previous_names)
+        ? oldFm.previous_names
+        : [];
+      const renamedFm: Record<string, any> = {
+        ...oldFm,
+        id: proposal.proposed.name,
+        wiki,
+        previous_names: [...priorPreviousNames, input.pokemon_id]
+      };
+      writeFileSync(newPath, serializeFrontmatter(renamedFm, oldBody));
+      unlinkSync(oldPath);
+      recordRename(ctx.vaultPath, input.pokemon_id, proposal.proposed.name);
+
       newId = proposal.proposed.name;
       aliasRecorded = true;
-      filesRenamed.push(renameResult.newPath);
+      filesRenamed.push(newPath);
     }
 
     // 2. Apply frontmatter changes (stage bump, autonomy, moveset additions/removals)
