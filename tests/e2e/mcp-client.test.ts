@@ -34,12 +34,14 @@ afterAll(async () => {
 });
 
 describe("MCP e2e", () => {
-  it("lists 29 tools", { timeout: 30000 }, async () => {
+  it("lists 31 tools", { timeout: 30000 }, async () => {
     const r = await client.listTools();
-    expect(r.tools).toHaveLength(29);
+    expect(r.tools).toHaveLength(31);
     const names = r.tools.map(t => t.name).sort();
     expect(names).toContain("vault.recall");
     expect(names).toContain("vault.task-claim");
+    expect(names).toContain("vault.claim");
+    expect(names).toContain("vault.list-claims");
   });
 
   it("vault.recall returns hits from fixture", { timeout: 30000 }, async () => {

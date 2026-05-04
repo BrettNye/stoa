@@ -48,6 +48,15 @@ import { mergeRecordTool } from "./merge-record.js";
 // primary surface; sync-skills stays for moveset-only deploys.
 import { syncAgentsTool } from "./sync-agents.js";
 
+// Claims foundation (Plan 1) — vault.claim and vault.list-claims. Authoring +
+// read primitives over the claim type. Tool modules export their objects;
+// registration here is the wiring that lets the stdio dispatcher and the
+// shared callTool test helper reach them by name. See
+// `wikis/_meta/plans/2026-05-02-vault-mcp-claims-plan-1-foundation-dag.md`
+// §task-tools-index-registration.
+import { claimTool } from "./claim.js";
+import { listClaimsTool } from "./list-claims.js";
+
 export const allTools = [
   recallTool, readTool, listWikisTool, lintTool, channelTailTool,
   inboxTool, processInboxTool, newTool, newWikiTool, setActiveTool,
@@ -60,7 +69,9 @@ export const allTools = [
   // v1.6 phase 3
   mergeQueueTool, mergeRecordTool,
   // v1.7 phase 3
-  syncAgentsTool
+  syncAgentsTool,
+  // claims foundation (plan 1)
+  claimTool, listClaimsTool
 ];
 
 export type ToolDefinition = (typeof allTools)[number];

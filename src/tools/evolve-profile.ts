@@ -10,13 +10,59 @@ import { readDeployments, migrateDeploymentKey } from "../core/deployments.js";
 import { syncMoveset, removeOldDeployment } from "../core/skills.js";
 import { nextEvolution } from "../core/pokeapi.js";
 import { readThresholds, DEFAULT_THRESHOLDS, ThresholdBlockError, type EvolutionThresholds } from "../core/thresholds.js";
+import { getClaimsConfig } from "../config.js";
+
+// ─────────────────────────────────────────────────────────────────────────
+// Claims Plan 2 Wave 3 (task-evolve-profile-tool-fields): additive
+// ProposalShape extensions. The orchestrator (`core/evolution.ts`) now
+// returns four extra fields on the proposal whenever `vaultPath` is
+// supplied: `proposed.specialties`, `proposed.moveset_suggestions`, the
+// top-level advisory `eligibility` block, and `evidence_summary`. The
+// tool's input schema must accept those when echoed back on commit:true,
+// while staying compatible with v1.5-shape callers that omit them
+// (additive defaults at the schema level).
+//
+// Commit semantics are unchanged: the new fields are present-but-ignored
+// when applying frontmatter changes — only `proposed.evolution_stage`,
+// `autonomy_level`, `moveset_additions`/`removals`, and `name` affect the
+// profile file.
+// ─────────────────────────────────────────────────────────────────────────
+
+const SpecialtyEntry = z.object({
+  tag: z.string(),
+  claim_count: z.number().int().nonnegative()
+});
+
+const MovesetSuggestion = z.object({
+  move_hint: z.string(),
+  tag_cluster: z.array(z.string()),
+  claim_count: z.number().int().nonnegative(),
+  example_claim_ids: z.array(z.string())
+});
+
+const EligibilityReport = z.object({
+  eligible: z.boolean(),
+  reason: z.string(),
+  high_confidence_claim_count: z.number().int().nonnegative(),
+  threshold: z.number().int().nonnegative()
+});
+
+const EvidenceSummary = z.object({
+  total_active_claims: z.number().int().nonnegative(),
+  above_threshold_count: z.number().int().nonnegative(),
+  superseded_count: z.number().int().nonnegative(),
+  top_clusters: z.array(z.object({ tag: z.string(), count: z.number().int().nonnegative() }))
+});
 
 const ProposedShape = z.object({
   name: z.string().nullable(),
   evolution_stage: z.enum(["basic", "stage1", "stage2"]),
   moveset_additions: z.array(z.string()),
   moveset_removals: z.array(z.string()),
-  autonomy_level: z.enum(["restricted", "feature-branch", "main-branch"])
+  autonomy_level: z.enum(["restricted", "feature-branch", "main-branch"]),
+  // additive — defaults handle legacy v1.5-shape callers
+  moveset_suggestions: z.array(MovesetSuggestion).default([]),
+  specialties: z.array(SpecialtyEntry).default([])
 });
 
 const ProposalShape = z.object({
@@ -26,10 +72,16 @@ const ProposalShape = z.object({
     name: z.string(),
     evolution_stage: z.enum(["basic", "stage1", "stage2"]),
     moveset: z.array(z.string()),
+    // `current.autonomy_level` is intentionally `z.string()` (not the
+    // enum used on `proposed.autonomy_level`) — live profiles may carry
+    // legacy values that predate the v1.5 enum normalization.
     autonomy_level: z.string()
   }),
   proposed: ProposedShape,
-  rationale: z.string()
+  rationale: z.string(),
+  // additive Plan 2 advisory blocks
+  eligibility: EligibilityReport.optional(),
+  evidence_summary: EvidenceSummary.optional()
 });
 
 // Flat z.object so zodToJsonSchema produces type:"object" compatible with MCP SDK.
@@ -51,7 +103,19 @@ export const evolveProfileTool = {
   name: "vault.evolve-profile",
   description: "Two-phase profile evolution. commit:false returns a proposal (eligible? proposed shape, rationale). commit:true applies the proposal, optionally renaming the profile.",
   inputSchema: Input,
-  handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string; fetcher?: typeof fetch }) => {
+  handler: async (
+    input: z.infer<typeof Input>,
+    ctx: {
+      vaultPath: string;
+      fetcher?: typeof fetch;
+      // Plan 2 Wave 3 — clock injection + raw vault config pass-through.
+      // Both optional so DispatchCtx (which carries an optional rawConfig)
+      // is structurally assignable. `today` defaults to `new Date()` when
+      // omitted; tests should always inject for deterministic outputs.
+      today?: Date;
+      rawConfig?: unknown;
+    }
+  ) => {
     if (!input.commit) {
       // Proposal phase
       const profile = readProfile(ctx.vaultPath, input.pokemon_id);
@@ -79,7 +143,11 @@ export const evolveProfileTool = {
         }
       }
 
-      const proposal = proposeEvolution({
+      // Plan 2 Wave 3: thread vaultPath/today/claimsConfig into the
+      // orchestrator so the new claim-driven extensions populate. The
+      // orchestrator returns a Promise when `vaultPath` is set
+      // (async overload); `await` coerces correctly either way.
+      const proposal = await proposeEvolution({
         profile: {
           id: input.pokemon_id,
           title: String(profile.frontmatter.title ?? input.pokemon_id),
@@ -96,7 +164,10 @@ export const evolveProfileTool = {
           moves_used_freq: stats.moves_used_freq
         },
         memory_page_id: memoryPageId,
-        thresholds
+        thresholds,
+        vaultPath: ctx.vaultPath,
+        today: ctx.today ?? new Date(),
+        claimsConfig: getClaimsConfig(ctx.rawConfig ?? {})
       });
 
       // PokeAPI-driven naming (Plan C.1c) — only when a fetcher is explicitly provided
