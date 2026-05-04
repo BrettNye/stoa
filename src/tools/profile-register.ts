@@ -16,9 +16,8 @@ import { join } from "node:path";
 import { parseFrontmatter, serializeFrontmatter } from "../core/frontmatter.js";
 import { resolveStadiumConfig } from "../core/stadium-config.js";
 import { StadiumClient } from "../core/stadium-client.js";
-import { resolveWiki } from "./_resolve-wiki.js";
 import { upsertPage } from "../core/index.js";
-import { resolveTrainerContext, TrainerContextError, type TrainerContext } from "../core/resolve-trainer-context.js";
+import { resolveTrainerContext, type TrainerContext } from "../core/resolve-trainer-context.js";
 
 const Input = z.object({
   profile_id: z.string().regex(/^profile-/),
@@ -37,26 +36,29 @@ export const profileRegisterTool = {
     const parsed = Input.parse(input);
 
     // Resolve trainer context for wiki routing (synthesis A2 fix).
-    // TRAINER_WIKI_UNSET propagates so callers know the trainer config is incomplete.
-    // NO_ACTIVE_TRAINER / TRAINER_NOT_FOUND → fall back to legacy wiki resolution.
+    // Resolution priority: explicit wiki: arg > trainer's wiki: frontmatter.
+    // There is NO fallback to ctx.defaultWiki / .active-wiki (spec §2 A2 fix).
+    // - If explicit wiki: arg is provided, it wins; trainer resolution errors are
+    //   suppressed (explicit arg short-circuits the trainer resolution entirely).
+    // - If no explicit wiki: arg, the trainer must exist and have a wiki: field.
+    //   Any TrainerContextError (NO_ACTIVE_TRAINER, TRAINER_NOT_FOUND,
+    //   TRAINER_WIKI_UNSET) propagates — no silent fallback.
     let trainerCtx: TrainerContext | undefined;
-    try {
+    if (!parsed.wiki) {
+      // No explicit wiki arg — trainer resolution is required; errors propagate.
       trainerCtx = resolveTrainerContext({}, { vaultPath: ctx.vaultPath });
-    } catch (err) {
-      if (
-        err instanceof TrainerContextError &&
-        (err.code === "NO_ACTIVE_TRAINER" || err.code === "TRAINER_NOT_FOUND")
-      ) {
-        // No trainer configured — fall back to ctx.defaultWiki / .active-wiki.
+    } else {
+      // Explicit wiki arg provided — trainer resolution is best-effort only
+      // (the trainer id is still surfaced in caller_trainer_id when available).
+      try {
+        trainerCtx = resolveTrainerContext({}, { vaultPath: ctx.vaultPath });
+      } catch {
         trainerCtx = undefined;
-      } else {
-        // TRAINER_WIKI_UNSET (or unexpected error) — propagate.
-        throw err;
       }
     }
 
-    // Explicit wiki arg wins; otherwise trainer wiki; otherwise legacy fallback.
-    const wiki = parsed.wiki ?? trainerCtx?.wiki ?? resolveWiki(undefined, ctx.defaultWiki, ctx.vaultPath);
+    // Explicit wiki arg wins; otherwise use the trainer's wiki: frontmatter field.
+    const wiki = parsed.wiki ?? trainerCtx!.wiki;
     const path = join(
       ctx.vaultPath,
       "wikis",

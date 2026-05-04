@@ -3,10 +3,11 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { thresholdFor, nextStage, EvolutionStage } from "../core/pokemon.js";
 import { readProfile, ProfileNotFoundError } from "../core/profiles.js";
-import { resolveTrainerContext, TrainerContextError, type TrainerContext } from "../core/resolve-trainer-context.js";
+import { resolveTrainerContext, type TrainerContext } from "../core/resolve-trainer-context.js";
 
 const Input = z.object({
-  pokemon_id: z.string()
+  pokemon_id: z.string(),
+  wiki: z.string().optional()
 });
 
 export const profileStatsTool = {
@@ -14,21 +15,22 @@ export const profileStatsTool = {
   description: "Returns per-profile counts (tasks completed/failed/in-flight, journals, channels active, moves-used frequency) plus next-evolution threshold.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
-    // Resolve trainer context for ambient caller_trainer_id (spec §1.5).
-    // TRAINER_WIKI_UNSET propagates; NO_ACTIVE_TRAINER / TRAINER_NOT_FOUND → undefined.
+    const parsed = Input.parse(input);
+    // Resolve trainer context for ambient caller_trainer_id and wiki routing.
+    // If explicit wiki: arg is provided, trainer resolution is best-effort only
+    // (errors are suppressed; the explicit arg short-circuits trainer routing).
+    // If no explicit wiki: arg, any TrainerContextError propagates — no fallback.
     let trainerCtx: TrainerContext | undefined;
-    try {
+    if (!parsed.wiki) {
       trainerCtx = resolveTrainerContext({}, { vaultPath: ctx.vaultPath });
-    } catch (err) {
-      if (
-        err instanceof TrainerContextError &&
-        (err.code === "NO_ACTIVE_TRAINER" || err.code === "TRAINER_NOT_FOUND")
-      ) {
+    } else {
+      try {
+        trainerCtx = resolveTrainerContext({}, { vaultPath: ctx.vaultPath });
+      } catch {
         trainerCtx = undefined;
-      } else {
-        throw err;
       }
     }
+    const _wiki = parsed.wiki ?? trainerCtx!.wiki; // explicit wins; used for routing context
 
     const profilesJsonPath = join(ctx.vaultPath, "_index", "profiles.json");
     if (!existsSync(profilesJsonPath)) {

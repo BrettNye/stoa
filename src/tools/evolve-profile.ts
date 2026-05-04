@@ -11,7 +11,7 @@ import { syncMoveset, removeOldDeployment } from "../core/skills.js";
 import { nextEvolution } from "../core/pokeapi.js";
 import { readThresholds, DEFAULT_THRESHOLDS, ThresholdBlockError, type EvolutionThresholds } from "../core/thresholds.js";
 import { getClaimsConfig } from "../config.js";
-import { resolveTrainerContext, TrainerContextError, type TrainerContext } from "../core/resolve-trainer-context.js";
+import { resolveTrainerContext, type TrainerContext } from "../core/resolve-trainer-context.js";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Claims Plan 2 Wave 3 (task-evolve-profile-tool-fields): additive
@@ -97,7 +97,8 @@ const Input = z.object({
   commit: z.boolean().default(false),
   expected_updated: z.string().optional(),
   proposal: ProposalShape.optional(),
-  cleanup_old_skills_dir: z.boolean().default(true)
+  cleanup_old_skills_dir: z.boolean().default(true),
+  wiki: z.string().optional()
 });
 
 export const evolveProfileTool = {
@@ -117,26 +118,26 @@ export const evolveProfileTool = {
       rawConfig?: unknown;
     }
   ) => {
-    // Resolve trainer context for ambient caller_trainer_id (spec §1.5).
-    // TRAINER_WIKI_UNSET propagates; NO_ACTIVE_TRAINER / TRAINER_NOT_FOUND → undefined.
+    // Resolve trainer context for ambient caller_trainer_id and wiki routing.
+    // If explicit wiki: arg is provided, trainer resolution is best-effort only.
+    // If no explicit wiki: arg, any TrainerContextError propagates — no fallback.
+    const parsedInput = Input.parse(input);
     let trainerCtx: TrainerContext | undefined;
-    try {
+    if (!parsedInput.wiki) {
       trainerCtx = resolveTrainerContext({}, { vaultPath: ctx.vaultPath });
-    } catch (err) {
-      if (
-        err instanceof TrainerContextError &&
-        (err.code === "NO_ACTIVE_TRAINER" || err.code === "TRAINER_NOT_FOUND")
-      ) {
+    } else {
+      try {
+        trainerCtx = resolveTrainerContext({}, { vaultPath: ctx.vaultPath });
+      } catch {
         trainerCtx = undefined;
-      } else {
-        throw err;
       }
     }
+    const _wiki = parsedInput.wiki ?? trainerCtx!.wiki; // explicit wins; used for routing context
 
     if (!input.commit) {
       // Proposal phase
       const profile = readProfile(ctx.vaultPath, input.pokemon_id);
-      const stats = await profileStatsTool.handler({ pokemon_id: input.pokemon_id }, ctx);
+      const stats = await profileStatsTool.handler({ pokemon_id: input.pokemon_id, wiki: parsedInput.wiki }, ctx);
 
       // Look up per-agent memory synthesis if present (Plan C.1b)
       const bare = input.pokemon_id.startsWith("profile-")

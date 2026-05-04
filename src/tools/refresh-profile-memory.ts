@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { synthesize } from "../core/synthesize.js";
 import { readProfile } from "../core/profiles.js";
-import { resolveTrainerContext, TrainerContextError, type TrainerContext } from "../core/resolve-trainer-context.js";
+import { resolveTrainerContext, type TrainerContext } from "../core/resolve-trainer-context.js";
 
 const Input = z.object({
-  pokemon_id: z.string()
+  pokemon_id: z.string(),
+  wiki: z.string().optional()
 });
 
 function bareName(pokemonId: string): string {
@@ -16,21 +17,21 @@ export const refreshProfileMemoryTool = {
   description: "Compile a per-agent memory synthesis at wikis/_agents/synthesis/synthesis-<bare-name>-memory.md from the agent's journals + claimed tasks. Idempotent (overwrites). Convenience wrapper around vault.synthesize with by_agent + scope=memory.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
-    // Resolve trainer context for ambient caller_trainer_id (spec §1.5).
-    // TRAINER_WIKI_UNSET propagates; NO_ACTIVE_TRAINER / TRAINER_NOT_FOUND → undefined.
+    const parsed = Input.parse(input);
+    // Resolve trainer context for ambient caller_trainer_id and wiki routing.
+    // If explicit wiki: arg is provided, trainer resolution is best-effort only.
+    // If no explicit wiki: arg, any TrainerContextError propagates — no fallback.
     let trainerCtx: TrainerContext | undefined;
-    try {
+    if (!parsed.wiki) {
       trainerCtx = resolveTrainerContext({}, { vaultPath: ctx.vaultPath });
-    } catch (err) {
-      if (
-        err instanceof TrainerContextError &&
-        (err.code === "NO_ACTIVE_TRAINER" || err.code === "TRAINER_NOT_FOUND")
-      ) {
+    } else {
+      try {
+        trainerCtx = resolveTrainerContext({}, { vaultPath: ctx.vaultPath });
+      } catch {
         trainerCtx = undefined;
-      } else {
-        throw err;
       }
     }
+    const _wiki = parsed.wiki ?? trainerCtx!.wiki; // explicit wins; used for routing context
 
     // Verify the profile exists; readProfile throws ProfileNotFoundError otherwise
     readProfile(ctx.vaultPath, input.pokemon_id);
