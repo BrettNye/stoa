@@ -445,6 +445,30 @@ describe("trainer-queue-match explicit wiki: arg override", () => {
 
     expect(out).toHaveProperty("resolved_wiki", "_agents");
   });
+
+  it("explicit wiki: arg wins when active trainer frontmatter has no wiki: field — no TRAINER_WIKI_UNSET", async () => {
+    // Trainer page exists but has NO wiki: frontmatter field
+    writeTomlWithTrainer(home, "no-wiki-trainer", "01AAAAAAAAAAAAAAAAAAAAAAAA2");
+    writeWikisIndex(vault, ["_agents"]);
+    writeTrainerPage(vault, "_agents", "no-wiki-trainer", "01AAAAAAAAAAAAAAAAAAAAAAAA2", undefined);
+
+    const fetchMock = makeFetchMock({ match_id: "m_99", status: "pending_invite" });
+    vi.stubGlobal("fetch", fetchMock);
+    const { trainerQueueMatchTool } = await import("../../src/tools/trainer-queue-match.js");
+
+    // Explicit wiki: arg must bypass TRAINER_WIKI_UNSET and succeed
+    const out = await trainerQueueMatchTool.handler({
+      opponent_trainer_id: "trn_bob",
+      ruleset: "standard",
+      wiki: "explicit-wiki",
+    });
+
+    expect(out).toHaveProperty("match_id", "m_99");
+    expect(out).toHaveProperty("resolved_wiki", "explicit-wiki");
+    // caller_trainer_id is null when TRAINER_WIKI_UNSET was suppressed (trainer ctx
+    // not fully resolved); it is NOT an error — the call succeeded with explicit wiki
+    expect(out).toHaveProperty("caller_trainer_id", null);
+  });
 });
 
 describe("trainer-accept-match explicit wiki: arg override", () => {
@@ -501,5 +525,28 @@ describe("trainer-accept-match explicit wiki: arg override", () => {
     const out = await trainerAcceptMatchTool.handler({ match_id: "m_1" });
 
     expect(out).toHaveProperty("resolved_wiki", "_agents");
+  });
+
+  it("explicit wiki: arg wins when active trainer frontmatter has no wiki: field — no TRAINER_WIKI_UNSET", async () => {
+    // Trainer page exists but has NO wiki: frontmatter field
+    writeTomlWithTrainer(home, "no-wiki-trainer", "01AAAAAAAAAAAAAAAAAAAAAAAA3");
+    writeWikisIndex(vault, ["_agents"]);
+    writeTrainerPage(vault, "_agents", "no-wiki-trainer", "01AAAAAAAAAAAAAAAAAAAAAAAA3", undefined);
+
+    const fetchMock = makeFetchMock({ match_id: "m_1", status: "drafting" });
+    vi.stubGlobal("fetch", fetchMock);
+    const { trainerAcceptMatchTool } = await import("../../src/tools/trainer-accept-match.js");
+
+    // Explicit wiki: arg must bypass TRAINER_WIKI_UNSET and succeed
+    const out = await trainerAcceptMatchTool.handler({
+      match_id: "m_1",
+      wiki: "explicit-wiki",
+    });
+
+    expect(out).toHaveProperty("match_id", "m_1");
+    expect(out).toHaveProperty("resolved_wiki", "explicit-wiki");
+    // caller_trainer_id is null when TRAINER_WIKI_UNSET was suppressed (trainer ctx
+    // not fully resolved); it is NOT an error — the call succeeded with explicit wiki
+    expect(out).toHaveProperty("caller_trainer_id", null);
   });
 });
