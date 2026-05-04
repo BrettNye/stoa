@@ -20,6 +20,9 @@ export const trainerSubmitMoveTool = {
     const config = resolveStadiumConfig();
     const client = new StadiumClient({ api_key: config.api_key, base_url: config.base_url });
     const result = await client.submitMove(input.match_id, { turn: input.turn, move_id: input.move_id, target: input.target });
+    if (result == null || typeof result !== "object") {
+      throw new Error("submitMove: unexpected non-object response from platform");
+    }
     return { ...result, caller_trainer_id: ctx.trainerId };
   }
 };

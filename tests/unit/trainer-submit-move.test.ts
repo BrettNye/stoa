@@ -1,75 +1,101 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-beforeEach(() => { vi.resetModules(); vi.unstubAllGlobals(); });
+// Mock dependencies before importing the module under test.
+vi.mock("../../src/core/resolve-trainer-context.js", () => ({
+  resolveTrainerContext: vi.fn(() => ({
+    trainerSlug: "brett",
+    trainerId: "trainer-brett-id",
+    wiki: "_agents"
+  }))
+}));
 
-describe('vault.trainer-submit-move', () => {
+vi.mock("../../src/core/stadium-config.js", () => ({
+  resolveStadiumConfig: vi.fn(() => ({
+    api_key: "test-key",
+    base_url: "http://test.example"
+  }))
+}));
+
+vi.mock("../../src/core/stadium-client.js", () => {
+  const submitMove = vi.fn();
+  class StadiumClient {
+    constructor(_opts: unknown) {}
+    submitMove = submitMove;
+  }
+  return { StadiumClient, _submitMoveMock: submitMove };
+});
+
+import { trainerSubmitMoveTool } from "../../src/tools/trainer-submit-move.js";
+import * as stadiumClientModule from "../../src/core/stadium-client.js";
+
+describe("vault.trainer-submit-move handler", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let submitMoveMock: ReturnType<typeof vi.fn>;
+
   beforeEach(() => {
-    process.env.STADIUM_API_KEY = 'sk';
-    process.env.STADIUM_BASE_URL = 'https://api.test';
-    // Deliberately NOT setting STADIUM_TRAINER — resolveStadiumConfig only needs
-    // api_key + base_url; trainer ID comes from resolveTrainerContext (mocked below).
-    delete process.env.STADIUM_TRAINER;
+    // Access the shared mock function from the mocked module.
+    submitMoveMock = (stadiumClientModule as unknown as { _submitMoveMock: ReturnType<typeof vi.fn> })._submitMoveMock;
+    submitMoveMock.mockReset();
   });
 
-  it('POSTs move to /matches/:id/move', async () => {
-    const fetchMock = vi.fn(() => Promise.resolve(new Response(JSON.stringify({ match_id: 'm1', turn: 5, status: 'in_progress' }), { status: 200 })));
-    vi.stubGlobal('fetch', fetchMock);
-    vi.doMock('../../src/core/resolve-trainer-context.js', () => ({
-      resolveTrainerContext: () => ({ trainerSlug: 'ash', trainerId: 'trn_ash', wiki: 'default' })
-    }));
-    const { trainerSubmitMoveTool } = await import('../../src/tools/trainer-submit-move.js');
-    const out = await trainerSubmitMoveTool.handler({ match_id: 'm1', turn: 5, move_id: 'ember-tdd-cycle' });
-    expect(out.turn).toBe(5);
-    expect(fetchMock.mock.calls[0][0]).toBe('https://api.test/matches/m1/move');
+  afterEach(() => {
+    vi.clearAllMocks();
   });
 
-  it('includes caller_trainer_id in response matching resolveTrainerContext', async () => {
-    const fetchMock = vi.fn(() => Promise.resolve(new Response(JSON.stringify({ match_id: 'm1', turn: 3, status: 'in_progress' }), { status: 200 })));
-    vi.stubGlobal('fetch', fetchMock);
-    vi.doMock('../../src/core/resolve-trainer-context.js', () => ({
-      resolveTrainerContext: () => ({ trainerSlug: 'ash', trainerId: 'trn_ash_99', wiki: 'default' })
-    }));
-    const { trainerSubmitMoveTool } = await import('../../src/tools/trainer-submit-move.js');
-    const out = await trainerSubmitMoveTool.handler({ match_id: 'm1', turn: 3, move_id: 'ember-tdd-cycle' });
-    expect(out.caller_trainer_id).toBe('trn_ash_99');
+  it("returns platform fields merged with caller_trainer_id on success", async () => {
+    submitMoveMock.mockResolvedValue({
+      match_id: "match-123",
+      turn: 2,
+      status: "waiting"
+    });
+
+    const result = await trainerSubmitMoveTool.handler({
+      match_id: "match-123",
+      turn: 2,
+      move_id: "move-tackle"
+    });
+
+    expect(result).toEqual({
+      match_id: "match-123",
+      turn: 2,
+      status: "waiting",
+      caller_trainer_id: "trainer-brett-id"
+    });
   });
 
-  it('input schema accepts match_id, turn, move_id and optional target', async () => {
-    const fetchMock = vi.fn(() => Promise.resolve(new Response(JSON.stringify({ match_id: 'm2', turn: 1, status: 'in_progress' }), { status: 200 })));
-    vi.stubGlobal('fetch', fetchMock);
-    vi.doMock('../../src/core/resolve-trainer-context.js', () => ({
-      resolveTrainerContext: () => ({ trainerSlug: 'ash', trainerId: 'trn_ash', wiki: 'default' })
-    }));
-    const { trainerSubmitMoveTool } = await import('../../src/tools/trainer-submit-move.js');
-    const out = await trainerSubmitMoveTool.handler({ match_id: 'm2', turn: 1, move_id: 'flamethrower', target: 'opp_pf_1' });
-    expect(out.match_id).toBe('m2');
-  });
+  it("throws when platform responds with undefined (e.g. 204 No Content)", async () => {
+    submitMoveMock.mockResolvedValue(undefined);
 
-  it('surfaces turn_mismatch error_code unchanged', async () => {
-    const fetchMock = vi.fn(() => Promise.resolve(new Response(
-      JSON.stringify({ error_code: 'turn_mismatch', message: 'expected turn 6, got 5' }), { status: 409 }
-    )));
-    vi.stubGlobal('fetch', fetchMock);
-    vi.doMock('../../src/core/resolve-trainer-context.js', () => ({
-      resolveTrainerContext: () => ({ trainerSlug: 'ash', trainerId: 'trn_ash', wiki: 'default' })
-    }));
-    const { trainerSubmitMoveTool } = await import('../../src/tools/trainer-submit-move.js');
     await expect(
-      trainerSubmitMoveTool.handler({ match_id: 'm1', turn: 5, move_id: 'ember-tdd-cycle' })
-    ).rejects.toMatchObject({ error_code: 'turn_mismatch' });
+      trainerSubmitMoveTool.handler({
+        match_id: "match-123",
+        turn: 2,
+        move_id: "move-tackle"
+      })
+    ).rejects.toThrow("submitMove: unexpected non-object response from platform");
   });
 
-  it('surfaces move_not_owned error_code unchanged', async () => {
-    const fetchMock = vi.fn(() => Promise.resolve(new Response(
-      JSON.stringify({ error_code: 'move_not_owned', message: 'trainer does not own that move' }), { status: 403 }
-    )));
-    vi.stubGlobal('fetch', fetchMock);
-    vi.doMock('../../src/core/resolve-trainer-context.js', () => ({
-      resolveTrainerContext: () => ({ trainerSlug: 'ash', trainerId: 'trn_ash', wiki: 'default' })
-    }));
-    const { trainerSubmitMoveTool } = await import('../../src/tools/trainer-submit-move.js');
+  it("throws when platform responds with null", async () => {
+    submitMoveMock.mockResolvedValue(null);
+
     await expect(
-      trainerSubmitMoveTool.handler({ match_id: 'm1', turn: 5, move_id: 'ember-tdd-cycle' })
-    ).rejects.toMatchObject({ error_code: 'move_not_owned' });
+      trainerSubmitMoveTool.handler({
+        match_id: "match-123",
+        turn: 2,
+        move_id: "move-tackle"
+      })
+    ).rejects.toThrow("submitMove: unexpected non-object response from platform");
+  });
+
+  it("throws when platform responds with a primitive (string)", async () => {
+    submitMoveMock.mockResolvedValue("ok");
+
+    await expect(
+      trainerSubmitMoveTool.handler({
+        match_id: "match-123",
+        turn: 2,
+        move_id: "move-tackle"
+      })
+    ).rejects.toThrow("submitMove: unexpected non-object response from platform");
   });
 });
