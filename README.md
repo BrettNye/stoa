@@ -3,13 +3,13 @@
 > Persistent shared memory for AI coding agents.
 > Your Claude Code sessions stop forgetting things across days, repos, and machines.
 
-[![npm version](https://img.shields.io/npm/v/stoa-mcp)](https://www.npmjs.com/package/stoa-mcp)
+[![npm version](https://img.shields.io/npm/v/@stoa-mcp/cli)](https://www.npmjs.com/package/@stoa-mcp/cli)
 [![License: FSL-1.1-MIT](https://img.shields.io/badge/license-FSL--1.1--MIT-blue)](LICENSE)
 
 ## Install
 
 ```bash
-npm i -g stoa-mcp
+npm i -g @stoa-mcp/cli
 ```
 
 Then add to `~/.claude/settings.json`:
