@@ -119,7 +119,7 @@ describe("trainer-queue-match wiki resolution", () => {
     vi.unstubAllGlobals();
     ({ home, vault } = makeTempDirs());
     delete process.env.STADIUM_TRAINER;
-    process.env.VAULT_PATH = vault;
+    process.env.STOA_VAULT_PATH = vault;
     process.env.STADIUM_HOME = home;
     // These env vars serve as fallback for resolveStadiumConfig when no toml section found
     process.env.STADIUM_API_KEY = "sk_test";
@@ -131,7 +131,7 @@ describe("trainer-queue-match wiki resolution", () => {
     rmSync(home, { recursive: true, force: true });
     rmSync(vault, { recursive: true, force: true });
     delete process.env.STADIUM_TRAINER;
-    delete process.env.VAULT_PATH;
+    delete process.env.STOA_VAULT_PATH;
     delete process.env.STADIUM_HOME;
   });
 
@@ -217,7 +217,7 @@ describe("trainer-accept-match wiki resolution", () => {
     vi.unstubAllGlobals();
     ({ home, vault } = makeTempDirs());
     delete process.env.STADIUM_TRAINER;
-    process.env.VAULT_PATH = vault;
+    process.env.STOA_VAULT_PATH = vault;
     process.env.STADIUM_HOME = home;
     process.env.STADIUM_API_KEY = "sk_test";
     process.env.STADIUM_BASE_URL = "https://api.test";
@@ -228,7 +228,7 @@ describe("trainer-accept-match wiki resolution", () => {
     rmSync(home, { recursive: true, force: true });
     rmSync(vault, { recursive: true, force: true });
     delete process.env.STADIUM_TRAINER;
-    delete process.env.VAULT_PATH;
+    delete process.env.STOA_VAULT_PATH;
     delete process.env.STADIUM_HOME;
   });
 
@@ -300,7 +300,7 @@ describe("trainer-init caller_trainer_id resolution", () => {
     vi.unstubAllGlobals();
     ({ home, vault } = makeTempDirs());
     delete process.env.STADIUM_TRAINER;
-    process.env.VAULT_PATH = vault;
+    process.env.STOA_VAULT_PATH = vault;
     process.env.STADIUM_HOME = home;
     process.env.STADIUM_API_KEY = "sk_test";
     process.env.STADIUM_BASE_URL = "https://api.test";
@@ -312,7 +312,7 @@ describe("trainer-init caller_trainer_id resolution", () => {
     rmSync(home, { recursive: true, force: true });
     rmSync(vault, { recursive: true, force: true });
     delete process.env.STADIUM_TRAINER;
-    delete process.env.VAULT_PATH;
+    delete process.env.STOA_VAULT_PATH;
     delete process.env.STADIUM_HOME;
   });
 
@@ -393,7 +393,7 @@ describe("trainer-queue-match explicit wiki: arg override", () => {
     vi.unstubAllGlobals();
     ({ home, vault } = makeTempDirs());
     delete process.env.STADIUM_TRAINER;
-    process.env.VAULT_PATH = vault;
+    process.env.STOA_VAULT_PATH = vault;
     process.env.STADIUM_HOME = home;
     process.env.STADIUM_API_KEY = "sk_test";
     process.env.STADIUM_BASE_URL = "https://api.test";
@@ -404,7 +404,7 @@ describe("trainer-queue-match explicit wiki: arg override", () => {
     rmSync(home, { recursive: true, force: true });
     rmSync(vault, { recursive: true, force: true });
     delete process.env.STADIUM_TRAINER;
-    delete process.env.VAULT_PATH;
+    delete process.env.STOA_VAULT_PATH;
     delete process.env.STADIUM_HOME;
   });
 
@@ -519,7 +519,7 @@ describe("trainer-accept-match explicit wiki: arg override", () => {
     vi.unstubAllGlobals();
     ({ home, vault } = makeTempDirs());
     delete process.env.STADIUM_TRAINER;
-    process.env.VAULT_PATH = vault;
+    process.env.STOA_VAULT_PATH = vault;
     process.env.STADIUM_HOME = home;
     process.env.STADIUM_API_KEY = "sk_test";
     process.env.STADIUM_BASE_URL = "https://api.test";
@@ -530,7 +530,7 @@ describe("trainer-accept-match explicit wiki: arg override", () => {
     rmSync(home, { recursive: true, force: true });
     rmSync(vault, { recursive: true, force: true });
     delete process.env.STADIUM_TRAINER;
-    delete process.env.VAULT_PATH;
+    delete process.env.STOA_VAULT_PATH;
     delete process.env.STADIUM_HOME;
   });
 

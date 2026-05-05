@@ -40,7 +40,7 @@ applies_to: [claude-code]
   });
 
   it("returns the profile row from _index/profiles.json with computed days_since_creation", async () => {
-    const r = await profileStatsTool.handler({ pokemon_id: "profile-charmander" }, { vaultPath });
+    const r = await profileStatsTool.handler({ pokemon_id: "profile-charmander", wiki: "_agents" }, { vaultPath });
     expect(r.profile_id).toBe("profile-charmander");
     expect(r.pokemon_type).toBe("fire");
     expect(r.evolution_stage).toBe("basic");
@@ -50,7 +50,7 @@ applies_to: [claude-code]
   });
 
   it("includes next_evolution_threshold for basic stage", async () => {
-    const r = await profileStatsTool.handler({ pokemon_id: "profile-charmander" }, { vaultPath });
+    const r = await profileStatsTool.handler({ pokemon_id: "profile-charmander", wiki: "_agents" }, { vaultPath });
     expect(r.next_evolution_threshold).toBeDefined();
     expect(r.next_evolution_threshold?.stage).toBe("stage1");
     expect(r.next_evolution_threshold?.criteria).toMatch(/30.*tasks.*0\.80/);
@@ -58,7 +58,7 @@ applies_to: [claude-code]
 
   it("throws when pokemon_id does not exist in the index", async () => {
     await expect(
-      profileStatsTool.handler({ pokemon_id: "profile-nonexistent" }, { vaultPath })
+      profileStatsTool.handler({ pokemon_id: "profile-nonexistent", wiki: "_agents" }, { vaultPath })
     ).rejects.toThrow(/PROFILE_NOT_FOUND|not.found/i);
   });
 });

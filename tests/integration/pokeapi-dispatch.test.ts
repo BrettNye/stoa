@@ -142,7 +142,7 @@ describe("MCP dispatch — fetcher threading (T0-1)", () => {
       // then dispatch the tool exactly as the MCP request handler would.
       const ctx = buildCtx({ vaultPath, mcpMode: true });
       const result = await evolveProfileTool.handler(
-        { pokemon_id: "profile-charmander", commit: false },
+        { pokemon_id: "profile-charmander", commit: false, wiki: "_agents" },
         ctx as any
       );
       expect(result.eligible).toBe(true);

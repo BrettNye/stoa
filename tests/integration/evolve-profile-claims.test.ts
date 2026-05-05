@@ -205,7 +205,7 @@ describe("vault.evolve-profile claims integration (Plan 2 §9.2)", () => {
     await writeClaimsIndex(vault, await buildClaimsIndex(vault));
 
     const r = await evolveProfileTool.handler(
-      { pokemon_id: "profile-x", commit: false, cleanup_old_skills_dir: true },
+      { pokemon_id: "profile-x", commit: false, cleanup_old_skills_dir: true, wiki: "_agents" },
       { vaultPath: vault, today: new Date("2026-04-30"), rawConfig: {} },
     );
 
@@ -226,7 +226,7 @@ describe("vault.evolve-profile claims integration (Plan 2 §9.2)", () => {
     await writeClaimsIndex(vault, await buildClaimsIndex(vault));
 
     const r = await evolveProfileTool.handler(
-      { pokemon_id: "profile-x", commit: false, cleanup_old_skills_dir: true },
+      { pokemon_id: "profile-x", commit: false, cleanup_old_skills_dir: true, wiki: "_agents" },
       { vaultPath: vault, today: new Date("2026-04-30"), rawConfig: {} },
     );
 
@@ -261,7 +261,7 @@ describe("vault.evolve-profile claims integration (Plan 2 §9.2)", () => {
     await writeClaimsIndex(vault, await buildClaimsIndex(vault));
 
     const r = await evolveProfileTool.handler(
-      { pokemon_id: "profile-x", commit: false, cleanup_old_skills_dir: true },
+      { pokemon_id: "profile-x", commit: false, cleanup_old_skills_dir: true, wiki: "_agents" },
       { vaultPath: vault, today: new Date("2026-04-30"), rawConfig: {} },
     );
 
@@ -293,7 +293,7 @@ describe("vault.evolve-profile claims integration (Plan 2 §9.2)", () => {
     await writeClaimsIndex(vault, await buildClaimsIndex(vault));
 
     const r = await evolveProfileTool.handler(
-      { pokemon_id: "profile-x", commit: false, cleanup_old_skills_dir: true },
+      { pokemon_id: "profile-x", commit: false, cleanup_old_skills_dir: true, wiki: "_agents" },
       { vaultPath: vault, today: new Date("2026-04-30"), rawConfig: {} },
     );
 
@@ -330,7 +330,7 @@ describe("vault.evolve-profile claims integration (Plan 2 §9.2)", () => {
     await writeClaimsIndex(vault, await buildClaimsIndex(vault));
 
     const r = await evolveProfileTool.handler(
-      { pokemon_id: "profile-x", commit: false, cleanup_old_skills_dir: true },
+      { pokemon_id: "profile-x", commit: false, cleanup_old_skills_dir: true, wiki: "_agents" },
       { vaultPath: vault, today: new Date("2026-04-30"), rawConfig: {} },
     );
 

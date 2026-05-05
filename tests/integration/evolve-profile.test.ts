@@ -65,7 +65,7 @@ describe("vault.evolve-profile", () => {
   it("proposal phase returns eligible:false when thresholds not met", async () => {
     await seedVaultWithProfileAndCompletedTasks(vaultPath, 5, 5);  // only 5 completed, need 30
     const r = await evolveProfileTool.handler(
-      { pokemon_id: "profile-charmander", commit: false },
+      { pokemon_id: "profile-charmander", commit: false, wiki: "_agents" },
       { vaultPath }
     );
     expect(r.eligible).toBe(false);
@@ -75,7 +75,7 @@ describe("vault.evolve-profile", () => {
   it("proposal phase returns eligible:true when 30+ completed at >=80% success", async () => {
     await seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);  // 30 completed at 100% success
     const r = await evolveProfileTool.handler(
-      { pokemon_id: "profile-charmander", commit: false },
+      { pokemon_id: "profile-charmander", commit: false, wiki: "_agents" },
       { vaultPath }
     );
     expect(r.eligible).toBe(true);
@@ -89,7 +89,7 @@ describe("vault.evolve-profile", () => {
     const profilePath = join(vaultPath, "wikis", "_agents", "profiles", "profile-charmander.md");
     const before = parseFrontmatter(readFileSync(profilePath, "utf8"));
     const proposalResp = await evolveProfileTool.handler(
-      { pokemon_id: "profile-charmander", commit: false },
+      { pokemon_id: "profile-charmander", commit: false, wiki: "_agents" },
       { vaultPath }
     );
 
@@ -98,7 +98,8 @@ describe("vault.evolve-profile", () => {
         pokemon_id: "profile-charmander",
         commit: true,
         expected_updated: String(before.frontmatter.updated),
-        proposal: proposalResp
+        proposal: proposalResp,
+        wiki: "_agents"
       },
       { vaultPath }
     );
@@ -119,7 +120,7 @@ describe("vault.evolve-profile", () => {
     const profilePath = join(vaultPath, "wikis", "_agents", "profiles", "profile-charmander.md");
     const before = parseFrontmatter(readFileSync(profilePath, "utf8"));
     const proposalResp = await evolveProfileTool.handler(
-      { pokemon_id: "profile-charmander", commit: false },
+      { pokemon_id: "profile-charmander", commit: false, wiki: "_agents" },
       { vaultPath }
     );
 
@@ -131,7 +132,8 @@ describe("vault.evolve-profile", () => {
         pokemon_id: "profile-charmander",
         commit: true,
         expected_updated: String(before.frontmatter.updated),
-        proposal: userEdited
+        proposal: userEdited,
+        wiki: "_agents"
       },
       { vaultPath }
     );
@@ -151,7 +153,7 @@ describe("vault.evolve-profile", () => {
   it("commit phase rejects on expected_updated mismatch (OCC)", async () => {
     await seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
     const proposalResp = await evolveProfileTool.handler(
-      { pokemon_id: "profile-charmander", commit: false },
+      { pokemon_id: "profile-charmander", commit: false, wiki: "_agents" },
       { vaultPath }
     );
     await expect(
@@ -160,7 +162,8 @@ describe("vault.evolve-profile", () => {
           pokemon_id: "profile-charmander",
           commit: true,
           expected_updated: "1999-01-01",  // wrong
-          proposal: proposalResp
+          proposal: proposalResp,
+          wiki: "_agents"
         },
         { vaultPath }
       )
@@ -201,7 +204,7 @@ charmander has shown a pattern of refactoring during long sprints.
 `);
 
     const r = await evolveProfileTool.handler(
-      { pokemon_id: "profile-charmander", commit: false },
+      { pokemon_id: "profile-charmander", commit: false, wiki: "_agents" },
       { vaultPath }
     );
 
@@ -226,7 +229,7 @@ charmander has shown a pattern of refactoring during long sprints.
     // it DOES surface is `active claims`, not `tasks_completed`).
     await seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
     const r = await evolveProfileTool.handler(
-      { pokemon_id: "profile-charmander", commit: false },
+      { pokemon_id: "profile-charmander", commit: false, wiki: "_agents" },
       { vaultPath }
     );
 
@@ -265,7 +268,7 @@ TDD content.
 
     const before = parseFrontmatter(readFileSync(join(vaultPath, "wikis", "_agents", "profiles", "profile-charmander.md"), "utf8"));
     const proposal = await evolveProfileTool.handler(
-      { pokemon_id: "profile-charmander", commit: false },
+      { pokemon_id: "profile-charmander", commit: false, wiki: "_agents" },
       { vaultPath }
     );
 
@@ -274,7 +277,8 @@ TDD content.
         pokemon_id: "profile-charmander",
         commit: true,
         expected_updated: String(before.frontmatter.updated),
-        proposal
+        proposal,
+        wiki: "_agents"
       },
       { vaultPath }
     );
@@ -296,7 +300,7 @@ TDD content.
 
     const before = parseFrontmatter(readFileSync(join(vaultPath, "wikis", "_agents", "profiles", "profile-charmander.md"), "utf8"));
     const proposal = await evolveProfileTool.handler(
-      { pokemon_id: "profile-charmander", commit: false },
+      { pokemon_id: "profile-charmander", commit: false, wiki: "_agents" },
       { vaultPath }
     );
     const userEdited = { ...proposal, proposed: { ...proposal.proposed, name: "profile-charmeleon" } };
@@ -306,7 +310,8 @@ TDD content.
         pokemon_id: "profile-charmander",
         commit: true,
         expected_updated: String(before.frontmatter.updated),
-        proposal: userEdited
+        proposal: userEdited,
+        wiki: "_agents"
       },
       { vaultPath }
     );
@@ -320,7 +325,7 @@ TDD content.
     await seedVaultWithProfileAndCompletedTasks(vaultPath, 30, 30);
     const before = parseFrontmatter(readFileSync(join(vaultPath, "wikis", "_agents", "profiles", "profile-charmander.md"), "utf8"));
     const proposal = await evolveProfileTool.handler(
-      { pokemon_id: "profile-charmander", commit: false },
+      { pokemon_id: "profile-charmander", commit: false, wiki: "_agents" },
       { vaultPath }
     );
     const r = await evolveProfileTool.handler(
@@ -328,7 +333,8 @@ TDD content.
         pokemon_id: "profile-charmander",
         commit: true,
         expected_updated: String(before.frontmatter.updated),
-        proposal
+        proposal,
+        wiki: "_agents"
       },
       { vaultPath }
     );
@@ -342,7 +348,7 @@ TDD content.
 
     // No CLAUDE.md present yet → default thresholds → not eligible at 8 tasks.
     const beforeOverride = await evolveProfileTool.handler(
-      { pokemon_id: "profile-charmander", commit: false },
+      { pokemon_id: "profile-charmander", commit: false, wiki: "_agents" },
       { vaultPath }
     );
     expect(beforeOverride.eligible).toBe(false);
@@ -369,7 +375,7 @@ More prose.
 
     // With override: 8 tasks at 100% success satisfies the 5/0.50 gate → eligible.
     const withOverride = await evolveProfileTool.handler(
-      { pokemon_id: "profile-charmander", commit: false },
+      { pokemon_id: "profile-charmander", commit: false, wiki: "_agents" },
       { vaultPath }
     );
     expect(withOverride.eligible).toBe(true);
@@ -378,7 +384,7 @@ More prose.
     // Remove the override and re-verify: back to ineligible.
     rmSync(join(agentsDir, "CLAUDE.md"));
     const afterRemoval = await evolveProfileTool.handler(
-      { pokemon_id: "profile-charmander", commit: false },
+      { pokemon_id: "profile-charmander", commit: false, wiki: "_agents" },
       { vaultPath }
     );
     expect(afterRemoval.eligible).toBe(false);
@@ -403,7 +409,7 @@ stage1_to_stage2:
 
     // Defaults of 30/0.80 still apply → eligible at 30/100% success.
     const r = await evolveProfileTool.handler(
-      { pokemon_id: "profile-charmander", commit: false },
+      { pokemon_id: "profile-charmander", commit: false, wiki: "_agents" },
       { vaultPath }
     );
     expect(r.eligible).toBe(true);
@@ -442,7 +448,7 @@ TDD content.
 
     const before = parseFrontmatter(readFileSync(join(vaultPath, "wikis", "_agents", "profiles", "profile-charmander.md"), "utf8"));
     const proposal = await evolveProfileTool.handler(
-      { pokemon_id: "profile-charmander", commit: false },
+      { pokemon_id: "profile-charmander", commit: false, wiki: "_agents" },
       { vaultPath }
     );
     const userEdited = { ...proposal, proposed: { ...proposal.proposed, name: "profile-charmeleon" } };
@@ -453,7 +459,8 @@ TDD content.
         commit: true,
         expected_updated: String(before.frontmatter.updated),
         proposal: userEdited,
-        cleanup_old_skills_dir: true
+        cleanup_old_skills_dir: true,
+        wiki: "_agents"
       },
       { vaultPath }
     );
@@ -501,7 +508,7 @@ TDD content.
 
     const before = parseFrontmatter(readFileSync(join(vaultPath, "wikis", "_agents", "profiles", "profile-charmander.md"), "utf8"));
     const proposal = await evolveProfileTool.handler(
-      { pokemon_id: "profile-charmander", commit: false },
+      { pokemon_id: "profile-charmander", commit: false, wiki: "_agents" },
       { vaultPath }
     );
     const userEdited = { ...proposal, proposed: { ...proposal.proposed, name: "profile-charmeleon" } };
@@ -512,7 +519,8 @@ TDD content.
         commit: true,
         expected_updated: String(before.frontmatter.updated),
         proposal: userEdited,
-        cleanup_old_skills_dir: false
+        cleanup_old_skills_dir: false,
+        wiki: "_agents"
       },
       { vaultPath }
     );
@@ -553,7 +561,7 @@ TDD content.
 
     const before = parseFrontmatter(readFileSync(join(vaultPath, "wikis", "_agents", "profiles", "profile-charmander.md"), "utf8"));
     const proposal = await evolveProfileTool.handler(
-      { pokemon_id: "profile-charmander", commit: false },
+      { pokemon_id: "profile-charmander", commit: false, wiki: "_agents" },
       { vaultPath }
     );
     const userEdited = { ...proposal, proposed: { ...proposal.proposed, name: "profile-charmeleon" } };
@@ -564,7 +572,8 @@ TDD content.
         pokemon_id: "profile-charmander",
         commit: true,
         expected_updated: String(before.frontmatter.updated),
-        proposal: userEdited
+        proposal: userEdited,
+        wiki: "_agents"
       },
       { vaultPath }
     );
@@ -599,7 +608,7 @@ TDD content.
     }) as typeof fetch;
 
     const r = await evolveProfileTool.handler(
-      { pokemon_id: "profile-charmander", commit: false },
+      { pokemon_id: "profile-charmander", commit: false, wiki: "_agents" },
       { vaultPath, fetcher }
     );
     expect(r.eligible).toBe(true);

@@ -35,7 +35,7 @@ describe('vault.profile-register', () => {
     vi.stubGlobal('fetch', fetchMock);
     const { profileRegisterTool } = await import('../../src/tools/profile-register.js');
     const out = await profileRegisterTool.handler(
-      { profile_id: 'profile-charmander' },
+      { profile_id: 'profile-charmander', wiki: 'alpha' },
       { vaultPath, defaultWiki: 'alpha' }
     );
 
@@ -62,7 +62,7 @@ describe('vault.profile-register', () => {
     vi.stubGlobal('fetch', fetchMock);
     const { profileRegisterTool } = await import('../../src/tools/profile-register.js');
     await profileRegisterTool.handler(
-      { profile_id: 'profile-charmander' },
+      { profile_id: 'profile-charmander', wiki: 'alpha' },
       { vaultPath, defaultWiki: 'alpha' }
     );
 
@@ -92,7 +92,7 @@ describe('vault.profile-register', () => {
     vi.stubGlobal('fetch', fetchMock);
     const { profileRegisterTool } = await import('../../src/tools/profile-register.js');
     await profileRegisterTool.handler(
-      { profile_id: 'profile-bulbasaur' },
+      { profile_id: 'profile-bulbasaur', wiki: 'alpha' },
       { vaultPath, defaultWiki: 'alpha' }
     );
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -110,7 +110,7 @@ describe('vault.profile-register', () => {
     const { profileRegisterTool } = await import('../../src/tools/profile-register.js');
     await expect(
       profileRegisterTool.handler(
-        { profile_id: 'profile-mystery' },
+        { profile_id: 'profile-mystery', wiki: 'alpha' },
         { vaultPath, defaultWiki: 'alpha' }
       )
     ).rejects.toThrow(/missing 'pokemon' field/);
@@ -130,7 +130,7 @@ describe('vault.profile-register', () => {
     let caught: unknown;
     try {
       await profileRegisterTool.handler(
-        { profile_id: 'profile-charmander' },
+        { profile_id: 'profile-charmander', wiki: 'alpha' },
         { vaultPath, defaultWiki: 'alpha' }
       );
     } catch (e) {
