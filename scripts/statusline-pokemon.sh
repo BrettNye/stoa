@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 # statusline-pokemon.sh — emit a one-line statusline summary for the active vault Pokemon.
 #
-# Usage: env VAULT_PATH=<path> [VAULT_POKEMON=<profile-id>] statusline-pokemon.sh
+# Usage: env STOA_VAULT_PATH=<path> [VAULT_POKEMON=<profile-id>] statusline-pokemon.sh
 # Wire into Claude Code statusline:
 #   "statusLine": { "type": "command", "command": "bash /path/to/statusline-pokemon.sh" }
 
 set -euo pipefail
 
-VAULT_PATH="${VAULT_PATH:-}"
-if [ -z "$VAULT_PATH" ]; then
-  echo "🛑 VAULT_PATH unset"
+STOA_VAULT_PATH="${STOA_VAULT_PATH:-}"
+if [ -z "$STOA_VAULT_PATH" ]; then
+  echo "🛑 STOA_VAULT_PATH unset"
   exit 0
 fi
 
-PROFILES="$VAULT_PATH/_index/profiles.json"
+PROFILES="$STOA_VAULT_PATH/_index/profiles.json"
 if [ ! -f "$PROFILES" ]; then
   echo "🛑 no profiles.json"
   exit 0

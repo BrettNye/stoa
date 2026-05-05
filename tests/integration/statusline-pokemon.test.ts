@@ -40,7 +40,7 @@ describe.skipIf(!HAS_BASH)("statusline-pokemon.sh", () => {
 
   it("emits a statusline for an explicit pokemon", () => {
     const out = execSync(`bash "${SCRIPT}"`, {
-      env: { ...process.env, VAULT_PATH: vaultPath, VAULT_POKEMON: "profile-charmander" },
+      env: { ...process.env, STOA_VAULT_PATH: vaultPath, VAULT_POKEMON: "profile-charmander" },
       encoding: "utf8"
     }).trim();
     expect(out).toMatch(/Charmander/);
@@ -50,9 +50,20 @@ describe.skipIf(!HAS_BASH)("statusline-pokemon.sh", () => {
 
   it("falls back to first profile when VAULT_POKEMON unset", () => {
     const out = execSync(`bash "${SCRIPT}"`, {
-      env: { ...process.env, VAULT_PATH: vaultPath },
+      env: { ...process.env, STOA_VAULT_PATH: vaultPath },
       encoding: "utf8"
     }).trim();
     expect(out).toMatch(/Charmander/);
+  });
+
+  it("prints error and exits 0 when STOA_VAULT_PATH is unset", () => {
+    const env = { ...process.env };
+    delete (env as Record<string, string | undefined>).STOA_VAULT_PATH;
+    delete (env as Record<string, string | undefined>).VAULT_PATH;
+    const out = execSync(`bash "${SCRIPT}"`, {
+      env,
+      encoding: "utf8"
+    }).trim();
+    expect(out).toBe("🛑 STOA_VAULT_PATH unset");
   });
 });

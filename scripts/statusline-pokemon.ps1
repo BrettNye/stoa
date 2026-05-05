@@ -1,11 +1,11 @@
 ﻿# statusline-pokemon.ps1 — emit a one-line statusline summary for the active vault Pokemon.
-# Usage: $env:VAULT_PATH=<path>; [$env:VAULT_POKEMON=<profile-id>]; .\statusline-pokemon.ps1
+# Usage: $env:STOA_VAULT_PATH=<path>; [$env:VAULT_POKEMON=<profile-id>]; .\statusline-pokemon.ps1
 
 param()
 
 $ErrorActionPreference = "Stop"
-$VaultPath = $env:VAULT_PATH
-if (-not $VaultPath) { Write-Output "🛑 VAULT_PATH unset"; exit 0 }
+$VaultPath = $env:STOA_VAULT_PATH
+if (-not $VaultPath) { Write-Output "🛑 STOA_VAULT_PATH unset"; exit 0 }
 $ProfilesPath = Join-Path (Join-Path $VaultPath "_index") "profiles.json"
 if (-not (Test-Path $ProfilesPath)) { Write-Output "🛑 no profiles.json"; exit 0 }
 
