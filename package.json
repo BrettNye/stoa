@@ -1,12 +1,29 @@
 {
-  "name": "vault-mcp",
+  "name": "stoa-mcp",
   "version": "0.1.0",
-  "description": "MCP server + CLI for the knowledge vault",
+  "description": "Persistent shared memory for AI coding agents (MCP server + CLI)",
   "type": "module",
+  "license": "FSL-1.1-MIT",
   "bin": {
-    "vault": "./dist/bin.js",
-    "vault-mcp": "./dist/bin.js"
+    "stoa": "./dist/bin.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BrettNye/stoa.git"
+  },
+  "homepage": "https://github.com/BrettNye/stoa#readme",
+  "bugs": {
+    "url": "https://github.com/BrettNye/stoa/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "claude-code",
+    "memory",
+    "knowledge-management",
+    "ai-agents"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/bin.ts",
