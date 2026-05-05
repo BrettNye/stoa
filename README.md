@@ -87,10 +87,8 @@ Set `STOA_VAULT_PATH` to skip `--vault=` on every call.
 
 ## Documentation
 
-- [Knowledge model and vault schema](docs/schema.md)
-- [MCP tool reference](docs/tools.md)
-- [Agent substrate guide](docs/agents.md)
-- [v1 design spec](docs/spec-v1.md)
+- [Installation](docs/installation.md) — full install + configuration walkthrough
+- [Manual smoke test](docs/manual-smoke-test.md) — verify your setup
 
 ## Tests
 
