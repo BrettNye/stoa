@@ -44,13 +44,13 @@ export const listPlatformProfilesInput = z.object({
  *
  * @param input   - Optional `wiki` and `owner_trainer_id` filter.
  * @param opts    - Optional overrides for vault path / home dir (testability).
- *                  Falls back to `process.env.VAULT_PATH` when omitted.
+ *                  Falls back to `process.env.STOA_VAULT_PATH` when omitted.
  */
 export async function listPlatformProfiles(
   input: z.infer<typeof listPlatformProfilesInput>,
   opts?: ResolveTrainerContextOpts
 ): Promise<{ profiles: PlatformProfileRow[]; caller_trainer_id: string }> {
-  const vaultPath = opts?.vaultPath ?? process.env.VAULT_PATH ?? "";
+  const vaultPath = opts?.vaultPath ?? process.env.STOA_VAULT_PATH ?? "";
 
   // Resolve trainer context for ambient caller_trainer_id and default wiki.
   const ctx = resolveTrainerContext({}, opts);

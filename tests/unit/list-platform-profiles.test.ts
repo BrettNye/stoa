@@ -102,8 +102,8 @@ describe("listPlatformProfiles", () => {
   beforeEach(() => {
     vaultPath = makeTempVault();
     process.env = { ...OLD_ENV };
-    // Point VAULT_PATH at our temp vault
-    process.env.VAULT_PATH = vaultPath;
+    // Point STOA_VAULT_PATH at our temp vault
+    process.env.STOA_VAULT_PATH = vaultPath;
     // Ensure no STADIUM_TRAINER env bleed
     delete process.env.STADIUM_TRAINER;
   });
@@ -320,5 +320,29 @@ describe("listPlatformProfiles", () => {
 
     const result = await listPlatformProfiles({ wiki: "empty-wiki" });
     expect(result.profiles).toEqual([]);
+  });
+
+  // ─── STOA_VAULT_PATH env var is honored (not legacy VAULT_PATH) ──────────
+
+  it("reads vault path from STOA_VAULT_PATH env var (not VAULT_PATH)", async () => {
+    writeProfileFile(vaultPath, "_agents", "profile-stoa-check", {
+      title: "Stoa Check",
+      pokemon: "eevee",
+      evolution_stage: "basic",
+      platform_profile_id: "01KQTPPPPPPPPPPPPPPPPPPPPS",
+      owner_trainer_id: "01KQTTTTTTTTTTTTTTTTTTTSTS",
+      summary: "stoa env check",
+    });
+    writeTrainerFile(vaultPath, "_agents", "stoa-trainer", "01KQTTTTTTTTTTTTTTTTTTTSTS");
+    process.env.STADIUM_TRAINER = "stoa-trainer";
+    writeWikisIndex(vaultPath, ["_agents"]);
+
+    // Use STOA_VAULT_PATH, NOT VAULT_PATH
+    delete process.env.VAULT_PATH;
+    process.env.STOA_VAULT_PATH = vaultPath;
+
+    const result = await listPlatformProfiles({ wiki: "_agents" });
+    expect(result.profiles).toHaveLength(1);
+    expect(result.profiles[0].platform_profile_id).toBe("01KQTPPPPPPPPPPPPPPPPPPPPS");
   });
 });

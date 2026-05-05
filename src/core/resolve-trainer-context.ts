@@ -43,7 +43,7 @@ export class TrainerContextError extends Error {
 export interface ResolveTrainerContextOpts {
   /** Override ~/.vault/stadium.toml lookup root. Mirrors stadium-config pattern. */
   home?: string;
-  /** Override VAULT_PATH for finding trainer pages. */
+  /** Override STOA_VAULT_PATH for finding trainer pages. */
   vaultPath?: string;
 }
 
@@ -78,7 +78,7 @@ export function resolveTrainerContext(
   opts: ResolveTrainerContextOpts = {}
 ): TrainerContext {
   const home = opts.home ?? process.env.STADIUM_HOME ?? homedir();
-  const vaultPath = opts.vaultPath ?? process.env.VAULT_PATH;
+  const vaultPath = opts.vaultPath ?? process.env.STOA_VAULT_PATH;
 
   const tomlPath = join(home, ".vault", "stadium.toml");
   const mtime = safeMtime(tomlPath);
