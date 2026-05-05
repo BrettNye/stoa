@@ -24,6 +24,10 @@
     "knowledge-management",
     "ai-agents"
   ],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/bin.ts",
