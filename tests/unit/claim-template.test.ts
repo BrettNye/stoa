@@ -1,6 +1,6 @@
 // vault-mcp/tests/unit/claim-template.test.ts
 //
-// Acceptance tests for `wikis/_templates/claim.md`. The template is what
+// Acceptance tests for the claim.md template. The template is what
 // `vault.new claim <wiki> "<title>"` will instantiate, so it must:
 //   - parse cleanly through `parseClaim` as a draft (loosest tier),
 //   - carry the placeholder tokens `{{slug}}`, `{{title}}`, `{{date}}`,
@@ -11,19 +11,20 @@
 //     summary cap (downstream `vault.sync-skills` rendering),
 //   - keep documenting comments inline so authors learn the schema by reading.
 //
-// Path of the template under test (per task-claim-template's `files:` field):
-//   wikis/_templates/claim.md
-//
-// We resolve relative to the vault root, which is two levels above
-// `vault-mcp/` (the cwd that `npm run test` uses).
+// The fixture copy lives at vault-mcp/tests/fixtures/templates/claim.md and
+// must be kept byte-for-byte identical to the canonical wikis/_templates/claim.md.
 
 import { describe, it, expect, beforeAll } from "vitest";
 import { promises as fs } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
 import { parseClaim, ClaimDraft } from "../../src/types/claim.js";
 
-const TEMPLATE_PATH = path.resolve(__dirname, "../../../wikis/_templates/claim.md");
+const TEMPLATE_PATH = path.resolve(
+  __dirname,
+  "../fixtures/templates/claim.md"
+);
 
 describe("wikis/_templates/claim.md — claim page template", () => {
   let raw: string;
@@ -34,8 +35,16 @@ describe("wikis/_templates/claim.md — claim page template", () => {
     parsed = matter(raw);
   });
 
-  it("file exists at wikis/_templates/claim.md", async () => {
+  it("template fixture file exists at vault-mcp/tests/fixtures/templates/claim.md", async () => {
     await expect(fs.access(TEMPLATE_PATH)).resolves.toBeUndefined();
+  });
+
+  it("template fixture is owned by vault-mcp's tests dir", () => {
+    const fixturePath = path.resolve(
+      __dirname,
+      "../fixtures/templates/claim.md"
+    );
+    expect(existsSync(fixturePath)).toBe(true);
   });
 
   it("frontmatter parses as YAML via gray-matter", () => {

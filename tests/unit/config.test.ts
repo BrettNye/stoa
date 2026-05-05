@@ -41,9 +41,20 @@ describe("parseConfig", () => {
     expect(cfg.defaultFamily).toBeUndefined();
   });
 
-  it("falls back to VAULT_PATH env var when --vault is missing", () => {
-    const cfg = parseConfig([], { VAULT_PATH: "/env/vault" });
+  it("falls back to STOA_VAULT_PATH env var when --vault is missing", () => {
+    const cfg = parseConfig([], { STOA_VAULT_PATH: "/env/vault" });
     expect(cfg.vaultPath).toBe(resolve("/env/vault"));
+  });
+
+  it("reads STOA_VAULT_PATH from env", () => {
+    const cfg = parseConfig([], { STOA_VAULT_PATH: "/tmp/v" });
+    expect(cfg.vaultPath).toBe(resolve("/tmp/v"));
+  });
+
+  it("ignores legacy VAULT_PATH (not read)", () => {
+    expect(() =>
+      parseConfig([], { VAULT_PATH: "/tmp/v" })
+    ).toThrow(/STOA_VAULT_PATH/);
   });
 
   it("throws ConfigError when no vault path is found", () => {
@@ -59,8 +70,8 @@ describe("parseConfig", () => {
     expect(isAbsolute).toBe(true);
   });
 
-  it("resolves relative VAULT_PATH env var to absolute", () => {
-    const cfg = parseConfig([], { VAULT_PATH: "./relative/sub" });
+  it("resolves relative STOA_VAULT_PATH env var to absolute", () => {
+    const cfg = parseConfig([], { STOA_VAULT_PATH: "./relative/sub" });
     expect(cfg.vaultPath).not.toBe("./relative/sub");
     const isAbsolute = /^([A-Za-z]:[\\/]|\/)/.test(cfg.vaultPath);
     expect(isAbsolute).toBe(true);

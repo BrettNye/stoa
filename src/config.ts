@@ -78,11 +78,11 @@ export function parseConfig(
     else if (arg.startsWith("--default-family=")) defaultFamily = arg.slice("--default-family=".length);
   }
 
-  if (!vaultPath) vaultPath = env.VAULT_PATH;
+  if (!vaultPath) vaultPath = env.STOA_VAULT_PATH;
 
   if (!vaultPath) {
     throw new ConfigError(
-      "vault path required: pass --vault=<path> or set VAULT_PATH"
+      "vault path required: pass --vault=<path> or set STOA_VAULT_PATH"
     );
   }
 
