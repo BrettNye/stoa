@@ -26,10 +26,8 @@ export const Cursor = {
 };
 
 export type WaitResult =
-  | { event?: VaultEvent; cursor: Cursor; timed_out: boolean }
   | { event?: VaultEvent; matched_filter_index?: number; cursor: Cursor; timed_out: boolean }
-  | { events: VaultEvent[]; missing_filter_indices?: number[]; cursor: Cursor; timed_out: boolean }
-  | { events: VaultEvent[]; cursor: Cursor; timed_out: boolean };
+  | { events: VaultEvent[]; missing_filter_indices?: number[]; cursor: Cursor; timed_out: boolean };
 
 export type ParsedPage = {
   frontmatter: Record<string, unknown>;
