@@ -4,7 +4,7 @@ const PATH_RE = /\/wikis\/([^/]+)\/journal\/([^/]+)\.md$/;
 
 export const journalMatcher: SourceMatcher = {
   source: "journal",
-  globs: ["wikis/*/journal/**/*.md"],
+  globs: ["wikis/*/journal/*.md"],
   deriveKey(absPath: string, _vaultPath: string) {
     const m = absPath.replace(/\\/g, "/").match(PATH_RE);
     if (!m) return null;

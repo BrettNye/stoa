@@ -20,3 +20,12 @@ it("decide returns emit:true with no enrichment when frontmatter lacks channel",
   expect(r.emit).toBe(true);
   expect(r.enrichment?.channel).toBeUndefined();
 });
+
+it("deriveKey returns null for a journal path with a subdirectory (glob is one-level deep by intent)", () => {
+  // The glob is wikis/*/journal/*.md (not **), so subdirectory paths should
+  // never reach deriveKey via chokidar. This test documents that deriveKey
+  // itself also rejects them, keeping the two layers consistent.
+  const k = journalMatcher.deriveKey(
+    "/v/wikis/_meta/journal/sub/journal-2026-05-08-1200-foo.md", "/v");
+  expect(k).toBeNull();
+});
