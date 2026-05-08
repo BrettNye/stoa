@@ -34,9 +34,9 @@ afterAll(async () => {
 });
 
 describe("MCP e2e", () => {
-  it("lists 45 tools", { timeout: 30000 }, async () => {
+  it("lists 49 tools", { timeout: 30000 }, async () => {
     const r = await client.listTools();
-    expect(r.tools).toHaveLength(45);
+    expect(r.tools).toHaveLength(49);
     const names = r.tools.map(t => t.name).sort();
     expect(names).toContain("vault.recall");
     expect(names).toContain("vault.task-claim");

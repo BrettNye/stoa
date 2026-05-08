@@ -79,6 +79,14 @@ import { matchWatchTool } from "./match-watch.js";
 // Draft-pool discovery primitive: list all platform-registered profiles in a wiki.
 import { listPlatformProfilesTool } from "./list-platform-profiles.js";
 
+// v1.7.1 — push primitives. Four wait-for tools: single-event, first-of-N,
+// fan-in-all, and bounded-batch. Each handler requires HandleWaitContext
+// (bus + registry + watcher) which is populated by startStdio via buildCtx.
+import { waitForTool } from "./wait-for.js";
+import { waitForAnyTool } from "./wait-for-any.js";
+import { waitForAllTool } from "./wait-for-all.js";
+import { waitForManyTool } from "./wait-for-many.js";
+
 export const allTools = [
   recallTool, readTool, listWikisTool, lintTool, channelTailTool,
   inboxTool, processInboxTool, newTool, newWikiTool, setActiveTool,
@@ -100,7 +108,9 @@ export const allTools = [
   trainerAcceptMatchTool, trainerGetStateTool, trainerSubmitDraftTool,
   trainerSubmitMoveTool, matchWatchTool,
   // Stadium substrate fix + discovery
-  listPlatformProfilesTool
+  listPlatformProfilesTool,
+  // v1.7.1 — push primitives
+  waitForTool, waitForAnyTool, waitForAllTool, waitForManyTool,
 ];
 
 export type ToolDefinition = (typeof allTools)[number];
