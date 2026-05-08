@@ -115,6 +115,39 @@ describe("Watcher awaitWriteFinish defaults", () => {
   });
 });
 
+describe("Watcher close during startup", () => {
+  it("second start() succeeds and is functional when close() is called before ready fires", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "stoa-w-"));
+    mkdirSync(join(dir, "notes3"), { recursive: true });
+    const seen: string[] = [];
+    watcher = new Watcher({
+      vaultPath: dir,
+      globs: ["notes3/**/*.md"],
+      onEvent: (p, k) => seen.push(`${k}:${p}`),
+      awaitStabilityMs: 50,
+      awaitPollMs: 20,
+    });
+
+    // Fire start() but do NOT await — 'ready' may not have fired yet
+    const firstStart = watcher.start();
+
+    // Immediately close before 'ready' fires
+    await watcher.close();
+
+    // Drain the first start promise (may resolve or reject — both are acceptable)
+    await firstStart.catch(() => {});
+
+    // Second start must succeed — no leaked in-flight watcher
+    await watcher.start();
+
+    // The second watcher must be functional and fire events
+    writeFileSync(join(dir, "notes3", "file2.md"), "# hi\n");
+    await new Promise((r) => setTimeout(r, 600));
+
+    expect(seen.some((s) => s.startsWith("add:") && s.endsWith("file2.md"))).toBe(true);
+  });
+});
+
 describe("Watcher fires change event", () => {
   it("fires change event when an existing file is modified", async () => {
     const dir = mkdtempSync(join(tmpdir(), "stoa-w-"));

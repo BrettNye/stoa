@@ -16,6 +16,7 @@ export interface WatcherConfig {
 export class Watcher {
   private fsw: chokidar.FSWatcher | null = null;
   private starting: Promise<void> | null = null;
+  private startingReject: ((err: unknown) => void) | null = null;
   private matcher: ((path: string) => boolean) | null = null;
 
   constructor(private cfg: WatcherConfig) {
@@ -27,10 +28,10 @@ export class Watcher {
   }
 
   start(): Promise<void> {
-    if (this.fsw) return Promise.resolve();
+    if (this.fsw && !this.starting) return Promise.resolve();
     if (this.starting) return this.starting;
-    const matcher = this.matcher;
     this.starting = new Promise<void>((res, rej) => {
+      this.startingReject = rej;
       const w = chokidar.watch(this.cfg.vaultPath, {
         ignoreInitial: true,
         awaitWriteFinish: {
@@ -38,20 +39,20 @@ export class Watcher {
           pollInterval: this.cfg.awaitPollMs ?? 25,
         },
         ignorePermissionErrors: true,
-        ignored: matcher
-          ? (absPath: string) => {
-              const rel = relative(this.cfg.vaultPath, absPath).replace(/\\/g, "/");
-              // Never ignore directories (chokidar needs to traverse them)
-              // We filter at the event level instead
-              return false;
-            }
-          : undefined,
       });
+      // Track the in-flight watcher immediately so close() can shut it down
+      // even if 'ready' has not fired yet.
+      this.fsw = w;
       w.on("ready", () => {
-        this.fsw = w;
+        this.starting = null;
+        this.startingReject = null;
         res();
       });
-      w.on("error", (err: unknown) => rej(err));
+      w.on("error", (err: unknown) => {
+        this.starting = null;
+        this.startingReject = null;
+        rej(err);
+      });
       w.on("add", (absPath: string) => {
         if (this.matchesGlobs(absPath)) {
           this.cfg.onEvent(absPath, "add");
@@ -67,11 +68,17 @@ export class Watcher {
   }
 
   async close(): Promise<void> {
+    // If a start() is in-flight (ready not yet fired), reject its promise so
+    // any awaiting callers are unblocked before we close the underlying watcher.
+    if (this.startingReject) {
+      this.startingReject(new Error("Watcher closed before ready"));
+      this.startingReject = null;
+    }
+    this.starting = null;
     if (this.fsw) {
       await this.fsw.close();
       this.fsw = null;
     }
-    this.starting = null;
   }
 
   private matchesGlobs(absPath: string): boolean {
