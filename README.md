@@ -89,6 +89,7 @@ Set `STOA_VAULT_PATH` to skip `--vault=` on every call.
 
 - [Installation](docs/installation.md) — full install + configuration walkthrough
 - [Manual smoke test](docs/manual-smoke-test.md) — verify your setup
+- [wait-for: push primitives](docs/wait-for.md) — `vault.wait-for{,-any,-all,-many}` over the local FS-watch event bus
 
 ## Tests
 
