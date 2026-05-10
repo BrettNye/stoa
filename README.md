@@ -48,6 +48,12 @@ Stoa is a local MCP server that exposes your vault — a folder of Markdown file
 - `vault.lint` — read-only health check (orphans, schema violations, channel format, claim invariants, synthesis debt, missing curation priority)
 - `vault.channel-tail` — pull recent entries on a coordination channel
 
+**Wait (push primitives):** block until vault events occur instead of polling
+- `vault.wait-for` — block until one matching event lands; cursor-based catch-up
+- `vault.wait-for-any` — wake on first match across N filters (race semantics)
+- `vault.wait-for-all` — wake when all N filters have matched at least once
+- `vault.wait-for-many` — bounded batch over a window
+
 **Write — content:**
 - `vault.inbox` — capture a fleeting thought to the active wiki's `inbox/`
 - `vault.new` — create a typed page from a template
