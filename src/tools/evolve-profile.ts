@@ -242,7 +242,7 @@ export const evolveProfileTool = {
     }
 
     const proposal = input.proposal;
-    let oldId = input.pokemon_id;
+    const oldId = input.pokemon_id;
     let newId = input.pokemon_id;
     let aliasRecorded = false;
     const filesRenamed: string[] = [];

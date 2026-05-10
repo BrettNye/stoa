@@ -30,9 +30,9 @@ const watchers: Watcher[] = [];
 const registries: WaiterRegistry[] = [];
 
 afterEach(async () => {
-  for (const w of watchers) { try { await w.close(); } catch {} }
+  for (const w of watchers) { try { await w.close(); } catch { /* cleanup; ignore */ } }
   watchers.length = 0;
-  for (const r of registries) { try { r.close(); } catch {} }
+  for (const r of registries) { try { r.close(); } catch { /* cleanup; ignore */ } }
   registries.length = 0;
 });
 
