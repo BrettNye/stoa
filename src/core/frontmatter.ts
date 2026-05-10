@@ -39,6 +39,14 @@ export type PageStatus = z.infer<typeof PageStatus>;
 export const Confidence = z.enum(["high", "medium", "low"]);
 export type Confidence = z.infer<typeof Confidence>;
 
+// 2026-05-08 substrate-adoption W1.3 — optional triage signal on draft pages,
+// set by the authoring subagent (or human) to indicate how much human attention
+// the draft deserves. See `[[wikis/_meta/concepts/concept-curation-priority]]`.
+// Validated when present; absent means "unset" (`MISSING_CURATION_PRIORITY`
+// lint warning fires on aging agent-authored drafts).
+export const CurationPriority = z.enum(["high", "medium", "low"]);
+export type CurationPriority = z.infer<typeof CurationPriority>;
+
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -47,7 +55,11 @@ const draftSchema = z.object({
   title: z.string().min(1),
   type: NoteType,
   created: z.string().regex(ISO_DATE),
-  channel: z.string().regex(KEBAB).optional()
+  channel: z.string().regex(KEBAB).optional(),
+  // Optional triage signal — when present, must be one of the enum values.
+  // Used by curator subagents (e.g., profile-slowking) and the
+  // MISSING_CURATION_PRIORITY lint rule to drive human attention budget.
+  curation_priority: CurationPriority.optional()
 }).passthrough();
 
 const activeSchema = draftSchema.extend({

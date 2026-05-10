@@ -45,7 +45,7 @@ Stoa is a local MCP server that exposes your vault — a folder of Markdown file
 - `vault.recall` — search vault, segmented by layer; reads matching synthesis content inline
 - `vault.read` — fetch a page by id or path
 - `vault.list-wikis` — list wikis with mode, scope, and summary stats
-- `vault.lint` — read-only health check (orphans, schema violations, channel format)
+- `vault.lint` — read-only health check (orphans, schema violations, channel format, claim invariants, synthesis debt, missing curation priority)
 - `vault.channel-tail` — pull recent entries on a coordination channel
 
 **Write — content:**

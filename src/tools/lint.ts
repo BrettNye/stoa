@@ -24,6 +24,12 @@ import "../core/lint-checks/subagent-def-invariant-violation.js";
 // Group B rules (claim-without-evidence, claim-with-no-scope, claim-
 // superseded-without-supersedor). One import = all six claim rules wired.
 import "../core/lint-checks/registration.js";
+// 2026-05-08 substrate-adoption W1.2 — surfaces per-wiki tag clusters of
+// hard-knowledge pages with no covering synthesis.
+import "../core/lint-checks/synthesis-debt.js";
+// 2026-05-08 substrate-adoption W1.3 — surfaces aging agent-authored drafts
+// with no curation_priority annotation.
+import "../core/lint-checks/missing-curation-priority.js";
 
 const Input = z.object({
   wiki: z.string().optional(),
