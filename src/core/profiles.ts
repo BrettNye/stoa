@@ -1,9 +1,10 @@
-import { existsSync, readdirSync, unlinkSync } from "node:fs";
+import { existsSync, readdirSync, unlinkSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { readPage, writePage } from "./pages.js";
 import { parseFrontmatter } from "./frontmatter.js";
 import { readFileSync } from "node:fs";
-import { recordRename, resolveCurrent } from "./aliases.js";
+import { recordRename, resolveCurrent, expandAliases } from "./aliases.js";
+import { listTasks } from "./tasks.js";
 
 export class ProfileNotFoundError extends Error {
   constructor(public id: string) {
@@ -137,6 +138,155 @@ export function listProfiles(vaultPath: string): ProfileSummary[] {
       // skip malformed
     }
   }
+  return out;
+}
+
+export interface ProfileEnriched extends ProfileSummary {
+  wiki: string;
+  pokemon: string;
+  updated: string;
+  claimedTaskCount: number;
+}
+
+export interface ListProfilesEnrichedOptions {
+  wiki?: string;
+}
+
+/**
+ * Returns ProfileSummary fields plus `wiki`, `pokemon`, `updated` (mtime), and
+ * `claimedTaskCount` for all agent profiles across the vault.
+ *
+ * `listTasks` is called once across all wikis and the results are bucketed by
+ * agent id to avoid N+1 disk reads per profile.
+ *
+ * `pokemon` resolution order: frontmatter `pokemon:` → `species_name:` → bare slug
+ * derived from the profile id (strip `profile-` prefix).
+ *
+ * `claimedTaskCount` counts tasks whose `claimed_by` matches `agent:<bare-id>` or
+ * any historical alias of that agent (same alias expansion used in task-list tool).
+ */
+export function listProfilesEnriched(
+  vaultPath: string,
+  opts: ListProfilesEnrichedOptions = {}
+): ProfileEnriched[] {
+  // Build the set of wiki dirs to scan. Profiles currently live only in _agents,
+  // but we scan all wikis defensively so this works if profiles are ever scoped
+  // to other wikis.
+  const wikisDir = join(vaultPath, "wikis");
+  if (!existsSync(wikisDir)) return [];
+
+  const wikiNames: string[] = readdirSync(wikisDir, { withFileTypes: true })
+    .filter(d => d.isDirectory())
+    .map(d => d.name);
+
+  // Collect raw profile entries first (before task bucketing) so we know all
+  // profile ids before touching listTasks.
+  interface RawEntry {
+    id: string;
+    title: string;
+    pokemon_type: string;
+    evolution_stage: string;
+    moveset: string[];
+    wiki: string;
+    pokemon: string;
+    updated: string;
+    filePath: string;
+  }
+
+  const rawEntries: RawEntry[] = [];
+
+  for (const wikiName of wikiNames) {
+    if (opts.wiki && wikiName !== opts.wiki) continue;
+    const profilesDir = join(wikisDir, wikiName, "profiles");
+    if (!existsSync(profilesDir)) continue;
+    const files = readdirSync(profilesDir).filter(f => f.endsWith(".md"));
+    for (const file of files) {
+      const filePath = join(profilesDir, file);
+      try {
+        const raw = readFileSync(filePath, "utf8");
+        const { frontmatter: fm } = parseFrontmatter(raw);
+        const mtime = statSync(filePath).mtime;
+        const id = file.replace(/\.md$/, "");
+
+        // wiki: prefer frontmatter, fall back to parent wiki dir name
+        const wiki = fm.wiki ? String(fm.wiki) : wikiName;
+
+        // pokemon: frontmatter `pokemon:` → `species_name:` → bare slug (strip `profile-`)
+        let pokemon: string;
+        if (fm.pokemon) {
+          pokemon = String(fm.pokemon);
+        } else if (fm.species_name) {
+          pokemon = String(fm.species_name);
+        } else {
+          pokemon = id.startsWith("profile-") ? id.slice("profile-".length) : id;
+        }
+
+        rawEntries.push({
+          id,
+          title: String(fm.title ?? id),
+          pokemon_type: String(fm.pokemon_type ?? "normal"),
+          evolution_stage: String(fm.evolution_stage ?? "basic"),
+          moveset: Array.isArray(fm.moveset) ? fm.moveset : [],
+          wiki,
+          pokemon,
+          updated: mtime.toISOString(),
+          filePath
+        });
+      } catch {
+        // skip malformed
+      }
+    }
+  }
+
+  if (rawEntries.length === 0) return [];
+
+  // Single listTasks call across all wikis — no limit so we get everything.
+  const allTasks = listTasks(vaultPath, { status: "claimed", limit: Number.MAX_SAFE_INTEGER });
+
+  // Build a map from agent id string → count, accounting for alias expansion.
+  // We bucket by the exact `claimed_by` value on the task, then for each profile
+  // we expand its own aliases and sum up matching task counts.
+  const taskCountByClaimed = new Map<string, number>();
+  for (const task of allTasks) {
+    if (!task.claimed_by) continue;
+    taskCountByClaimed.set(task.claimed_by, (taskCountByClaimed.get(task.claimed_by) ?? 0) + 1);
+  }
+
+  // Build enriched results
+  const out: ProfileEnriched[] = [];
+  for (const entry of rawEntries) {
+    // Compute the set of claimed_by strings that correspond to this profile,
+    // mirroring the expandClaimedBy logic in tools/task-list.ts.
+    const bare = entry.id.startsWith("profile-") ? entry.id.slice("profile-".length) : entry.id;
+    const profileId = entry.id.startsWith("profile-") ? entry.id : `profile-${entry.id}`;
+    const expandedProfileIds = expandAliases(vaultPath, profileId);
+
+    const agentIds = new Set<string>();
+    // Always include the direct agent id
+    agentIds.add(`agent:${bare}`);
+    for (const pid of expandedProfileIds) {
+      const pBare = pid.startsWith("profile-") ? pid.slice("profile-".length) : pid;
+      agentIds.add(`agent:${pBare}`);
+    }
+
+    let claimedTaskCount = 0;
+    for (const agentId of agentIds) {
+      claimedTaskCount += taskCountByClaimed.get(agentId) ?? 0;
+    }
+
+    out.push({
+      id: entry.id,
+      title: entry.title,
+      pokemon_type: entry.pokemon_type,
+      evolution_stage: entry.evolution_stage,
+      moveset: entry.moveset,
+      wiki: entry.wiki,
+      pokemon: entry.pokemon,
+      updated: entry.updated,
+      claimedTaskCount
+    });
+  }
+
   return out;
 }
 
