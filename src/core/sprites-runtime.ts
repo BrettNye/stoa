@@ -86,7 +86,7 @@ const HALVES_PER_ROW = 2;
 // Standard 16-color ANSI palette. Tuple is [R, G, B, offset], where:
 //   - offset < 60 → fg escape `\x1b[<30+offset>m`,  bg escape `\x1b[<40+offset>m`.
 //   - offset ≥ 60 → fg escape `\x1b[<90+offset-60>m`, bg escape `\x1b[<100+offset-60>m`.
-const ANSI_PALETTE: Array<[number, number, number, number]> = [
+export const ANSI_PALETTE: Array<[number, number, number, number]> = [
   [0,   0,   0,   0],   // black
   [170, 0,   0,   1],   // red
   [0,   170, 0,   2],   // green
@@ -231,7 +231,7 @@ async function fetchPngBytes(url: string, fetcher: Fetcher): Promise<Buffer> {
 // Helpers — decode
 // ---------------------------------------------------------------------------
 
-interface DecodedImage {
+export interface DecodedImage {
   width: number;
   height: number;
   data: Buffer;
@@ -246,15 +246,65 @@ function decodePng(buffer: Buffer): DecodedImage {
   }
 }
 
+export { decodePng };
+
 // ---------------------------------------------------------------------------
 // Helpers — rendering
 // ---------------------------------------------------------------------------
 
-interface HalfStats {
+export interface HalfStats {
   /** Average alpha in [0, 1] across the pixel block. */
   alpha: number;
   /** Average RGB over alpha>0.5 pixels; (0,0,0) if none. */
   rgb: [number, number, number];
+}
+
+export interface SpriteGrid {
+  cells: { top: HalfStats; bot: HalfStats }[][];
+  cols: number;
+  rows: number;
+}
+
+/**
+ * Fetches and decodes a sprite PNG, returning the full cell grid for consumption
+ * by both the ASCII renderer and the SVG renderer.
+ */
+export async function decodeSpriteGrid(input: {
+  pokeapiUrl: string;
+  bareSpriteName: string;
+  spriteVariant: SpriteVariant;
+  vaultPath: string;
+  fetcher: Fetcher;
+}): Promise<SpriteGrid> {
+  const spriteUrl = await fetchSpriteUrl({
+    ...input,
+    colorMode: "truecolor", // colorMode is not used by fetchSpriteUrl
+  });
+  const pngBuffer = await fetchPngBytes(spriteUrl, input.fetcher);
+  const decoded = decodePng(pngBuffer);
+
+  const pxPerCellX = Math.max(1, Math.floor(decoded.width / COLS));
+  const pxPerCellHalfY = Math.max(1, Math.floor(decoded.height / (ROWS * HALVES_PER_ROW)));
+
+  const cells: { top: HalfStats; bot: HalfStats }[][] = [];
+  for (let row = 0; row < ROWS; row++) {
+    const rowCells: { top: HalfStats; bot: HalfStats }[] = [];
+    for (let col = 0; col < COLS; col++) {
+      const x0 = col * pxPerCellX;
+      const x1 = Math.min(decoded.width, x0 + pxPerCellX);
+      const yTop0 = row * 2 * pxPerCellHalfY;
+      const yTop1 = yTop0 + pxPerCellHalfY;
+      const yBot0 = yTop1;
+      const yBot1 = Math.min(decoded.height, yBot0 + pxPerCellHalfY);
+
+      const top = sampleHalf(decoded, x0, x1, yTop0, yTop1);
+      const bot = sampleHalf(decoded, x0, x1, yBot0, yBot1);
+      rowCells.push({ top, bot });
+    }
+    cells.push(rowCells);
+  }
+
+  return { cells, cols: COLS, rows: ROWS };
 }
 
 function renderToAscii(img: DecodedImage, mode: ColorMode): string[] {
@@ -286,7 +336,7 @@ function renderToAscii(img: DecodedImage, mode: ColorMode): string[] {
   return lines;
 }
 
-function sampleHalf(img: DecodedImage, x0: number, x1: number, y0: number, y1: number): HalfStats {
+export function sampleHalf(img: DecodedImage, x0: number, x1: number, y0: number, y1: number): HalfStats {
   let alphaSum = 0;
   let count = 0;
   let rSum = 0, gSum = 0, bSum = 0, opaqueCount = 0;
