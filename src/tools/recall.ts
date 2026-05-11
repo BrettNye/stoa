@@ -5,9 +5,10 @@ import { loadIndex } from "../core/index.js";
 import { resolveFamily, membersOf } from "../core/family.js";
 import { findOnDisk } from "../core/disk-fallback.js";
 import { toIsoDate } from "../core/frontmatter.js";
+import { FilterParseError } from "../core/recall-filter.js";
 
 const Input = z.object({
-  topic: z.string().min(1),
+  topic: z.string().min(1).optional(),
   wiki: z.string().optional(),
   // Phase-2 T3-2 — opt-in family-scope expansion. When set without `wiki:`,
   // recall scope expands to all members of the named family. Resolution chain
@@ -19,7 +20,10 @@ const Input = z.object({
   layer: z.enum(["knowledge", "execution", "all"]).default("knowledge"),
   include_archive: z.boolean().default(false),
   limit: z.number().int().positive().default(20),
-  by_agent: z.string().optional()
+  by_agent: z.string().optional(),
+  filter: z.string().optional()             // NEW: filter expression string.
+}).refine(d => d.topic || d.filter, {
+  message: "either `topic` or `filter` must be provided"
 });
 
 export const recallTool = {
@@ -61,14 +65,28 @@ export const recallTool = {
     // on family/wiki mismatch is intentionally not invoked here — the wiki
     // filter is authoritative for recall's scope, and a mismatch case should
     // not block a perfectly valid single-wiki call.
-    const result = recall(ctx.vaultPath, { ...input, wikis });
+    let result;
+    try {
+      result = recall(ctx.vaultPath, { ...input, wikis });
+    } catch (err) {
+      if (err instanceof FilterParseError) {
+        // Translate FilterParseError into a structured tool-level error response.
+        return {
+          error: {
+            message: `Filter parse error at position ${err.position}: ${err.message}`,
+            position: err.position
+          }
+        };
+      }
+      throw err;
+    }
 
     // v1.7 §5.4 — exact-id topic disk-fallback. When the index-based candidate
     // search returns zero hits AND `topic` matches an on-disk page id verbatim,
     // surface that page as a single fallback hit. Recovers pages authored on
     // disk but not yet seen by `vault.reindex`. Index-first semantics
     // preserved — the disk scan only fires on miss.
-    if (result.hits.length === 0) {
+    if (result.hits.length === 0 && input.topic) {
       const onDisk = findOnDisk(ctx.vaultPath, input.topic);
       if (onDisk) {
         const inScope =

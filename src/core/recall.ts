@@ -5,6 +5,7 @@ import { loadIndex, loadTokens, queryPages } from "./index.js";
 import type { IndexedPage, VaultIndex } from "./index.js";
 import { parseFrontmatter } from "./frontmatter.js";
 import { expandAliases } from "./aliases.js";
+import { parseFilter, evaluateFilter, type FilterExpr } from "./recall-filter.js";
 
 const STOP_WORDS = new Set(["the","and","of","a","an","in","to","is","for","on","with","as","at","by","or","be","this","that","it","from","are","was","were","not","but","if"]);
 const stemmer = natural.PorterStemmer;
@@ -37,7 +38,7 @@ function score(page: IndexedPage, queryTokens: Set<string>): number {
 }
 
 export interface RecallInput {
-  topic: string;
+  topic?: string;             // Optional when `filter` is provided.
   wiki?: string;
   // Phase-2 T3-2 — pre-resolved family-member set (the tool layer expands a
   // `family:` arg into this list of wikis via `core/family.membersOf`). When
@@ -49,6 +50,7 @@ export interface RecallInput {
   include_archive?: boolean;
   limit?: number;
   by_agent?: string;
+  filter?: string;            // NEW: optional filter expression (v1 grammar).
 }
 
 export interface RecallHit {
@@ -75,13 +77,80 @@ export function recall(vaultPath: string, input: RecallInput): RecallResult {
   const tokensById = loadTokens(vaultPath);
   const layer = input.layer ?? "knowledge";
   const limit = input.limit ?? 20;
+
+  // Parse filter expression once at the top. Throws FilterParseError on bad syntax.
+  let parsedFilter: FilterExpr | undefined;
+  if (input.filter) {
+    parsedFilter = parseFilter(input.filter);
+  }
+
+  let candidates = queryPages(idx, { wiki: input.wiki, wikis: input.wikis, layer })
+    .map(p => ({ ...p, tokens: tokensById[p.id] }));
+
+  // Pre-scoring narrow via filter (applied after queryPages scope, before scoring).
+  if (parsedFilter) {
+    candidates = candidates.filter(p => evaluateFilter(parsedFilter!, p));
+  }
+
+  // Filter-only mode: no topic → sort by updated descending, no synthesis_inline.
+  if (!input.topic) {
+    const sorted = [...candidates].sort((a, b) => b.updated.localeCompare(a.updated));
+    let top = sorted.slice(0, limit);
+
+    if (input.by_agent) {
+      const profileId = input.by_agent.startsWith("profile-")
+        ? input.by_agent
+        : `profile-${input.by_agent}`;
+      const expandedProfileIds = expandAliases(vaultPath, profileId);
+      const targetAuthors = new Set<string>();
+      for (const pid of expandedProfileIds) {
+        const bare = pid.startsWith("profile-") ? pid.slice("profile-".length) : pid;
+        targetAuthors.add(`agent:${bare}`);
+      }
+      top = top.filter(page => {
+        try {
+          const raw = readFileSync(join(vaultPath, page.path), "utf8");
+          const { frontmatter: fm } = parseFrontmatter(raw);
+          if (fm.author && targetAuthors.has(String(fm.author))) return true;
+          if (fm.claimed_by && targetAuthors.has(String(fm.claimed_by))) return true;
+          return false;
+        } catch {
+          return false;
+        }
+      });
+    }
+
+    const hits: RecallHit[] = top.map(page => ({
+      id: page.id,
+      title: page.title,
+      type: page.type,
+      wiki: page.wiki,
+      summary: page.summary,
+      score: 0,
+      status: page.status,
+      confidence: page.confidence,
+      updated: page.updated
+    }));
+
+    return {
+      hits,
+      synthesis_inline: [],
+      total_candidates: candidates.length,
+      segmented: {
+        knowledge: hits.filter(h => ["concept","spec","decision","synthesis","guide","source","idea","question"].includes(h.type)).length,
+        execution: hits.filter(h => ["task","journal"].includes(h.type)).length,
+        archive: 0
+      }
+    };
+  }
+
+  // Topic-scoring mode (existing branch, unchanged in behavior, now applied to
+  // the filtered candidate set rather than the unfiltered set).
   const queryTokens = new Set(tokenize(input.topic));
   if (queryTokens.size === 0) {
     return { hits: [], synthesis_inline: [], total_candidates: 0, segmented: { knowledge: 0, execution: 0, archive: 0 } };
   }
 
-  const candidates = queryPages(idx, { wiki: input.wiki, wikis: input.wikis, layer })
-    .map(p => ({ ...p, tokens: tokensById[p.id] }));
   const scored = candidates
     .map(p => ({ page: p, score: score(p, queryTokens) }))
     .filter(({ score: s }) => s > 0);
