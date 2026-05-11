@@ -164,6 +164,38 @@ tags: [topic-discovery]
 Early intro call with shilo team.
 `);
 
+  // Example 5 fixtures: miller-trucking pricing decision (primary target)
+  writeFileSync(join(vault, "wikis", "meetings", "decisions", "decision-2026-05-04-miller-trucking-pricing.md"), `---
+id: decision-2026-05-04-miller-trucking-pricing
+title: Miller Trucking pricing agreement
+type: decision
+wiki: meetings
+status: accepted
+created: 2026-05-04
+updated: 2026-05-04
+summary: Agreed pricing structure for Miller Trucking account
+tags: [company-miller-trucking, customer]
+confidence: high
+---
+Finalized pricing for Miller Trucking. The pricing model includes tiered volume discounts.
+`);
+
+  // Example 5 fixture: concept with company-miller-trucking tag AND pricing content
+  // (should be excluded by type:decision filter in worked example 5)
+  writeFileSync(join(vault, "wikis", "meetings", "concepts", "concept-miller-pricing-notes.md"), `---
+id: concept-miller-pricing-notes
+title: Miller Trucking pricing notes
+type: concept
+wiki: meetings
+status: active
+created: 2026-05-03
+updated: 2026-05-03
+summary: Background notes on Miller Trucking pricing history
+tags: [company-miller-trucking, customer]
+---
+Historical pricing context for Miller Trucking negotiations.
+`);
+
   await reindex(vault);
 });
 
@@ -202,8 +234,9 @@ describe("vault.recall with filter — filter-only mode (no topic)", () => {
 
   it("filter-only mode: total_candidates reflects post-filter set size", () => {
     const result = recall(vault, { filter: "tags:company-miller-trucking" });
-    // After scope filter (knowledge layer) + after filter — only miller and decision
-    expect(result.total_candidates).toBe(2);
+    // After scope filter (knowledge layer) + after filter — miller concept, contract decision,
+    // miller-trucking-pricing decision, and miller-pricing-notes concept = 4
+    expect(result.total_candidates).toBe(4);
   });
 
   it("filter-only mode with layer=all returns execution pages too", () => {
@@ -440,5 +473,62 @@ describe("vault.recall spec worked example 4 — topic + absolute date range (Q2
     for (const h of result.hits) {
       expect(h.type).toBe("journal");
     }
+  });
+});
+
+describe("vault.recall spec worked example 5 — topic + filter combined", () => {
+  // vault.recall pricing --filter="tags:company-miller-trucking,type:decision"
+  // Topic "pricing" ranks results via token scoring; filter narrows candidate set.
+  // Primary target: decision-2026-05-04-miller-trucking-pricing (has tag + pricing content + type decision)
+  // Should be excluded (no miller-trucking tag, but has pricing content): decision-2026-05-01-pricing
+  // Should be excluded (has miller-trucking tag + pricing content, wrong type): concept-miller-pricing-notes
+
+  it("returns the miller-trucking pricing decision (topic + filter both match)", () => {
+    const result = recall(vault, {
+      topic: "pricing",
+      filter: "tags:company-miller-trucking,type:decision"
+    });
+    const ids = result.hits.map(h => h.id);
+    expect(ids).toContain("decision-2026-05-04-miller-trucking-pricing");
+  });
+
+  it("excludes pages mentioning 'pricing' that lack the company-miller-trucking tag", () => {
+    // decision-2026-05-01-pricing mentions pricing but has only [customer] tag
+    const result = recall(vault, {
+      topic: "pricing",
+      filter: "tags:company-miller-trucking,type:decision"
+    });
+    const ids = result.hits.map(h => h.id);
+    expect(ids).not.toContain("decision-2026-05-01-pricing");
+  });
+
+  it("excludes pages with company-miller-trucking tag and pricing content but wrong type", () => {
+    // concept-miller-pricing-notes has the tag and pricing content but is type:concept
+    const result = recall(vault, {
+      topic: "pricing",
+      filter: "tags:company-miller-trucking,type:decision"
+    });
+    const ids = result.hits.map(h => h.id);
+    expect(ids).not.toContain("concept-miller-pricing-notes");
+  });
+
+  it("all returned pages have company-miller-trucking tag and are type:decision", () => {
+    const result = recall(vault, {
+      topic: "pricing",
+      filter: "tags:company-miller-trucking,type:decision"
+    });
+    expect(result.hits.length).toBeGreaterThan(0);
+    for (const h of result.hits) {
+      expect(h.type).toBe("decision");
+    }
+  });
+
+  it("returned hits have positive score (topic scoring is active)", () => {
+    const result = recall(vault, {
+      topic: "pricing",
+      filter: "tags:company-miller-trucking,type:decision"
+    });
+    expect(result.hits.length).toBeGreaterThan(0);
+    expect(result.hits[0].score).toBeGreaterThan(0);
   });
 });
