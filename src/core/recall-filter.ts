@@ -145,18 +145,18 @@ export function evaluateFilter(
 ): boolean {
   for (const pair of filter.pairs) {
     if (DATE_FIELDS.has(pair.attr)) {
-      const pageDate = (page as Record<string, unknown>)[pair.attr];
+      const pageDate = (page as unknown as Record<string, unknown>)[pair.attr];
       if (typeof pageDate !== "string" || !pageDate) return false;
       if (typeof pair.value !== "object") return false;
       if (!compareDate(pageDate, pair.value as DateComparison, now)) return false;
     } else if (LIST_FIELDS.has(pair.attr)) {
-      const list = (page as Record<string, unknown>)[pair.attr];
+      const list = (page as unknown as Record<string, unknown>)[pair.attr];
       if (!Array.isArray(list)) return false;
       if (typeof pair.value !== "string") return false;
       if (!list.includes(pair.value)) return false;
     } else {
       // Scalar equality. Lookup field on IndexedPage by name.
-      const field = (page as Record<string, unknown>)[pair.attr];
+      const field = (page as unknown as Record<string, unknown>)[pair.attr];
       if (typeof pair.value !== "string") return false;
       // Missing field → no-match
       if (field === undefined || field === null) return false;

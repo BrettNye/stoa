@@ -121,7 +121,11 @@ export async function startStdio(config: VaultConfig): Promise<void> {
     const tool = allTools.find(t => t.name === req.params.name);
     if (!tool) throw new Error(`unknown tool: ${req.params.name}`);
     const parsed = tool.inputSchema.parse(req.params.arguments ?? {});
-    const result = await tool.handler(parsed as any, buildCtx(config, eventBundle));
+    // Each tool handler has its own context shape (the intersection of all
+    // tool contexts narrows to an unsatisfiable type because wait-for tools
+    // require non-optional `bus`). Cast to any at the call site — each
+    // handler validates the fields it actually reads.
+    const result = await tool.handler(parsed as any, buildCtx(config, eventBundle) as any);
     return {
       content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
     };
@@ -140,9 +144,18 @@ export async function startStdio(config: VaultConfig): Promise<void> {
 function walkInitablePaths(vaultPath: string): string[] {
   const root = join(vaultPath, "wikis");
   if (!existsSync(root)) return [];
-  let entries: ReturnType<typeof readdirSync>;
+  // @types/node 22 declares `Dirent<NonSharedBuffer>` as the default for the
+  // recursive+withFileTypes overload — `name` ends up typed as a buffer-like
+  // even though it's a string at runtime (we pass a string path with no
+  // encoding option). Type the result with the fields we actually consume.
+  let entries: Array<{
+    isFile(): boolean;
+    name: string;
+    parentPath?: string;
+    path?: string;
+  }>;
   try {
-    entries = readdirSync(root, { recursive: true, withFileTypes: true });
+    entries = readdirSync(root, { recursive: true, withFileTypes: true }) as unknown as typeof entries;
   } catch {
     return [];
   }
@@ -151,7 +164,7 @@ function walkInitablePaths(vaultPath: string): string[] {
     if (!e.isFile()) continue;
     if (!e.name.endsWith(".md")) continue;
     // parentPath is available in Node 20+; fall back to the entry's path prop.
-    const dir = (e as any).parentPath ?? (e as any).path ?? root;
+    const dir = e.parentPath ?? e.path ?? root;
     const abs = join(dir, e.name);
     for (const m of matchers) {
       if (!m.init) continue;
