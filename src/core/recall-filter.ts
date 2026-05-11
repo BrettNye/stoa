@@ -42,15 +42,11 @@ const LIST_FIELDS = new Set(["tags"]);
 const RELATIVE_DATE_RE = /^([<>=])(\d+)d$/;
 // Regex for absolute date: <2026-01-01  >2026-01-01  =2026-01-01
 const ABSOLUTE_DATE_RE = /^([<>=])(\d{4}-\d{2}-\d{2})$/;
-// Regex for quarter: =2026q2  =2026q1
-const QUARTER_DATE_RE = /^([<>=])(\d{4})q([1-4])$/i;
+// Regex for quarter: =2026q2  =2026q1  (lowercase only — uppercase Q is not supported)
+const QUARTER_DATE_RE = /^([<>=])(\d{4})q([1-4])$/;
 
-function parseDateValue(raw: string, position: number): DateComparison | null {
-  // Only attempt date parse if it starts with a comparator
-  if (raw.length === 0) return null;
-  const first = raw[0];
-  if (first !== "<" && first !== ">" && first !== "=") return null;
-
+// Called only when `raw` is known to start with a comparator character.
+function parseDateValue(raw: string, position: number): DateComparison {
   const relMatch = RELATIVE_DATE_RE.exec(raw);
   if (relMatch) {
     return {
@@ -117,17 +113,24 @@ export function parseFilter(expr: string): FilterExpr {
       );
     }
 
-    // Try to parse as date comparison if the value starts with a comparator.
     const first = valueRaw[0];
-    if (first === "<" || first === ">" || first === "=") {
-      const dateCmp = parseDateValue(valueRaw, charOffset + colonIdx + 1);
-      if (dateCmp !== null) {
-        pairs.push({ attr, value: dateCmp });
-        charOffset += raw.length + 1; // +1 for the comma
-        continue;
+
+    if (DATE_FIELDS.has(attr)) {
+      // Date fields require a comparator prefix (<, >, or =).
+      if (first !== "<" && first !== ">" && first !== "=") {
+        throw new FilterParseError(
+          `date field '${attr}' requires a comparator (<, >, or =); got '${valueRaw}'`,
+          charOffset + colonIdx + 1
+        );
       }
+      // parseDateValue will throw if the format is unrecognized.
+      const dateCmp = parseDateValue(valueRaw, charOffset + colonIdx + 1);
+      pairs.push({ attr, value: dateCmp });
+      charOffset += raw.length + 1; // +1 for the comma
+      continue;
     }
 
+    // Non-date field: store as scalar value for equality/list matching.
     pairs.push({ attr, value: valueRaw });
     charOffset += raw.length + 1; // +1 for the comma
   }

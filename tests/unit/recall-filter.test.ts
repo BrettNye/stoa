@@ -81,6 +81,27 @@ describe("parseFilter", () => {
     expect(err).toBeInstanceOf(FilterParseError);
     expect(typeof err!.position).toBe("number");
   });
+
+  it("throws FilterParseError when a date field has a plain scalar value (no comparator)", () => {
+    expect(() => parseFilter("updated:2026-05-01")).toThrow(FilterParseError);
+  });
+
+  it("includes the field name and value in the error message for date-without-comparator", () => {
+    let err: FilterParseError | null = null;
+    try {
+      parseFilter("updated:2026-05-01");
+    } catch (e) {
+      err = e as FilterParseError;
+    }
+    expect(err).not.toBeNull();
+    expect(err!.message).toContain("updated");
+    expect(err!.message).toContain("2026-05-01");
+    expect(err!.message).toContain("comparator");
+  });
+
+  it("throws FilterParseError when created field has a plain scalar value (no comparator)", () => {
+    expect(() => parseFilter("created:2026-01-01")).toThrow(FilterParseError);
+  });
 });
 
 describe("evaluateFilter — type-aware semantics", () => {
