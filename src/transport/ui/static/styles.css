@@ -1,0 +1,356 @@
+/* stoa dashboard — squirtle-v2 layout */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --color-bg: #0f1117;
+  --color-surface: #1a1d27;
+  --color-border: #2a2d3a;
+  --color-text: #e2e8f0;
+  --color-text-muted: #8892a4;
+  --color-accent: #6366f1;
+  --color-green: #22c55e;
+  --color-yellow: #eab308;
+  --color-red: #ef4444;
+  --color-gray: #6b7280;
+  --header-height: 3rem;
+  --gap: 0.75rem;
+}
+
+html, body {
+  height: 100%;
+  font-family: ui-monospace, "Cascadia Code", "Fira Code", monospace;
+  font-size: 13px;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+/* ---------------------------------------------------------------------------
+   Header
+--------------------------------------------------------------------------- */
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  height: var(--header-height);
+  padding: 0 1rem;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.brand {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--color-accent);
+  letter-spacing: 0.1em;
+}
+
+.status {
+  flex: 1;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+header button {
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.25rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-family: inherit;
+}
+
+header button:hover:not(:disabled) {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+
+header button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------------------------
+   Live-dot indicator
+--------------------------------------------------------------------------- */
+
+.live-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-green);
+  margin-left: 0.25rem;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.live-dot.paused {
+  background: var(--color-gray);
+  animation: none;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ---------------------------------------------------------------------------
+   Three-pane grid — squirtle-v2: 22 / 48 / 30
+--------------------------------------------------------------------------- */
+
+main.grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  padding: var(--gap);
+  height: calc(100vh - var(--header-height));
+  overflow: hidden;
+}
+
+@media (min-width: 1024px) {
+  main.grid {
+    display: grid;
+    grid-template-columns: 22% 48% 30%;
+    grid-template-rows: 1fr;
+    gap: var(--gap);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Panes
+--------------------------------------------------------------------------- */
+
+.pane {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 200px;
+}
+
+.pane h2 {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.pane ul {
+  flex: 1;
+  overflow-y: auto;
+  list-style: none;
+  padding: 0.25rem 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Empty states
+--------------------------------------------------------------------------- */
+
+.empty-state {
+  padding: 1rem 0.75rem;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
+/* ---------------------------------------------------------------------------
+   Agent cards
+--------------------------------------------------------------------------- */
+
+.agent-card {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  cursor: default;
+}
+
+.agent-card:hover {
+  background: rgba(255,255,255,0.03);
+}
+
+.agent-card .sprite {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+}
+
+.agent-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.agent-name {
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: capitalize;
+}
+
+.agent-type,
+.agent-stage,
+.agent-tasks {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+
+/* ---------------------------------------------------------------------------
+   Task rows
+--------------------------------------------------------------------------- */
+
+.task-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.25rem 0.5rem;
+  padding: 0.4rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  align-items: start;
+}
+
+.task-row:hover {
+  background: rgba(255,255,255,0.03);
+}
+
+.task-title {
+  font-size: 0.8rem;
+  color: var(--color-accent);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-title:hover {
+  text-decoration: underline;
+}
+
+.task-wiki,
+.task-claimer,
+.task-channel,
+.task-type,
+.task-updated {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+
+.task-status {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.status-pending   { background: rgba(234,179,8,0.15);  color: var(--color-yellow); }
+.status-claimed   { background: rgba(99,102,241,0.15); color: var(--color-accent); }
+.status-in_progress { background: rgba(99,102,241,0.2); color: var(--color-accent); }
+.status-completed { background: rgba(34,197,94,0.15);  color: var(--color-green); }
+.status-failed    { background: rgba(239,68,68,0.15);  color: var(--color-red); }
+.status-blocked   { background: rgba(239,68,68,0.1);   color: var(--color-red); }
+
+/* ---------------------------------------------------------------------------
+   Channel rows
+--------------------------------------------------------------------------- */
+
+.channel-row {
+  padding: 0.4rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.channel-row:hover {
+  background: rgba(255,255,255,0.03);
+}
+
+.channel-name {
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: var(--color-accent);
+}
+
+.channel-author,
+.channel-ts,
+.channel-wiki {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  margin-left: 0.25rem;
+}
+
+.channel-excerpt {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-text);
+  margin-top: 0.15rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.channel-link {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.channel-link:hover {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+/* ---------------------------------------------------------------------------
+   Slot divs for task-frontend-writes
+--------------------------------------------------------------------------- */
+
+#agents-actions,
+#channels-actions {
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.agent-row-actions,
+.task-row-actions,
+.channel-row-actions {
+  /* Placeholder for write affordances added by task-frontend-writes */
+  display: contents;
+}
+
+/* ---------------------------------------------------------------------------
+   Scrollbars
+--------------------------------------------------------------------------- */
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 2px;
+}

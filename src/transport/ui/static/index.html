@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>stoa</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script defer src="/static/app.js"></script>
+</head>
+<body x-data="dashboard()" x-init="boot()">
+  <header>
+    <div class="brand">stoa</div>
+    <div class="status">
+      vault: <span x-text="vaultBaseName"></span>
+      &middot; wikis: <span x-text="wikis.length"></span>
+      &middot; active tasks: <span x-text="activeTaskCount"></span>
+      &middot; <span x-text="lastRefreshDelta"></span>
+      <span class="live-dot" :class="{ paused: pollPaused }"></span>
+    </div>
+    <button @click="refresh()" :disabled="loading">refresh</button>
+  </header>
+  <main class="grid">
+    <section class="pane agents">
+      <h2>Agents</h2>
+      <ul x-show="agents.length > 0">
+        <template x-for="a in agents" :key="a.id">
+          <li class="agent-card">
+            <img :src="a.spriteUrl" :alt="a.pokemon" class="sprite" />
+            <div class="agent-info">
+              <span class="agent-name" x-text="a.pokemon"></span>
+              <span class="agent-type" x-text="a.pokemon_type"></span>
+              <span class="agent-stage" x-text="a.evolution_stage"></span>
+              <span class="agent-tasks" x-text="a.claimedTaskCount + ' task(s)'"></span>
+            </div>
+            <div class="agent-row-actions"></div>
+          </li>
+        </template>
+      </ul>
+      <p x-show="agents.length === 0" class="empty-state">No agents registered.</p>
+      <div id="agents-actions"></div>
+    </section>
+    <section class="pane tasks">
+      <h2>Tasks</h2>
+      <ul x-show="tasks.length > 0">
+        <template x-for="t in tasks" :key="t.id">
+          <li class="task-row">
+            <a :href="taskHref(t)" x-text="t.title" class="task-title"></a>
+            <span class="task-wiki" x-text="t.wiki"></span>
+            <span class="task-status" :class="'status-' + t.status" x-text="t.status"></span>
+            <span class="task-claimer" x-show="t.claimed_by" x-text="t.claimed_by"></span>
+            <span class="task-channel" x-show="t.channel" x-text="t.channel"></span>
+            <span class="task-type" x-show="t.required_pokemon_type" x-text="t.required_pokemon_type"></span>
+            <span class="task-updated" x-text="relTime(t.updated)"></span>
+            <div class="task-row-actions"></div>
+          </li>
+        </template>
+      </ul>
+      <p x-show="tasks.length === 0" class="empty-state">No tasks found.</p>
+    </section>
+    <section class="pane channels">
+      <h2>Channels</h2>
+      <ul x-show="channelEntries.length > 0">
+        <template x-for="e in channelEntries" :key="e.id">
+          <li class="channel-row">
+            <span class="channel-name" x-text="e.channel"></span>
+            <span class="channel-author" x-text="e.author"></span>
+            <span class="channel-ts" x-text="relTime(e.ts)"></span>
+            <span class="channel-excerpt" x-text="e.excerpt"></span>
+            <span class="channel-wiki" x-text="e.wiki"></span>
+            <a :href="'obsidian://open?vault=' + vaultBaseName + '&file=' + e.pageId" class="channel-link">open</a>
+            <div class="channel-row-actions"></div>
+          </li>
+        </template>
+      </ul>
+      <p x-show="channelEntries.length === 0" class="empty-state">No channel entries yet.</p>
+      <div id="channels-actions"></div>
+    </section>
+  </main>
+</body>
+</html>
