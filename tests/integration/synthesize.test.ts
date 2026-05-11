@@ -49,6 +49,103 @@ describe("synthesize", () => {
   });
 });
 
+describe("synthesize — prose input + protected manual-notes zone", () => {
+  it("when `prose` is supplied, ## Notes body is the supplied prose (not the stub)", () => {
+    const prose = "This is the LLM-composed synthesis prose, citing [[concept-auth]] verbatim.";
+    const result = synthesize(vault, { topic: "auth", wiki: "alpha", prose });
+    const content = readFileSync(result.path, "utf8");
+
+    expect(content).toContain("## Notes");
+    expect(content).toContain(prose);
+    // The stub language must not appear when prose is provided.
+    expect(content).not.toContain("Hand-edit this section");
+    expect(content).not.toContain("this stub is what `vault.synthesize` writes");
+  });
+
+  it("without `prose`, falls back to the existing stub paragraph (backwards-compatible)", () => {
+    const result = synthesize(vault, { topic: "auth", wiki: "alpha" });
+    const content = readFileSync(result.path, "utf8");
+    expect(content).toContain("## Notes");
+    expect(content).toContain("Hand-edit this section");
+  });
+
+  it("seeds a ## Manual notes section bounded by vault-synthesize-manual markers on first compile", () => {
+    const result = synthesize(vault, { topic: "auth", wiki: "alpha" });
+    const content = readFileSync(result.path, "utf8");
+
+    expect(content).toContain("## Manual notes");
+    expect(content).toContain("<!-- vault-synthesize-manual:start -->");
+    expect(content).toContain("<!-- vault-synthesize-manual:end -->");
+    // The seed must be empty between markers (no user content yet).
+    const startIdx = content.indexOf("<!-- vault-synthesize-manual:start -->");
+    const endIdx = content.indexOf("<!-- vault-synthesize-manual:end -->");
+    const between = content.slice(
+      startIdx + "<!-- vault-synthesize-manual:start -->".length,
+      endIdx,
+    );
+    expect(between.trim()).toBe("");
+  });
+
+  it("orders sections as: Inputs cited → Notes → Manual notes (topic scope)", () => {
+    const result = synthesize(vault, { topic: "auth", wiki: "alpha", prose: "synthesis prose" });
+    const content = readFileSync(result.path, "utf8");
+
+    const inputsIdx = content.indexOf("## Inputs cited");
+    const notesIdx = content.indexOf("## Notes");
+    const manualIdx = content.indexOf("## Manual notes");
+
+    expect(inputsIdx).toBeGreaterThan(0);
+    expect(notesIdx).toBeGreaterThan(inputsIdx);
+    expect(manualIdx).toBeGreaterThan(notesIdx);
+  });
+
+  it("preserves user-authored manual-notes content verbatim across re-compile", async () => {
+    // First compile to scaffold the page.
+    const r1 = synthesize(vault, { topic: "auth", wiki: "alpha" });
+    const original = readFileSync(r1.path, "utf8");
+
+    // Simulate a user hand-editing between the manual-notes markers.
+    const userBody = "Here are my own notes:\n\n- point A\n- point B with **bold**\n- [[concept-auth]] is wrong about X.";
+    const edited = original.replace(
+      /<!-- vault-synthesize-manual:start -->[\s\S]*?<!-- vault-synthesize-manual:end -->/,
+      `<!-- vault-synthesize-manual:start -->\n${userBody}\n<!-- vault-synthesize-manual:end -->`,
+    );
+    writeFileSync(r1.path, edited);
+    await reindex(vault);
+
+    // Re-compile.
+    synthesize(vault, { topic: "auth", wiki: "alpha", prose: "new prose, different from stub" });
+    const after = readFileSync(r1.path, "utf8");
+
+    // User's manual notes survive verbatim.
+    expect(after).toContain(userBody);
+    // New prose lands in ## Notes.
+    expect(after).toContain("new prose, different from stub");
+    // Stub gone (replaced by prose).
+    expect(after).not.toContain("Hand-edit this section");
+  });
+
+  it("preserves manual-notes across many re-compiles (not just the first re-run)", async () => {
+    synthesize(vault, { topic: "auth", wiki: "alpha" });
+    const path1 = join(vault, "wikis", "alpha", "synthesis", "synthesis-auth.md");
+
+    const userBody = "Sticky manual note.";
+    let content = readFileSync(path1, "utf8").replace(
+      /<!-- vault-synthesize-manual:start -->[\s\S]*?<!-- vault-synthesize-manual:end -->/,
+      `<!-- vault-synthesize-manual:start -->\n${userBody}\n<!-- vault-synthesize-manual:end -->`,
+    );
+    writeFileSync(path1, content);
+    await reindex(vault);
+
+    for (let i = 0; i < 3; i++) {
+      synthesize(vault, { topic: "auth", wiki: "alpha", prose: `pass ${i}` });
+      content = readFileSync(path1, "utf8");
+      expect(content).toContain(userBody);
+      expect(content).toContain(`pass ${i}`);
+    }
+  });
+});
+
 describe("synthesize — by_agent + scope (Plan C.1b)", () => {
   let memVault: string;
 

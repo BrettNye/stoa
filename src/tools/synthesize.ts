@@ -31,7 +31,8 @@ const Input = z.object({
   wiki: z.string().optional(),
   inputs: z.array(z.string()).optional(),
   by_agent: z.string().optional(),
-  scope: z.enum(["topic", "memory"]).default("topic")
+  scope: z.enum(["topic", "memory"]).default("topic"),
+  prose: z.string().optional()
 });
 
 export interface SynthesizeCtx {

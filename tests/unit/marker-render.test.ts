@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   renderBetweenMarkers,
   removeMarkerSection,
+  extractBetweenMarkers,
 } from "../../src/core/marker-render.js";
 
 describe("renderBetweenMarkers", () => {
@@ -227,5 +228,64 @@ describe("removeMarkerSection", () => {
     expect(removed).not.toContain("m:start");
     expect(removed).not.toContain("m:end");
     expect(removed).not.toContain("## S");
+  });
+});
+
+describe("extractBetweenMarkers", () => {
+  it("returns the content between markers, exclusive of the markers themselves", () => {
+    const content =
+      "head\n\n<!-- m:start -->\nbody line 1\nbody line 2\n<!-- m:end -->\n\ntail";
+    const out = extractBetweenMarkers(content, "m");
+    expect(out).toBe("body line 1\nbody line 2");
+  });
+
+  it("returns null when start marker is absent", () => {
+    expect(extractBetweenMarkers("no markers here", "m")).toBeNull();
+  });
+
+  it("returns an empty string when the region between markers is empty", () => {
+    // Adjacent markers with nothing but a newline between them.
+    const content = "head\n\n<!-- m:start -->\n<!-- m:end -->\n\ntail";
+    const out = extractBetweenMarkers(content, "m");
+    expect(out).toBe("");
+  });
+
+  it("preserves embedded HTML comments and inner whitespace verbatim", () => {
+    const inner = "  <!-- this is fine -->\n\n  indented line\n";
+    const content = `head\n<!-- m:start -->\n${inner}<!-- m:end -->\ntail`;
+    const out = extractBetweenMarkers(content, "m");
+    // Trailing newline before the end marker is stripped; everything else
+    // preserved.
+    expect(out).toBe(inner.replace(/\n$/, ""));
+  });
+
+  it("tolerates start-marker parenthetical metadata", () => {
+    const content =
+      "head\n\n<!-- m:start (rendered: 2026-05-11) -->\nbody\n<!-- m:end -->\n\ntail";
+    expect(extractBetweenMarkers(content, "m")).toBe("body");
+  });
+
+  it("does not match a different marker name", () => {
+    const content =
+      "head\n<!-- vault-claims:start -->\nclaims body\n<!-- vault-claims:end -->\ntail";
+    expect(extractBetweenMarkers(content, "vault-synthesize-manual")).toBeNull();
+  });
+
+  it("with two start blocks of the same name, returns content of the FIRST pair", () => {
+    const content =
+      "head\n<!-- m:start -->\nFIRST\n<!-- m:end -->\nmid\n<!-- m:start -->\nSECOND\n<!-- m:end -->\ntail";
+    expect(extractBetweenMarkers(content, "m")).toBe("FIRST");
+  });
+
+  it("throws a descriptive error when start marker is present but end marker is missing", () => {
+    const content = "head\n<!-- m:start -->\norphan body\ntail";
+    expect(() => extractBetweenMarkers(content, "m")).toThrow(/m:end/);
+  });
+
+  it("round-trip: render then extract returns the body that was rendered", () => {
+    const original = "# Title\n\nbody";
+    const body = "user wrote this";
+    const rendered = renderBetweenMarkers(original, "vault-synthesize-manual", body);
+    expect(extractBetweenMarkers(rendered, "vault-synthesize-manual")).toBe(body);
   });
 });

@@ -89,6 +89,52 @@ export function renderBetweenMarkers(
 }
 
 /**
+ * Read the content currently rendered between the marker pair, exclusive
+ * of the markers themselves. Returns `null` if the start marker is absent
+ * (no managed section yet). Returns `""` if the markers exist but enclose
+ * nothing.
+ *
+ * Used by `synthesize` to preserve a user-authored protected zone
+ * (`vault-synthesize-manual` markers) across full-file rewrites: the
+ * caller extracts current content here, rebuilds the rest of the file,
+ * then re-renders the protected zone with the extracted body unchanged.
+ *
+ * The leading newline immediately after the start marker and the trailing
+ * newline immediately before the end marker (both added by
+ * `renderBetweenMarkers`) are stripped; all other content between is
+ * preserved verbatim, including embedded HTML comments and inner
+ * whitespace. This makes `extract → render` a round-trip: extracting
+ * what was rendered yields the exact `replacement` originally passed.
+ *
+ * Locates the FIRST start marker and searches for the next end marker
+ * only in the substring after it — mirroring `renderBetweenMarkers` /
+ * `removeMarkerSection` so duplicate or out-of-order markers behave
+ * consistently across all three helpers. Throws a descriptive Error when
+ * a start marker is found but no end marker follows it.
+ */
+export function extractBetweenMarkers(
+  content: string,
+  markerName: string,
+): string | null {
+  const escaped = escapeRegex(markerName);
+  const startMarkerRe = new RegExp(`<!--\\s*${escaped}:start[^>]*-->`);
+  const endMarkerRe = new RegExp(`<!--\\s*${escaped}:end\\s*-->`);
+
+  const startExec = startMarkerRe.exec(content);
+  if (!startExec) return null;
+  const startIdx = startExec.index;
+  const afterStart = startIdx + startExec[0].length;
+  const endExec = endMarkerRe.exec(content.slice(afterStart));
+  if (!endExec) {
+    throw new Error(
+      `extractBetweenMarkers: found <!-- ${markerName}:start --> at offset ${startIdx} but no matching <!-- ${markerName}:end --> after it`,
+    );
+  }
+  const between = content.slice(afterStart, afterStart + endExec.index);
+  return between.replace(/^\n/, "").replace(/\n$/, "");
+}
+
+/**
  * Remove a marker-bounded section entirely (used for opt-out cleanup —
  * §8.2 behavior: when `claim_render: false` is set on a previously-rendered
  * move, sync-skills removes the existing markers + content).

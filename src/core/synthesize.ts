@@ -3,6 +3,9 @@ import { join } from "node:path";
 import { recall } from "./recall.js";
 import { serializeFrontmatter, parseFrontmatter } from "./frontmatter.js";
 import { slugify } from "./ids.js";
+import { renderBetweenMarkers, extractBetweenMarkers } from "./marker-render.js";
+
+const MANUAL_NOTES_MARKER = "vault-synthesize-manual";
 
 export interface SynthesizeInput {
   topic: string;
@@ -10,6 +13,13 @@ export interface SynthesizeInput {
   inputs?: string[];
   by_agent?: string;
   scope?: "topic" | "memory";
+  /**
+   * Optional caller-composed prose that replaces the body of the `## Notes`
+   * section verbatim. When omitted, the fallback stub paragraph is written
+   * (preserved for backwards-compat). The string is treated as already-
+   * formatted markdown — no wrapping, no escaping, no heading injection.
+   */
+  prose?: string;
 }
 
 export interface SynthesizeResult {
@@ -81,9 +91,40 @@ export function synthesize(vaultPath: string, input: SynthesizeInput): Synthesiz
   if (scope === "memory") fm.scope = "memory";
 
   const heading = scope === "memory" ? `${input.by_agent} memory` : input.topic;
-  const body = `# ${heading}\n\n_Compiled ${today} from ${inputIds.length} input page(s)._\n\n## Inputs cited\n\n${inputIds.map(i => `- [[${i}]]`).join("\n")}\n\n## Notes\n\n(Hand-edit this section to add the actual synthesis prose. The agent should produce this from input contents on real runs; this stub is what \`vault.synthesize\` writes when called without an LLM.)\n`;
 
+  // Notes section: caller-supplied prose verbatim, or fallback stub.
+  const notesBody = input.prose !== undefined
+    ? input.prose
+    : "(Hand-edit this section to add the actual synthesis prose. The agent should produce this from input contents on real runs; this stub is what `vault.synthesize` writes when called without an LLM.)";
+
+  // Protected manual-notes zone: extract content from the prior file (if any)
+  // so re-compiles do not lose hand-edited material. First compile seeds an
+  // empty block (markers with nothing between).
   const wasOverwrite = existsSync(path);
+  let preservedManualNotes = "";
+  if (wasOverwrite) {
+    try {
+      const prior = readFileSync(path, "utf8");
+      const extracted = extractBetweenMarkers(prior, MANUAL_NOTES_MARKER);
+      if (extracted !== null) preservedManualNotes = extracted;
+    } catch {
+      // Malformed prior file or dangling marker — fall back to empty seed
+      // rather than aborting the compile. The caller can recover manually.
+      preservedManualNotes = "";
+    }
+  }
+  // Render the manual-notes block by piping through renderBetweenMarkers so
+  // the marker contract is single-sourced. Empty content stays empty between
+  // markers (renderBetweenMarkers trims trailing whitespace on `replacement`).
+  const manualNotesBlock = renderBetweenMarkers("", MANUAL_NOTES_MARKER, preservedManualNotes);
+
+  const body =
+    `# ${heading}\n\n` +
+    `_Compiled ${today} from ${inputIds.length} input page(s)._\n\n` +
+    `## Inputs cited\n\n${inputIds.map(i => `- [[${i}]]`).join("\n")}\n\n` +
+    `## Notes\n\n${notesBody}\n\n` +
+    `## Manual notes\n\n${manualNotesBlock.trimEnd()}\n`;
+
   writeFileSync(path, serializeFrontmatter(fm, body));
 
   return { id, path, inputs_used: inputIds, last_compiled: today, was_overwrite: wasOverwrite };
