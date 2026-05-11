@@ -5,6 +5,81 @@ import { slugify } from "./ids.js";
 import { loadIndex, queryPages, upsertPage } from "./index.js";
 import { resolveCurrent } from "./aliases.js";
 
+// ---------------------------------------------------------------------------
+// listAllChannels — channel enumeration for dashboard /api/channels
+// ---------------------------------------------------------------------------
+
+export interface ChannelLastEntry {
+  id: string;
+  channel: string;
+  wiki: string;
+  author: string;
+  ts: string;
+  excerpt: string;
+  pageId: string;
+}
+
+export interface ChannelSummary {
+  name: string;
+  wiki: string;
+  lastEntry: ChannelLastEntry | null;
+  count24h: number;
+}
+
+export interface ListChannelsOptions {
+  wiki?: string;
+  /** Optional ISO timestamp; default = 24h ago from now. */
+  since?: string;
+}
+
+export function listAllChannels(vaultPath: string, opts: ListChannelsOptions = {}): ChannelSummary[] {
+  const sinceIso = opts.since ?? new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const idx = loadIndex(vaultPath);
+  const pages = queryPages(idx, { type: "journal", wiki: opts.wiki });
+  const byKey = new Map<string, ChannelSummary>();
+  for (const p of pages) {
+    const channel = p.channel;
+    if (typeof channel !== "string" || !channel) continue;
+    const key = `${p.wiki}::${channel}`;
+    let summary = byKey.get(key);
+    if (!summary) {
+      summary = { name: channel, wiki: p.wiki, lastEntry: null, count24h: 0 };
+      byKey.set(key, summary);
+    }
+    if (p.created >= sinceIso) summary.count24h++;
+    if (!summary.lastEntry || p.created > summary.lastEntry.ts) {
+      // Read the file once to get author and body excerpt
+      const pagePath = join(vaultPath, p.path);
+      let excerpt = "";
+      let author = "unknown";
+      if (existsSync(pagePath)) {
+        try {
+          const raw = readFileSync(pagePath, "utf8");
+          const { frontmatter: fm, body } = parseFrontmatter(raw);
+          excerpt = body.trim().slice(0, 240);
+          author = String(fm.author ?? "unknown");
+        } catch {
+          // leave defaults on parse error
+        }
+      }
+      summary.lastEntry = {
+        id: p.id,
+        channel,
+        wiki: p.wiki,
+        author,
+        ts: p.created,
+        excerpt,
+        pageId: p.id,
+      };
+    }
+  }
+  return [...byKey.values()].sort((a, b) => {
+    const at = a.lastEntry?.ts ?? "";
+    const bt = b.lastEntry?.ts ?? "";
+    return bt.localeCompare(at);
+  });
+}
+
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 export interface PostInput {
