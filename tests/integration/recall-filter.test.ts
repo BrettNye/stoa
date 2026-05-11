@@ -532,3 +532,28 @@ describe("vault.recall spec worked example 5 — topic + filter combined", () =>
     expect(result.hits[0].score).toBeGreaterThan(0);
   });
 });
+
+// Zero-match coverage — pins the empty-result shape so any future regression
+// in the empty path (e.g., a special-case that drops total_candidates or
+// breaks synthesis_inline construction) is caught immediately.
+describe("vault.recall with filter — zero-match result shape", () => {
+  it("returns the canonical empty-result shape (filter-only mode, no matches)", () => {
+    const result = recall(vault, {
+      filter: "tags:nonexistent-tag-that-no-page-uses"
+    });
+    expect(result.hits).toEqual([]);
+    expect(result.total_candidates).toBe(0);
+    expect(result.synthesis_inline).toEqual([]);
+    expect(result.segmented).toEqual({ knowledge: 0, execution: 0, archive: 0 });
+  });
+
+  it("returns the canonical empty-result shape (topic + filter, no matches)", () => {
+    const result = recall(vault, {
+      topic: "pricing",
+      filter: "tags:nonexistent-tag-that-no-page-uses"
+    });
+    expect(result.hits).toEqual([]);
+    expect(result.total_candidates).toBe(0);
+    expect(result.synthesis_inline).toEqual([]);
+  });
+});

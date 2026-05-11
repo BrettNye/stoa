@@ -27,6 +27,40 @@ function intersect(a: string[] | undefined, b: Set<string>): number {
 
 const CONFIDENCE_RANK: Record<string, number> = { high: 3, medium: 2, low: 1 };
 
+// Shared by_agent filter — used by both the filter-only and topic-scoring
+// branches. Reads each item's referenced page off disk, checks frontmatter
+// `author` / `claimed_by` against the alias-expanded target set, drops on
+// read or parse failure. Generic over T with an injected path extractor so
+// both branches (which carry pages directly vs. inside scored {page, score}
+// wrappers) can reuse it.
+function filterByAgent<T>(
+  vaultPath: string,
+  byAgent: string,
+  items: T[],
+  getPath: (item: T) => string
+): T[] {
+  const profileId = byAgent.startsWith("profile-")
+    ? byAgent
+    : `profile-${byAgent}`;
+  const expandedProfileIds = expandAliases(vaultPath, profileId);
+  const targetAuthors = new Set<string>();
+  for (const pid of expandedProfileIds) {
+    const bare = pid.startsWith("profile-") ? pid.slice("profile-".length) : pid;
+    targetAuthors.add(`agent:${bare}`);
+  }
+  return items.filter(item => {
+    try {
+      const raw = readFileSync(join(vaultPath, getPath(item)), "utf8");
+      const { frontmatter: fm } = parseFrontmatter(raw);
+      if (fm.author && targetAuthors.has(String(fm.author))) return true;
+      if (fm.claimed_by && targetAuthors.has(String(fm.claimed_by))) return true;
+      return false;
+    } catch {
+      return false;
+    }
+  });
+}
+
 function score(page: IndexedPage, queryTokens: Set<string>): number {
   const tags = intersect(page.tokens?.tags, queryTokens) * 3;
   const title = intersect(page.tokens?.title, queryTokens) * 2;
@@ -98,26 +132,7 @@ export function recall(vaultPath: string, input: RecallInput): RecallResult {
     let top = sorted.slice(0, limit);
 
     if (input.by_agent) {
-      const profileId = input.by_agent.startsWith("profile-")
-        ? input.by_agent
-        : `profile-${input.by_agent}`;
-      const expandedProfileIds = expandAliases(vaultPath, profileId);
-      const targetAuthors = new Set<string>();
-      for (const pid of expandedProfileIds) {
-        const bare = pid.startsWith("profile-") ? pid.slice("profile-".length) : pid;
-        targetAuthors.add(`agent:${bare}`);
-      }
-      top = top.filter(page => {
-        try {
-          const raw = readFileSync(join(vaultPath, page.path), "utf8");
-          const { frontmatter: fm } = parseFrontmatter(raw);
-          if (fm.author && targetAuthors.has(String(fm.author))) return true;
-          if (fm.claimed_by && targetAuthors.has(String(fm.claimed_by))) return true;
-          return false;
-        } catch {
-          return false;
-        }
-      });
+      top = filterByAgent(vaultPath, input.by_agent, top, p => p.path);
     }
 
     const hits: RecallHit[] = top.map(page => ({
@@ -166,26 +181,7 @@ export function recall(vaultPath: string, input: RecallInput): RecallResult {
   let top = scored.slice(0, limit);
 
   if (input.by_agent) {
-    const profileId = input.by_agent.startsWith("profile-")
-      ? input.by_agent
-      : `profile-${input.by_agent}`;
-    const expandedProfileIds = expandAliases(vaultPath, profileId);
-    const targetAuthors = new Set<string>();
-    for (const pid of expandedProfileIds) {
-      const bare = pid.startsWith("profile-") ? pid.slice("profile-".length) : pid;
-      targetAuthors.add(`agent:${bare}`);
-    }
-    top = top.filter(({ page }) => {
-      try {
-        const raw = readFileSync(join(vaultPath, page.path), "utf8");
-        const { frontmatter: fm } = parseFrontmatter(raw);
-        if (fm.author && targetAuthors.has(String(fm.author))) return true;
-        if (fm.claimed_by && targetAuthors.has(String(fm.claimed_by))) return true;
-        return false;
-      } catch {
-        return false;
-      }
-    });
+    top = filterByAgent(vaultPath, input.by_agent, top, ({ page }) => page.path);
   }
 
   const hits: RecallHit[] = top.map(({ page, score: s }) => ({
