@@ -74,6 +74,96 @@ confidence: high
 ---
 `);
 
+  // Example 2 fixture: active decision with customer tag
+  writeFileSync(join(vault, "wikis", "meetings", "decisions", "decision-2026-05-01-pricing.md"), `---
+id: decision-2026-05-01-pricing
+title: Pricing decision
+type: decision
+wiki: meetings
+status: active
+created: 2026-05-01
+updated: 2026-05-01
+summary: Active pricing decision for customer
+tags: [customer]
+confidence: medium
+---
+Pricing terms agreed.
+`);
+
+  // Example 2 fixture: draft decision (should be excluded by status:active filter)
+  writeFileSync(join(vault, "wikis", "meetings", "decisions", "decision-2026-05-02-pricing-draft.md"), `---
+id: decision-2026-05-02-pricing-draft
+title: Pricing draft
+type: decision
+wiki: meetings
+status: draft
+created: 2026-05-02
+updated: 2026-05-02
+summary: Draft pricing decision
+tags: [customer]
+confidence: low
+---
+Draft pricing terms.
+`);
+
+  // Example 3 fixtures: stale prospect (updated >60d ago) and recent prospect
+  writeFileSync(join(vault, "wikis", "meetings", "concepts", "concept-person-jane-prospect.md"), `---
+id: concept-person-jane-prospect
+title: Jane Smith — Prospect
+type: concept
+wiki: meetings
+status: active
+created: 2025-11-01
+updated: 2025-12-01
+summary: Jane Smith at Acme, a stale prospect
+tags: [prospect]
+---
+Jane Smith is a prospect at Acme Corp.
+`);
+
+  writeFileSync(join(vault, "wikis", "meetings", "concepts", "concept-company-recent-prospect.md"), `---
+id: concept-company-recent-prospect
+title: Recent Prospect Co
+type: concept
+wiki: meetings
+status: active
+created: 2026-05-09
+updated: 2026-05-10
+summary: A recently-touched prospect
+tags: [prospect]
+---
+Recent prospect.
+`);
+
+  // Example 4 fixtures: Q2 journal mentioning "shilo" and an out-of-Q2 journal
+  writeFileSync(join(vault, "wikis", "meetings", "journal", "journal-2026-05-15-1400-shilo-call.md"), `---
+id: journal-2026-05-15-1400-shilo-call
+title: Shilo discovery call
+type: journal
+wiki: meetings
+status: active
+created: 2026-05-15
+updated: 2026-05-15
+summary: Discovery call with Shilo team
+tags: [topic-discovery]
+---
+Notes from the shilo discovery call. Discussed product roadmap with shilo.
+`);
+
+  writeFileSync(join(vault, "wikis", "meetings", "journal", "journal-2026-03-15-1400-shilo-old.md"), `---
+id: journal-2026-03-15-1400-shilo-old
+title: Shilo intro call
+type: journal
+wiki: meetings
+status: active
+created: 2026-03-15
+updated: 2026-03-15
+summary: Intro call with Shilo before Q2
+tags: [topic-discovery]
+---
+Early intro call with shilo team.
+`);
+
   await reindex(vault);
 });
 
@@ -263,5 +353,92 @@ describe("vault.recall filter — backward compatibility (no filter field)", () 
     expect(result.hits.length).toBeGreaterThan(0);
     // First hit should have a positive score (topic-based relevance)
     expect(result.hits[0].score).toBeGreaterThan(0);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// Worked examples from the spec (§ "Worked examples") — full coverage
+// ────────────────────────────────────────────────────────────────────────────
+
+describe("vault.recall spec worked example 2 — multi-pair status filter", () => {
+  // vault.recall --filter="type:decision,tags:customer,status:active"
+  it("returns the active customer decision", () => {
+    const result = recall(vault, { filter: "type:decision,tags:customer,status:active" });
+    const ids = result.hits.map(h => h.id);
+    expect(ids).toContain("decision-2026-05-01-pricing");
+  });
+
+  it("does NOT return the draft customer decision", () => {
+    const result = recall(vault, { filter: "type:decision,tags:customer,status:active" });
+    const ids = result.hits.map(h => h.id);
+    expect(ids).not.toContain("decision-2026-05-02-pricing-draft");
+  });
+
+  it("all returned pages are decisions with status active and tags containing customer", () => {
+    const result = recall(vault, { filter: "type:decision,tags:customer,status:active" });
+    for (const h of result.hits) {
+      expect(h.type).toBe("decision");
+      expect(h.status).toBe("active");
+    }
+  });
+});
+
+describe("vault.recall spec worked example 3 — stale prospect query (motivating use case)", () => {
+  // vault.recall --filter="tags:prospect,updated:<60d" --wiki=meetings
+  // Today is 2026-05-11; 60d threshold ≈ 2026-03-12.
+  // Stale prospect: updated 2025-12-01 → BEFORE threshold → should match.
+  // Recent prospect: updated 2026-05-10 → AFTER threshold → should NOT match.
+  it("returns the stale prospect page (updated >60 days ago)", () => {
+    const result = recall(vault, { filter: "tags:prospect,updated:<60d", wiki: "meetings" });
+    const ids = result.hits.map(h => h.id);
+    expect(ids).toContain("concept-person-jane-prospect");
+  });
+
+  it("does NOT return the recently-touched prospect page (updated <60 days ago)", () => {
+    const result = recall(vault, { filter: "tags:prospect,updated:<60d", wiki: "meetings" });
+    const ids = result.hits.map(h => h.id);
+    expect(ids).not.toContain("concept-company-recent-prospect");
+  });
+
+  it("all returned pages have the prospect tag", () => {
+    const result = recall(vault, { filter: "tags:prospect,updated:<60d", wiki: "meetings" });
+    expect(result.hits.length).toBeGreaterThan(0);
+  });
+});
+
+describe("vault.recall spec worked example 4 — topic + absolute date range (Q2 journals)", () => {
+  // vault.recall shilo --filter="type:journal,created:>2026-04-01,created:<2026-07-01"
+  // Q2 journal (2026-05-15): created inside range → should be returned.
+  // March journal (2026-03-15): created before range → should NOT be returned.
+  // Uses layer: "all" so execution-layer journal pages are in scope.
+  it("returns the Q2 journal mentioning shilo", () => {
+    const result = recall(vault, {
+      topic: "shilo",
+      filter: "type:journal,created:>2026-04-01,created:<2026-07-01",
+      layer: "all"
+    });
+    const ids = result.hits.map(h => h.id);
+    expect(ids).toContain("journal-2026-05-15-1400-shilo-call");
+  });
+
+  it("does NOT return the March journal (outside Q2 date range)", () => {
+    const result = recall(vault, {
+      topic: "shilo",
+      filter: "type:journal,created:>2026-04-01,created:<2026-07-01",
+      layer: "all"
+    });
+    const ids = result.hits.map(h => h.id);
+    expect(ids).not.toContain("journal-2026-03-15-1400-shilo-old");
+  });
+
+  it("all returned pages are of type journal", () => {
+    const result = recall(vault, {
+      topic: "shilo",
+      filter: "type:journal,created:>2026-04-01,created:<2026-07-01",
+      layer: "all"
+    });
+    for (const h of result.hits) {
+      expect(h.type).toBe("journal");
+    }
   });
 });
