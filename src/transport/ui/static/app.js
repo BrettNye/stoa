@@ -396,7 +396,8 @@ function dashboard() {
           const hasRecent = this.channelEntries.some(e => e.channel === t.channel && Date.parse(e.ts) >= cutoff);
           if (hasRecent) continue;
         }
-        out.push({ ...t, _stuckMinutes: ageMin });
+        t._stuckMinutes = ageMin;   // annotate on the original — Alpine-reactive
+        out.push(t);                 // push the original, not a copy
       }
       return out;
     },
