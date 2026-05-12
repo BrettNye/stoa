@@ -2,6 +2,7 @@ import type { Hono } from "hono";
 import type {
   ApiHealth, ApiTask, ApiAgent, ApiSuggestion,
   ApiChannelSummary, ApiChannelEntry, ApiWiki,
+  ApiSynthesisStaleness, ApiSynthesisStalenessResponse,
 } from "./types.js";
 import { listTasks } from "../../core/tasks.js";
 import { listAllChannels, tailChannel } from "../../core/channel.js";
@@ -10,6 +11,7 @@ import { listWikis } from "../../core/wikis.js";
 import { suggestByType } from "../../core/pokeapi.js";
 import { mapDevSpecialty, isValidPokemonType } from "../../core/pokemon.js";
 import { loadIndex } from "../../core/index.js";
+import { listSynthesesWithStaleness } from "../../core/syntheses.js";
 
 export interface ReadRoutesCtx {
   vaultPath: string;
@@ -237,6 +239,31 @@ export function mountReadRoutes(app: Hono, ctx: ReadRoutesCtx): void {
     }
 
     return c.json({ channels, entries });
+  });
+
+  // ------------------------------------------------------------------
+  // GET /api/syntheses/staleness
+  // Query params: wiki, min_lag_days
+  // ------------------------------------------------------------------
+  app.get("/api/syntheses/staleness", (c) => {
+    const wiki = c.req.query("wiki") || undefined;
+    const minLagStr = c.req.query("min_lag_days");
+    let min_lag_days: number | undefined;
+    if (minLagStr !== undefined) {
+      const parsed = parseInt(minLagStr, 10);
+      if (isNaN(parsed) || parsed < 0) {
+        return c.json({ error: `Invalid min_lag_days: "${minLagStr}"` }, 400);
+      }
+      min_lag_days = parsed;
+    }
+    let syntheses: ApiSynthesisStaleness[] = [];
+    try {
+      syntheses = listSynthesesWithStaleness(vaultPath, { wiki, min_lag_days }) as ApiSynthesisStaleness[];
+    } catch {
+      // Cold vault or missing index — return empty list rather than 500
+    }
+    const body: ApiSynthesisStalenessResponse = { syntheses, generatedAt: new Date().toISOString() };
+    return c.json(body);
   });
 
   // ------------------------------------------------------------------
