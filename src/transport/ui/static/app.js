@@ -40,6 +40,9 @@ function dashboard() {
     pinnedViews: [],
     pinning: false,
 
+    // Watchdog ribbon — thresholds (minutes) for considering a task stuck
+    stuckThresholds: { claimed: 15, in_progress: 45 },
+
     // Internal
     _lastFetchAt: null,
     _pollHandle: null,
@@ -357,6 +360,79 @@ function dashboard() {
       if (f === "all") return this.tasks;
       if (f === "active") return this.tasks.filter(t => t.status === "pending" || t.status === "claimed" || t.status === "in_progress");
       return this.tasks.filter(t => t.status === f);
+    },
+
+    // -----------------------------------------------------------------------
+    // Watchdog ribbon — derived stuck tasks list
+    // -----------------------------------------------------------------------
+
+    /**
+     * Derived list of stuck tasks — recomputed each Alpine cycle from
+     * this.tasks + this.channelEntries (no extra fetches).
+     * Annotates each row with _stuckMinutes used by the template.
+     */
+    get stuckTasks() {
+      const now = Date.now();
+      const out = [];
+      for (const t of this.tasks) {
+        const threshold = this.stuckThresholds[t.status];
+        if (!threshold) continue; // only claimed / in_progress
+        if (!t.updated) continue;
+        const ageMin = Math.floor((now - Date.parse(t.updated)) / 60000);
+        if (ageMin < threshold) continue;
+        // For in_progress, also check no channel post on t.channel within the threshold window
+        if (t.status === "in_progress" && t.channel) {
+          const cutoff = now - threshold * 60000;
+          const hasRecent = this.channelEntries.some(e => e.channel === t.channel && Date.parse(e.ts) >= cutoff);
+          if (hasRecent) continue;
+        }
+        out.push({ ...t, _stuckMinutes: ageMin });
+      }
+      return out;
+    },
+
+    // -----------------------------------------------------------------------
+    // Watchdog ribbon — actions
+    // -----------------------------------------------------------------------
+
+    /** IMPORTANT: name this `releaseStuckTask` (not `releaseTask`) to avoid
+     *  shadowing/colliding with the existing claim methods if they share a namespace. */
+    async releaseStuckTask(task) {
+      if (task._releaseLoading) return;
+      task._releaseLoading = true;
+      try {
+        const res = await fetch(`/api/tasks/${task.id}/release`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            expected_updated: task.updated,
+            wiki: task.wiki,
+            reason: "force-release from dashboard",
+          }),
+        });
+        if (res.status === 409) { this.flashError(task, "not in claimed state"); return; }
+        if (res.status === 412) { this.flashError(task, "task changed — refresh"); return; }
+        if (!res.ok) { this.flashError(task, "release failed"); return; }
+        await this.refresh();
+      } finally {
+        task._releaseLoading = false;
+      }
+    },
+
+    async pingChannel(task) {
+      if (!task.channel || task._pingLoading) return;
+      task._pingLoading = true;
+      try {
+        await fetch(`/api/channels/${encodeURIComponent(task.channel)}/posts`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            content: `ping: task ${task.id} idle for ${Math.floor((Date.now() - Date.parse(task.updated))/60000)}m — claimed by ${task.claimed_by}`,
+          }),
+        });
+      } finally {
+        task._pingLoading = false;
+      }
     },
 
     // -----------------------------------------------------------------------

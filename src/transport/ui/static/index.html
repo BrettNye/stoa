@@ -25,6 +25,20 @@
     </div>
     <button @click="refresh()" :disabled="loading">refresh</button>
   </header>
+  <section class="watchdog" x-show="stuckTasks.length > 0">
+    <div class="watchdog-title" x-text="`${stuckTasks.length} stuck task${stuckTasks.length === 1 ? '' : 's'}`"></div>
+    <ul>
+      <template x-for="t in stuckTasks" :key="t.id">
+        <li class="stuck-row">
+          <a :href="taskHref(t)" x-text="t.title" class="stuck-title"></a>
+          <span class="stuck-claimer" x-text="t.claimed_by"></span>
+          <span class="stuck-idle" x-text="t._stuckMinutes + 'm idle'"></span>
+          <button @click="releaseStuckTask(t)" :disabled="t._releaseLoading">release</button>
+          <button @click="pingChannel(t)" :disabled="!t.channel || t._pingLoading">ping</button>
+        </li>
+      </template>
+    </ul>
+  </section>
   <main class="grid">
     <section class="pane agents">
       <h2>Agents</h2>

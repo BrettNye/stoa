@@ -382,6 +382,27 @@ main.grid {
 }
 
 /* ---------------------------------------------------------------------------
+   Watchdog ribbon — stuck tasks
+--------------------------------------------------------------------------- */
+
+.watchdog {
+  background: var(--color-surface);
+  border: 1px solid var(--color-red);
+  border-left: 3px solid var(--color-red);
+  margin: var(--gap);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+}
+.watchdog-title { font-weight: 600; font-size: 0.8rem; color: var(--color-red); margin-bottom: 0.5rem; }
+.watchdog ul { list-style: none; padding: 0; margin: 0; }
+.stuck-row { display: grid; grid-template-columns: 1fr auto auto auto auto; gap: 0.5rem; align-items: center; padding: 0.25rem 0; }
+.stuck-row button { font-size: 0.7rem; padding: 0.15rem 0.5rem; }
+.stuck-title { font-size: 0.8rem; color: var(--color-accent); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stuck-title:hover { text-decoration: underline; }
+.stuck-claimer,
+.stuck-idle { font-size: 0.7rem; color: var(--color-text-muted); }
+
+/* ---------------------------------------------------------------------------
    Scrollbars
 --------------------------------------------------------------------------- */
 
