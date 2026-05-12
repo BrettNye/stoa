@@ -7,6 +7,7 @@ import { detectDriftAt, deployMove, type DriftReport } from "../core/skills-plat
 import { readProfile } from "../core/profiles.js";
 import { renderClaimSectionInSkillMd } from "../core/claim-render.js";
 import { getClaimsConfig } from "../config.js";
+import { enumerateProfilesForSync } from "../core/sync-enumerate.js";
 
 const Input = z.object({
   repo_path: z.string(),
@@ -73,54 +74,123 @@ export const syncSkillsTool = {
       return runReverify(input, ctx);
     }
 
-    if (!input.pokemon) {
-      throw new Error("`pokemon` is required when `reverify=false` (the default deploy path needs a profile to deploy).");
-    }
+    if (input.all) {
+      // Multi-profile deploy path (sync-all-flag plan, Task 6). Enumerate
+      // profiles via the shared helper (handles exclude + pokemon_type
+      // filters, alias resolution, sorted output) then dispatch to the same
+      // single-pokemon helper used by the default path. Returns a
+      // {results, summary} envelope distinct from the single-pokemon flat
+      // shape — back-compat for callers using `pokemon:` is preserved below.
+      const list = enumerateProfilesForSync(ctx.vaultPath, {
+        exclude: input.exclude,
+        pokemon_type: input.pokemon_type,
+      });
+      const results: Array<{
+        pokemon: string;
+        skills_dir?: string;
+        moves_synced?: string[];
+        moves_skipped_unsupported?: string[];
+        status: "deployed" | "failed";
+        error?: string;
+      }> = [];
 
-    // §8.2 pre-render — for each move in the deploying profile's moveset,
-    // render the vault-claims:start..end block into the vault SKILL.md so the
-    // subsequent `syncMoveset` deploys the freshly-rendered file. A move
-    // whose vault SKILL.md does NOT exist is silently skipped — sync-skills
-    // must not throw on missing per-move SKILL.md (a profile may declare a
-    // move whose source page hasn't landed yet).
-    const profile = readProfile(ctx.vaultPath, input.pokemon);
-    const moveset: string[] = Array.isArray(profile.frontmatter.moveset)
-      ? (profile.frontmatter.moveset as string[])
-      : [];
-    const today = ctx.today ?? new Date();
-    const claimsConfig = getClaimsConfig(ctx.rawConfig ?? {});
-    for (const moveId of moveset) {
-      const skillMdPath = join(ctx.vaultPath, "wikis", "_agents", "moves", moveId, "SKILL.md");
-      try {
-        await renderClaimSectionInSkillMd({
-          skillMdPath,
-          moveId,
-          deployingProfileId: input.pokemon,
-          vaultPath: ctx.vaultPath,
-          today,
-          config: claimsConfig,
-        });
-      } catch {
-        // SKILL.md missing or unreadable — skip silently. The downstream
-        // syncMoveset will surface a more actionable error if the move
-        // source dir is genuinely required but absent.
+      for (const pokemonId of list) {
+        try {
+          const sub = await deployOnePokemonSkills(
+            { vaultPath: ctx.vaultPath, today: ctx.today, rawConfig: ctx.rawConfig },
+            { repo_path: input.repo_path, pokemon: pokemonId, target: input.target, mode: input.mode }
+          );
+          results.push({
+            pokemon: pokemonId,
+            skills_dir: sub.skills_dir,
+            moves_synced: sub.moves_synced,
+            moves_skipped_unsupported: sub.moves_skipped_unsupported,
+            status: "deployed",
+          });
+        } catch (e: any) {
+          results.push({ pokemon: pokemonId, status: "failed", error: e?.message ?? String(e) });
+          if (!input.continue_on_error) break;
+        }
       }
+
+      return {
+        results,
+        summary: {
+          requested: list.length,
+          deployed: results.filter(r => r.status === "deployed").length,
+          skipped: 0,
+          failed: results.filter(r => r.status === "failed").length,
+        },
+      };
     }
 
-    const result = syncMoveset({
-      vaultPath: ctx.vaultPath,
-      repoPath: input.repo_path,
-      pokemon_id: input.pokemon,
+    if (!input.pokemon) {
+      throw new Error("`pokemon` is required when deploying without `all: true`");
+    }
+
+    return deployOnePokemonSkills(ctx, {
+      repo_path: input.repo_path,
+      pokemon: input.pokemon,
       target: input.target,
-      mode: input.mode
+      mode: input.mode,
     });
-    return {
-      skills_dir: result.skills_dir,
-      moves_synced: result.moves_synced,
-      moves_skipped_unsupported: result.moves_skipped_unsupported
-    };
   }
 };
+
+/**
+ * Single-profile deploy: §8.2 pre-render loop + syncMoveset call. Extracted
+ * from the handler so the `all: true` dispatch can re-use it per profile.
+ * Returns the flat shape the handler has historically returned for
+ * single-pokemon calls — preserving back-compat for callers and tests that
+ * destructure `{skills_dir, moves_synced, moves_skipped_unsupported}`.
+ */
+async function deployOnePokemonSkills(
+  ctx: { vaultPath: string; today?: Date; rawConfig?: unknown },
+  input: { repo_path: string; pokemon: string; target: "claude-code" | "openclaw" | "codex"; mode: "copy" | "symlink" }
+): Promise<{ skills_dir: string; moves_synced: string[]; moves_skipped_unsupported: string[] }> {
+  // §8.2 pre-render — for each move in the deploying profile's moveset,
+  // render the vault-claims:start..end block into the vault SKILL.md so the
+  // subsequent `syncMoveset` deploys the freshly-rendered file. A move
+  // whose vault SKILL.md does NOT exist is silently skipped — sync-skills
+  // must not throw on missing per-move SKILL.md (a profile may declare a
+  // move whose source page hasn't landed yet).
+  const profile = readProfile(ctx.vaultPath, input.pokemon);
+  const moveset: string[] = Array.isArray(profile.frontmatter.moveset)
+    ? (profile.frontmatter.moveset as string[])
+    : [];
+  const today = ctx.today ?? new Date();
+  const claimsConfig = getClaimsConfig(ctx.rawConfig ?? {});
+  for (const moveId of moveset) {
+    const skillMdPath = join(ctx.vaultPath, "wikis", "_agents", "moves", moveId, "SKILL.md");
+    try {
+      await renderClaimSectionInSkillMd({
+        skillMdPath,
+        moveId,
+        deployingProfileId: input.pokemon,
+        vaultPath: ctx.vaultPath,
+        today,
+        config: claimsConfig,
+      });
+    } catch {
+      // SKILL.md missing or unreadable — skip silently. The downstream
+      // syncMoveset will surface a more actionable error if the move
+      // source dir is genuinely required but absent.
+    }
+  }
+
+  const result = syncMoveset({
+    vaultPath: ctx.vaultPath,
+    repoPath: input.repo_path,
+    pokemon_id: input.pokemon,
+    target: input.target,
+    mode: input.mode,
+  });
+  return {
+    skills_dir: result.skills_dir,
+    moves_synced: result.moves_synced,
+    moves_skipped_unsupported: result.moves_skipped_unsupported,
+  };
+}
 
 export interface ReverifyResult {
   drift: DriftReport[];
