@@ -128,6 +128,29 @@ describe("frontend-session: app.js — hydrateFromHash()", () => {
     expect(body).toContain('"tasks"');
     expect(body).toContain("taskStatusFilter");
   });
+
+  it("hydrateFromHash rejects invalid filter values — leaves taskStatusFilter at default 'active'", () => {
+    // VALID_FILTERS allowlist must be present
+    expect(js).toContain("VALID_FILTERS");
+    // The set must include the 8 known values
+    const validFiltersIdx = js.indexOf("VALID_FILTERS");
+    expect(validFiltersIdx).toBeGreaterThan(-1);
+    const setLiteral = js.slice(validFiltersIdx, js.indexOf("]", validFiltersIdx) + 1);
+    expect(setLiteral).toContain('"active"');
+    expect(setLiteral).toContain('"all"');
+    expect(setLiteral).toContain('"pending"');
+    expect(setLiteral).toContain('"claimed"');
+    expect(setLiteral).toContain('"in_progress"');
+    expect(setLiteral).toContain('"completed"');
+    expect(setLiteral).toContain('"failed"');
+    expect(setLiteral).toContain('"blocked"');
+    // hydrateFromHash body must guard with VALID_FILTERS.has(...)
+    const fnIdx = js.indexOf("hydrateFromHash() {");
+    const bodyStart = js.indexOf("{", fnIdx);
+    const bodyEnd = js.indexOf("\n    },", fnIdx);
+    const body = js.slice(bodyStart, bodyEnd);
+    expect(body).toContain("VALID_FILTERS.has(");
+  });
 });
 
 // ---------------------------------------------------------------------------

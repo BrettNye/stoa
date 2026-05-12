@@ -294,7 +294,7 @@ export function releaseTask(vaultPath: string, input: ReleaseInput): ReleaseResu
   const newFm: Record<string, any> = { ...page.frontmatter };
   newFm.status = "pending";
   delete newFm.claimed_by;
-  delete newFm.claimed_at;
+  delete newFm.assigned_at;
 
   let body = page.body;
   if (input.reason) {

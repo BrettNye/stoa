@@ -1,6 +1,8 @@
 // stoa dashboard — Alpine.js state machine
 // Field names mirror the contract types from src/transport/ui/types.ts.
 
+const VALID_FILTERS = new Set(["active", "all", "pending", "claimed", "in_progress", "completed", "failed", "blocked"]);
+
 function dashboard() {
   return {
     // State — mirrors ApiTask[], ApiAgent[], ApiChannelEntry[], ApiWiki[]
@@ -430,7 +432,9 @@ function dashboard() {
     hydrateFromHash() {
       const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
       const filter = params.get("tasks");
-      if (filter) this.taskStatusFilter = filter;
+      if (filter && VALID_FILTERS.has(filter)) {
+        this.taskStatusFilter = filter;
+      }
       // Future fields plug in here.
     },
 

@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTask, claimTask, releaseTask, NotClaimedError } from "../../src/core/tasks.js";
-import { ConflictError } from "../../src/core/pages.js";
+import { ConflictError, readPage } from "../../src/core/pages.js";
 
 describe("releaseTask", () => {
   let vaultPath: string;
@@ -141,5 +141,33 @@ describe("releaseTask", () => {
     // The returned task should have updated timestamp
     expect(result.task.updated).toBeTruthy();
     expect(typeof result.task.updated).toBe("string");
+  });
+
+  it("disk frontmatter has no assigned_at after release", () => {
+    // Verify that the assigned_at field written by claimTask is actually
+    // removed from disk after releaseTask — not just from the returned object.
+    const created = createTask(vaultPath, { title: "disk check task", wiki: "alpha" });
+    const claimed = claimTask(vaultPath, {
+      task_id: created.id,
+      agent_id: "tester",
+      expected_updated: created.updated,
+      wiki: "alpha"
+    });
+
+    // Confirm assigned_at exists on disk after claiming
+    const claimedPage = readPage(vaultPath, created.id, "alpha");
+    expect(claimedPage.frontmatter.assigned_at).toBeDefined();
+
+    releaseTask(vaultPath, {
+      task_id: created.id,
+      expected_updated: claimed.updated,
+      wiki: "alpha"
+    });
+
+    // Re-read from disk and verify assigned_at is gone
+    const releasedPage = readPage(vaultPath, created.id, "alpha");
+    expect(releasedPage.frontmatter.assigned_at).toBeUndefined();
+    expect(releasedPage.frontmatter.claimed_by).toBeUndefined();
+    expect(releasedPage.frontmatter.status).toBe("pending");
   });
 });
