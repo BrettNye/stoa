@@ -25,32 +25,30 @@ import type { RuntimeName, ValidationDiagnostic } from "../core/runtime-adapters
 
 const PokemonInput = z.union([z.string(), z.array(z.string())]);
 
-const Common = z.object({
+// Flat z.object with refines (not z.union) so the MCP SDK can serialize this
+// to a top-level `type: "object"` JSON Schema. A union here produces an
+// `anyOf` with no top-level type, which fails MCP client schema validation
+// on tools/list. Mutual-exclusion semantics are preserved via the refines.
+const Input = z.object({
   target: z.string(),
   runtime: z.enum(["claude-code"]).default("claude-code"),
   mode: z.enum(["copy", "symlink"]).default("copy"),
   overwrite: z.boolean().default(true),
   include_moveset: z.boolean().default(true),
   continue_on_error: z.boolean().default(false),
-});
-
-const Explicit = Common.extend({
-  pokemon: PokemonInput,
-  all: z.literal(false).optional(),
-  exclude: z.undefined().optional(),
-  pokemon_type: z.undefined().optional(),
-});
-
-const All = Common.extend({
-  pokemon: z.undefined().optional(),
-  all: z.literal(true),
+  pokemon: PokemonInput.optional(),
+  all: z.boolean().default(false),
   exclude: z.array(z.string()).default([]),
   pokemon_type: z.array(z.string()).default([]),
-});
-
-const Input = z.union([Explicit, All]).refine(
-  (v) => v.all === true || v.pokemon !== undefined,
+}).refine(
+  (v) => !(v.pokemon !== undefined && v.all),
+  { message: "`pokemon` and `all` are mutually exclusive" }
+).refine(
+  (v) => v.all || v.pokemon !== undefined,
   { message: "one of `pokemon` or `all: true` is required" }
+).refine(
+  (v) => v.all || (v.exclude.length === 0 && v.pokemon_type.length === 0),
+  { message: "`exclude` and `pokemon_type` are only valid with `all: true`" }
 );
 
 export interface PerPokemonResult {
