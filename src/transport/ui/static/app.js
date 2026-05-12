@@ -5,11 +5,15 @@ const VALID_FILTERS = new Set(["active", "all", "pending", "claimed", "in_progre
 
 function dashboard() {
   return {
-    // State — mirrors ApiTask[], ApiAgent[], ApiChannelEntry[], ApiWiki[]
+    // State — mirrors ApiTask[], ApiAgent[], ApiChannelEntry[], ApiWiki[], ApiSynthesisStaleness[]
     tasks: [],
     agents: [],
     channelEntries: [],
     wikis: [],
+    syntheses: [],
+
+    // Staleness drawer open/closed state
+    stalenessOpen: false,
 
     // Derived / display state
     activeTaskCount: 0,
@@ -103,21 +107,23 @@ function dashboard() {
       if (this.loading) return;
       this.loading = true;
       try {
-        const [healthRes, tasksRes, agentsRes, channelsRes, wikisRes] = await Promise.all([
+        const [healthRes, tasksRes, agentsRes, channelsRes, wikisRes, stalenessRes] = await Promise.all([
           fetch("/api/health"),
           fetch("/api/tasks"),
           fetch("/api/agents"),
           fetch("/api/channels"),
           fetch("/api/wikis"),
+          fetch("/api/syntheses/staleness"),
         ]);
 
         // Parse all responses in parallel
-        const [health, tasks, agents, channelsData, wikis] = await Promise.all([
+        const [health, tasks, agents, channelsData, wikis, stalenessData] = await Promise.all([
           healthRes.ok ? healthRes.json() : null,
           tasksRes.ok ? tasksRes.json() : [],
           agentsRes.ok ? agentsRes.json() : [],
           channelsRes.ok ? channelsRes.json() : { channels: [], entries: [] },
           wikisRes.ok ? wikisRes.json() : [],
+          stalenessRes.ok ? stalenessRes.json() : { syntheses: [] },
         ]);
 
         // Apply health data — ApiHealth: { ok, vault, wikis, indexedAt }
@@ -154,6 +160,10 @@ function dashboard() {
         if (wikiArr) {
           this.wikis = wikiArr;
         }
+
+        // Apply syntheses staleness — server returns { syntheses: ApiSynthesisStaleness[], generatedAt }.
+        const synthesisArr = stalenessData && Array.isArray(stalenessData.syntheses) ? stalenessData.syntheses : [];
+        this.syntheses = synthesisArr;
 
         this._lastFetchAt = new Date();
         this.lastRefreshDelta = "just now";
@@ -433,6 +443,42 @@ function dashboard() {
       } finally {
         task._pingLoading = false;
       }
+    },
+
+    // -----------------------------------------------------------------------
+    // Staleness rail helpers
+    // -----------------------------------------------------------------------
+
+    /**
+     * Returns a CSS class name based on how stale the synthesis is.
+     * freshness-never  — never compiled (lag_days is null)
+     * freshness-fresh  — compiled within 30 days
+     * freshness-mid    — compiled 30-89 days ago
+     * freshness-stale  — compiled 90+ days ago
+     */
+    freshnessClass(s) {
+      if (s.lag_days === null) return "freshness-never";
+      if (s.lag_days < 30) return "freshness-fresh";
+      if (s.lag_days < 90) return "freshness-mid";
+      return "freshness-stale";
+    },
+
+    /**
+     * Returns a human-readable label for the freshness badge tooltip.
+     */
+    freshnessLabel(s) {
+      if (s.lag_days === null) return "never compiled";
+      return `${s.lag_days} days since /synthesize`;
+    },
+
+    /**
+     * Produces an obsidian:// deep-link URI for a given ApiSynthesisStaleness entry.
+     * Mirrors the taskHref / channelHref pattern.
+     */
+    synthesisHref(s) {
+      const vault = encodeURIComponent(this.vaultBaseName);
+      const file = encodeURIComponent(`wikis/${s.wiki}/synthesis/${s.id}.md`);
+      return `obsidian://open?vault=${vault}&file=${file}`;
     },
 
     // -----------------------------------------------------------------------

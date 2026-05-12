@@ -403,6 +403,36 @@ main.grid {
 .stuck-idle { font-size: 0.7rem; color: var(--color-text-muted); }
 
 /* ---------------------------------------------------------------------------
+   Staleness drawer — collapsible rail for stale syntheses
+--------------------------------------------------------------------------- */
+
+.staleness-toggle { font-size: 0.7rem; }
+.staleness-toggle.active { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+
+.staleness-drawer {
+  margin: 0 var(--gap);
+  max-height: 220px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.pane.staleness ul { padding: 0.25rem 0; list-style: none; }
+.staleness-row { display: grid; grid-template-columns: auto 1fr auto auto auto; gap: 0.5rem; align-items: center; padding: 0.35rem 0.75rem; border-bottom: 1px solid var(--color-border); }
+.staleness-row:hover { background: rgba(255,255,255,0.03); }
+.staleness-title { font-size: 0.8rem; color: var(--color-accent); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.staleness-title:hover { text-decoration: underline; }
+.staleness-wiki { font-size: 0.7rem; color: var(--color-text-muted); }
+.staleness-lag { font-size: 0.7rem; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.staleness-stale-count { font-size: 0.65rem; color: var(--color-yellow); }
+.staleness-count { font-size: 0.7rem; color: var(--color-text-muted); }
+
+.freshness-badge { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.freshness-fresh .freshness-badge { background: var(--color-green); }
+.freshness-mid .freshness-badge   { background: var(--color-yellow); }
+.freshness-stale .freshness-badge { background: var(--color-red); }
+.freshness-never .freshness-badge { background: var(--color-gray); }
+
+/* ---------------------------------------------------------------------------
    Scrollbars
 --------------------------------------------------------------------------- */
 

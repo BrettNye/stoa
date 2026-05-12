@@ -23,6 +23,7 @@
       </template>
       <button class="pin-add" @click="addPin()">&#xFF0B; pin</button>
     </div>
+    <button @click="stalenessOpen = !stalenessOpen" x-show="syntheses.length > 0" class="staleness-toggle" :class="{ active: stalenessOpen }">syntheses <span x-text="syntheses.length"></span></button>
     <button @click="refresh()" :disabled="loading">refresh</button>
   </header>
   <section class="watchdog" x-show="stuckTasks.length > 0">
@@ -35,6 +36,23 @@
           <span class="stuck-idle" x-text="t._stuckMinutes + 'm idle'"></span>
           <button @click="releaseStuckTask(t)" :disabled="t._releaseLoading">release</button>
           <button @click="pingChannel(t)" :disabled="!t.channel || t._pingLoading">ping</button>
+        </li>
+      </template>
+    </ul>
+  </section>
+  <section class="pane staleness staleness-drawer" x-show="stalenessOpen && syntheses.length > 0">
+    <div class="pane-header">
+      <h2>Stale syntheses</h2>
+      <span class="staleness-count" x-text="syntheses.length"></span>
+    </div>
+    <ul>
+      <template x-for="s in syntheses" :key="s.id">
+        <li class="staleness-row" :class="freshnessClass(s)">
+          <span class="freshness-badge" :title="freshnessLabel(s)"></span>
+          <a :href="synthesisHref(s)" x-text="s.title" class="staleness-title"></a>
+          <span class="staleness-wiki" x-text="s.wiki"></span>
+          <span class="staleness-lag" x-text="s.lag_days === null ? 'never' : s.lag_days + 'd'"></span>
+          <span class="staleness-stale-count" x-text="`${s.stale_inputs.length} moved`" x-show="s.stale_inputs.length > 0"></span>
         </li>
       </template>
     </ul>
