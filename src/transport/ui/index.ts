@@ -8,7 +8,7 @@ import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import open from "open";
-import { resolve, dirname } from "node:path";
+import { resolve, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { csrfMiddleware } from "./csrf.js";
 import { mountReadRoutes } from "./routes-read.js";
@@ -67,7 +67,7 @@ export async function startUiServer(opts: StartUiServerOpts): Promise<UiServerHa
   // Redirect GET / to /static/index.html
   // ------------------------------------------------------------------
   app.get("/", (c) => {
-    return c.redirect("/static/index.html", 301);
+    return c.redirect("/static/index.html", 302);
   });
 
   // ------------------------------------------------------------------
@@ -88,17 +88,11 @@ export async function startUiServer(opts: StartUiServerOpts): Promise<UiServerHa
   const __dirname = dirname(__filename);
   const staticDir = resolve(__dirname, "static");
 
-  // serveStatic expects a path relative to CWD
-  const relativeToCwd = (absPath: string): string => {
-    const cwd = process.cwd();
-    if (absPath.startsWith(cwd)) {
-      // Make relative, normalizing separators to forward slashes
-      return absPath.slice(cwd.length).replace(/\\/g, "/").replace(/^\//, "");
-    }
-    return absPath.replace(/\\/g, "/");
-  };
-
-  app.use("/static/*", serveStatic({ root: relativeToCwd(staticDir) }));
+  // serveStatic expects a path relative to CWD.
+  // path.relative() always produces a correct relative path (using ../ segments
+  // when needed), which is correct for all install locations including global npm.
+  const relRoot = relative(process.cwd(), staticDir).replace(/\\/g, "/");
+  app.use("/static/*", serveStatic({ root: relRoot }));
 
   // ------------------------------------------------------------------
   // Start the HTTP server
@@ -114,7 +108,7 @@ export async function startUiServer(opts: StartUiServerOpts): Promise<UiServerHa
       (_info) => {
         // Server is listening — optionally open browser
         if (opts.open) {
-          void open(url);
+          void open(url).catch((err) => console.warn("[stoa] browser open failed:", err));
         }
         resolveHandle({
           url,
