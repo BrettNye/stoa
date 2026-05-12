@@ -6,7 +6,7 @@
 //   POST /api/agents
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { Hono } from "hono";
@@ -287,6 +287,46 @@ describe("mountWriteRoutes — write endpoints", () => {
     expect(res.status).toBe(502);
     const body = await res.json();
     expect(body.ok).toBe(false);
+
+    // No orphan profile file should remain after Stadium failure (Step 2 cleanup)
+    const profileDir = join(vaultPath, "wikis", "alpha", "profile");
+    const agentsProfileDir = join(vaultPath, "wikis", "_agents", "profile");
+    const profilesInAlpha = existsSync(profileDir)
+      ? readdirSync(profileDir).filter((f) => f.endsWith(".md"))
+      : [];
+    const profilesInAgents = existsSync(agentsProfileDir)
+      ? readdirSync(agentsProfileDir).filter((f) => f.endsWith(".md"))
+      : [];
+    expect(profilesInAlpha.length + profilesInAgents.length).toBe(0);
+  });
+
+  // -------------------------------------------------------------------------
+  // POST /api/agents — newTool failure (Step 1) → 500 (not 502)
+  // -------------------------------------------------------------------------
+
+  it("POST /api/agents returns 500 when newTool fails (vault path is a file, not a directory)", async () => {
+    // Create a FILE at the vaultPath location so mkdirSync inside newTool fails
+    // (cannot create a subdirectory inside something that is a plain file)
+    const filePath = join(tmpdir(), `vault-routes-write-badpath-${Date.now()}.txt`);
+    writeFileSync(filePath, "not a vault");
+    try {
+      const badCtx: WriteRoutesCtx = {
+        vaultPath: filePath,
+        fetcher: fetch,
+        defaultWiki: "alpha",
+      };
+      const app = makeApp(badCtx);
+      const res = await postJson(app, "/api/agents", {
+        selected_species: "charmander",
+        evolution_stage: "basic",
+      });
+      // Step 1 (newTool) fails because vaultPath is a file, not a directory → 500, not 502
+      expect(res.status).toBe(500);
+      const body = await res.json();
+      expect(body.ok).toBe(false);
+    } finally {
+      try { rmSync(filePath); } catch { /* cleanup */ }
+    }
   });
 
   // -------------------------------------------------------------------------

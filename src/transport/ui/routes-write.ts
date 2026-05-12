@@ -6,9 +6,11 @@
 //   - 409: AlreadyClaimedError (race condition on task claim)
 //   - 412: ConflictError / OCC mismatch on task claim
 //   - 400: validation / body parsing failure
-//   - 502: upstream/Stadium failure (register-agent only)
+//   - 500: local/server-side failure in Step 1 (profile page creation)
+//   - 502: upstream/Stadium failure in Step 2 (register-agent only)
 
 import type { Hono } from "hono";
+import { unlinkSync } from "node:fs";
 import { z } from "zod";
 import type {
   ClaimResponse,
@@ -204,16 +206,17 @@ export function mountWriteRoutes(app: Hono, ctx: WriteRoutesCtx): void {
     // Build a title for the profile
     const title = `${selected_species} agent`;
 
-    try {
-      // Step 1: Create the profile page via newTool
-      const frontmatterExtras: Record<string, unknown> = {
-        pokemon: selected_species,
-        evolution_stage: evolution_stage ?? "basic",
-      };
-      if (pokemon_type) frontmatterExtras.pokemon_type = pokemon_type;
-      if (dev_specialty) frontmatterExtras.dev_specialty = dev_specialty;
+    // Step 1: Create the profile page via newTool (local/server-side operation)
+    const frontmatterExtras: Record<string, unknown> = {
+      pokemon: selected_species,
+      evolution_stage: evolution_stage ?? "basic",
+    };
+    if (pokemon_type) frontmatterExtras.pokemon_type = pokemon_type;
+    if (dev_specialty) frontmatterExtras.dev_specialty = dev_specialty;
 
-      const newResult = await newTool.handler(
+    let newResult: Awaited<ReturnType<typeof newTool.handler>>;
+    try {
+      newResult = await newTool.handler(
         {
           type: "profile",
           wiki,
@@ -223,33 +226,40 @@ export function mountWriteRoutes(app: Hono, ctx: WriteRoutesCtx): void {
         },
         toolCtx
       );
+    } catch (err) {
+      // Local server-side failure (disk full, invalid frontmatter, etc.) → 500
+      const msg = err instanceof Error ? err.message : String(err);
+      return c.json({ ok: false, error: msg }, 500);
+    }
 
-      const profileId = newResult.id;
+    const profileId = newResult.id;
 
-      // Step 2: Register with Stadium via profileRegisterTool
-      const regResult = await profileRegisterTool.handler(
+    // Step 2: Register with Stadium via profileRegisterTool (upstream operation)
+    try {
+      await profileRegisterTool.handler(
         { profile_id: profileId, wiki },
         toolCtx
       );
-
-      // Build ApiAgent response
-      const agent = {
-        id: profileId,
-        wiki,
-        pokemon: selected_species,
-        pokemon_type: pokemon_type,
-        evolution_stage: evolution_stage ?? "basic",
-        spriteUrl: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${selected_species}.png`,
-        updated: newResult.updated,
-        claimedTaskCount: 0,
-      };
-
-      const body: RegisterAgentResponse = { ok: true, agent };
-      return c.json(body, 201);
     } catch (err) {
-      // Stadium / upstream failures surface as 502
+      // Stadium / upstream failure → clean up orphan profile file, return 502
+      try { unlinkSync(newResult.path); } catch { /* best-effort; ignore if already gone */ }
       const msg = err instanceof Error ? err.message : String(err);
       return c.json({ ok: false, error: msg }, 502);
     }
+
+    // Build ApiAgent response
+    const agent = {
+      id: profileId,
+      wiki,
+      pokemon: selected_species,
+      pokemon_type: pokemon_type,
+      evolution_stage: evolution_stage ?? "basic",
+      spriteUrl: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${selected_species}.png`,
+      updated: newResult.updated,
+      claimedTaskCount: 0,
+    };
+
+    const body: RegisterAgentResponse = { ok: true, agent };
+    return c.json(body, 201);
   });
 }
