@@ -98,3 +98,41 @@ export interface RegisterAgentResponse {
   ok: true;
   agent: ApiAgent;
 }
+
+// ---- Stuck-claim watchdog ----
+export interface ReleaseRequest {
+  expected_updated: string;
+  reason?: string;
+}
+
+export interface ReleaseResponse {
+  ok: true;
+  task: ApiTask;
+}
+
+export interface ReleaseConflictResponse {
+  ok: false;
+  error: "OccMismatch" | "NotClaimed";
+  current_updated?: string;
+  current_status?: ApiTask["status"];
+}
+
+// ---- Synthesis staleness rail ----
+export interface ApiSynthesisStalenessInput {
+  id: string;
+  updated: string;
+}
+
+export interface ApiSynthesisStaleness {
+  id: string;
+  wiki: string;
+  title: string;
+  last_compiled: string | null;
+  lag_days: number | null;
+  stale_inputs: ApiSynthesisStalenessInput[];
+}
+
+export interface ApiSynthesisStalenessResponse {
+  syntheses: ApiSynthesisStaleness[];
+  generatedAt: string;
+}
