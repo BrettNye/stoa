@@ -20,18 +20,38 @@ import { getAdapter } from "../core/runtime-adapters/registry.js";
 import { syncMoveset } from "../core/skills.js";
 import { resolveCurrent } from "../core/aliases.js";
 import { ProfileNotFoundError } from "../core/profiles.js";
+import { enumerateProfilesForSync } from "../core/sync-enumerate.js";
 import type { RuntimeName, ValidationDiagnostic } from "../core/runtime-adapters/types.js";
 
 const PokemonInput = z.union([z.string(), z.array(z.string())]);
 
-const Input = z.object({
-  pokemon: PokemonInput,
+const Common = z.object({
   target: z.string(),
   runtime: z.enum(["claude-code"]).default("claude-code"),
   mode: z.enum(["copy", "symlink"]).default("copy"),
   overwrite: z.boolean().default(true),
   include_moveset: z.boolean().default(true),
+  continue_on_error: z.boolean().default(false),
 });
+
+const Explicit = Common.extend({
+  pokemon: PokemonInput,
+  all: z.literal(false).optional(),
+  exclude: z.undefined().optional(),
+  pokemon_type: z.undefined().optional(),
+});
+
+const All = Common.extend({
+  pokemon: z.undefined().optional(),
+  all: z.literal(true),
+  exclude: z.array(z.string()).default([]),
+  pokemon_type: z.array(z.string()).default([]),
+});
+
+const Input = z.union([Explicit, All]).refine(
+  (v) => v.all === true || v.pokemon !== undefined,
+  { message: "one of `pokemon` or `all: true` is required" }
+);
 
 export interface PerPokemonResult {
   pokemon: string;
@@ -144,13 +164,22 @@ async function deploySingle(
 
 export const syncAgentsTool = {
   name: "vault.sync-agents",
-  description: "Deploy a Pokemon (or list of Pokemon) as runtime subagent definitions in a target repo. Builds a SubagentIntent from the profile + moveset, hands to the per-runtime adapter (currently claude-code), and writes <target>/.claude/agents/<pokemon-id>.md plus optional moveset SKILL.md files. Idempotent on source_revision. Sequential halt-on-first-error for multi-Pokemon batches.",
+  description: "Deploy a Pokemon (or list of Pokemon, or all profiles via `all: true`) as runtime subagent definitions in a target repo. Builds a SubagentIntent per profile, hands to the per-runtime adapter (currently claude-code), and writes <target>/.claude/agents/<pokemon-id>.md plus optional moveset SKILL.md files. Idempotent on source_revision. Halt-on-first-error by default; pass `continue_on_error: true` for best-effort batches.",
   inputSchema: Input,
   handler: async (
     input: z.infer<typeof Input>,
     ctx: { vaultPath: string }
   ): Promise<ResultShape> => {
-    const list = Array.isArray(input.pokemon) ? input.pokemon : [input.pokemon];
+    const list: string[] = input.all === true
+      ? enumerateProfilesForSync(ctx.vaultPath, {
+          exclude: input.exclude ?? [],
+          pokemon_type: input.pokemon_type ?? [],
+        })
+      : Array.isArray(input.pokemon)
+        ? input.pokemon
+        : [input.pokemon as string];
+
+    const continueOnError = input.continue_on_error === true;
     const results: PerPokemonResult[] = [];
 
     for (const p of list) {
@@ -159,7 +188,7 @@ export const syncAgentsTool = {
         input.mode, input.overwrite, input.include_moveset
       );
       results.push(r);
-      if (r.status === "failed") break;  // halt-on-first-error
+      if (r.status === "failed" && !continueOnError) break;
     }
 
     const summary = {

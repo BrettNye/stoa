@@ -16,6 +16,9 @@ function dashboard() {
     pollPaused: false,
     loading: false,
 
+    // Task status filter — presentational only; does not affect activeTaskCount
+    taskStatusFilter: "active",
+
     // Spawn modal state
     spawnOpen: false,
     spawnSpecialty: "",
@@ -107,30 +110,33 @@ function dashboard() {
           this.vaultBaseName = parts[parts.length - 1] || health.vault || "";
         }
 
-        // Apply tasks — ApiTask: { id, title, wiki, status, claimed_by, claimed_at, channel, required_pokemon_type, updated }
-        if (Array.isArray(tasks)) {
-          this.tasks = tasks;
-          this.activeTaskCount = tasks.filter(
+        // Apply tasks — server returns { tasks: ApiTask[], generatedAt } per the contract.
+        // Fall back to bare array for forward-compat.
+        const taskArr = Array.isArray(tasks) ? tasks : (tasks && Array.isArray(tasks.tasks) ? tasks.tasks : null);
+        if (taskArr) {
+          this.tasks = taskArr;
+          this.activeTaskCount = taskArr.filter(
             (t) => t.status === "pending" || t.status === "claimed" || t.status === "in_progress"
           ).length;
         }
 
-        // Apply agents — ApiAgent: { id, wiki, pokemon, pokemon_type, evolution_stage, spriteUrl, updated, claimedTaskCount }
-        if (Array.isArray(agents)) {
-          this.agents = agents;
+        // Apply agents — server returns { agents: ApiAgent[], generatedAt }.
+        const agentArr = Array.isArray(agents) ? agents : (agents && Array.isArray(agents.agents) ? agents.agents : null);
+        if (agentArr) {
+          this.agents = agentArr;
         }
 
-        // Apply channel entries — ApiChannelEntry: { id, channel, wiki, author, ts, excerpt, pageId }
+        // Apply channel entries — server returns { channels, entries }.
         if (channelsData && Array.isArray(channelsData.entries)) {
           this.channelEntries = channelsData.entries;
         } else if (Array.isArray(channelsData)) {
-          // Fallback if server returns plain array
           this.channelEntries = channelsData;
         }
 
-        // Apply wikis — ApiWiki: { name, mode, pageCount, activeTasks }
-        if (Array.isArray(wikis)) {
-          this.wikis = wikis;
+        // Apply wikis — server returns { wikis: ApiWiki[] }.
+        const wikiArr = Array.isArray(wikis) ? wikis : (wikis && Array.isArray(wikis.wikis) ? wikis.wikis : null);
+        if (wikiArr) {
+          this.wikis = wikiArr;
         }
 
         this._lastFetchAt = new Date();
@@ -327,6 +333,17 @@ function dashboard() {
       } finally {
         this.spawnLoading = false;
       }
+    },
+
+    // -----------------------------------------------------------------------
+    // Filter
+    // -----------------------------------------------------------------------
+
+    get filteredTasks() {
+      const f = this.taskStatusFilter;
+      if (f === "all") return this.tasks;
+      if (f === "active") return this.tasks.filter(t => t.status === "pending" || t.status === "claimed" || t.status === "in_progress");
+      return this.tasks.filter(t => t.status === f);
     },
 
     // -----------------------------------------------------------------------

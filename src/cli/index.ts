@@ -18,6 +18,7 @@ import { registerClaimTask } from "./commands/claim-task.js";
 // v1.5 — substrate commands
 import { registerBootstrapRepo } from "./commands/bootstrap-repo.js";
 import { registerSyncSkills } from "./commands/sync-skills.js";
+import { registerSyncAgents } from "./commands/sync-agents.js";
 import { registerUi } from "./commands/ui.js";
 import { registerStart } from "./commands/start.js";
 import { registerTaskCreate } from "./commands/task-create.js";
@@ -52,6 +53,7 @@ export function buildCli(): Command {
   // v1.5
   registerBootstrapRepo(program);
   registerSyncSkills(program);
+  registerSyncAgents(program);
   registerUi(program);
   registerStart(program);
   registerTaskCreate(program);
