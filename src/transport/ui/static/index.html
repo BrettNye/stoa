@@ -75,7 +75,9 @@
         </template>
       </ul>
       <p x-show="agents.length === 0" class="empty-state">No agents registered.</p>
-      <div id="agents-actions"></div>
+      <div id="agents-actions">
+        <button @click="openSpawn()" class="spawn-trigger">+ new agent</button>
+      </div>
     </section>
     <section class="pane tasks">
       <div class="pane-header">
@@ -126,5 +128,50 @@
       <div id="channels-actions"></div>
     </section>
   </main>
+
+<div class="spawn-modal-backdrop" x-show="spawnOpen" @click.self="closeSpawn()">
+  <div class="spawn-modal">
+    <div class="spawn-modal-header">
+      <h3>Spawn agent</h3>
+      <button class="spawn-close" @click="closeSpawn()" aria-label="close">×</button>
+    </div>
+
+    <div class="spawn-modal-body">
+      <label>
+        <span>Specialty</span>
+        <input type="text" x-model="spawnSpecialty" placeholder="e.g. frontend, backend, qa"
+               @keydown.enter="suggest()" :disabled="spawnLoading">
+      </label>
+
+      <button class="spawn-suggest" @click="suggest()" :disabled="!spawnSpecialty || spawnLoading">
+        <span x-show="!spawnLoading">Suggest</span>
+        <span x-show="spawnLoading">Loading…</span>
+      </button>
+
+      <div class="spawn-grid" x-show="spawnSuggestions.length > 0">
+        <template x-for="s in spawnSuggestions" :key="s.name">
+          <button class="spawn-candidate" :class="{ selected: spawnSelected && spawnSelected.name === s.name }"
+                  @click="spawnSelected = s">
+            <img :src="s.spriteUrl" :alt="s.name" width="48" height="48" class="sprite">
+            <span class="candidate-name" x-text="s.name"></span>
+            <span class="candidate-type" x-text="s.pokemon_type"></span>
+          </button>
+        </template>
+      </div>
+
+      <p class="spawn-hint" x-show="spawnSuggestions.length === 0 && !spawnLoading">
+        Enter a specialty and click Suggest to see candidate Pokemon.
+      </p>
+    </div>
+
+    <div class="spawn-modal-footer">
+      <button @click="closeSpawn()">Cancel</button>
+      <button class="spawn-register" @click="register()" :disabled="!spawnSelected || spawnLoading">
+        <span x-show="!spawnLoading">Register</span>
+        <span x-show="spawnLoading">Registering…</span>
+      </button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
