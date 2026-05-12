@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <title>stoa</title>
   <link rel="stylesheet" href="/static/styles.css" />
-  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <script defer src="/static/app.js"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body x-data="dashboard()" x-init="boot()">
   <header>
@@ -40,9 +40,21 @@
       <div id="agents-actions"></div>
     </section>
     <section class="pane tasks">
-      <h2>Tasks</h2>
-      <ul x-show="tasks.length > 0">
-        <template x-for="t in tasks" :key="t.id">
+      <div class="pane-header">
+        <h2>Tasks</h2>
+        <select x-model="taskStatusFilter" class="filter-select">
+          <option value="active">active</option>
+          <option value="all">all</option>
+          <option value="pending">pending</option>
+          <option value="claimed">claimed</option>
+          <option value="in_progress">in_progress</option>
+          <option value="completed">completed</option>
+          <option value="failed">failed</option>
+          <option value="blocked">blocked</option>
+        </select>
+      </div>
+      <ul x-show="filteredTasks.length > 0">
+        <template x-for="t in filteredTasks" :key="t.id">
           <li class="task-row">
             <a :href="taskHref(t)" x-text="t.title" class="task-title"></a>
             <span class="task-wiki" x-text="t.wiki"></span>
@@ -55,7 +67,7 @@
           </li>
         </template>
       </ul>
-      <p x-show="tasks.length === 0" class="empty-state">No tasks found.</p>
+      <p x-show="filteredTasks.length === 0" class="empty-state">No tasks found.</p>
     </section>
     <section class="pane channels">
       <h2>Channels</h2>
