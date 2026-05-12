@@ -161,7 +161,7 @@ export function mountReadRoutes(app: Hono, ctx: ReadRoutesCtx): void {
 
     let suggestions: ApiSuggestion[] = [];
     try {
-      const raw = await suggestByType(vaultPath, resolvedType, { fetcher });
+      const raw = await suggestByType(vaultPath, resolvedType, { fetcher, evolution_stage: "basic" });
       suggestions = raw.map((s) => ({
         name: s.name,
         pokemon_type: s.pokemon_type,

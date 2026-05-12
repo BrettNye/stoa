@@ -142,10 +142,85 @@ export async function nextEvolution(vaultPath: string, currentName: string, opts
   return { name: next.name, pokeapi_url: next.pokeapi_url };
 }
 
-export async function suggestByType(vaultPath: string, pokemonType: string, opts?: Opts): Promise<PokeAPISuggestion[]> {
+interface SpeciesData {
+  evolves_from_species: { name: string; url: string } | null;
+}
+
+async function fetchSpecies(vaultPath: string, name: string, opts?: Opts): Promise<SpeciesData | null> {
+  const key = `species:${name.toLowerCase()}`;
+  const cached = await getCached<SpeciesData>(vaultPath, key);
+  if (cached !== null) return cached;
+
+  try {
+    const raw = await doFetch(`${POKEAPI_BASE}/pokemon-species/${name.toLowerCase()}`, opts);
+    const result: SpeciesData = {
+      evolves_from_species: raw.evolves_from_species
+        ? { name: String(raw.evolves_from_species.name ?? ""), url: String(raw.evolves_from_species.url ?? "") }
+        : null
+    };
+    setCached(vaultPath, key, result);
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+async function filterByEvolutionStage(
+  vaultPath: string,
+  candidates: PokeAPISuggestion[],
+  stage: "basic" | "stage1" | "stage2",
+  opts?: Opts
+): Promise<PokeAPISuggestion[]> {
+  const results: PokeAPISuggestion[] = [];
+
+  for (const candidate of candidates) {
+    try {
+      const species = await fetchSpecies(vaultPath, candidate.name, opts);
+      // If species fetch failed, exclude the candidate
+      if (species === null) continue;
+
+      if (stage === "basic") {
+        if (species.evolves_from_species === null) {
+          results.push(candidate);
+        }
+      } else if (stage === "stage1") {
+        // stage1: has a predecessor, but predecessor is basic
+        if (species.evolves_from_species !== null) {
+          const predecessorSpecies = await fetchSpecies(vaultPath, species.evolves_from_species.name, opts);
+          if (predecessorSpecies !== null && predecessorSpecies.evolves_from_species === null) {
+            results.push(candidate);
+          }
+        }
+      } else if (stage === "stage2") {
+        // stage2: has a predecessor, and that predecessor also has a predecessor
+        if (species.evolves_from_species !== null) {
+          const predecessorSpecies = await fetchSpecies(vaultPath, species.evolves_from_species.name, opts);
+          if (predecessorSpecies !== null && predecessorSpecies.evolves_from_species !== null) {
+            results.push(candidate);
+          }
+        }
+      }
+    } catch {
+      // Exclude on unexpected error
+    }
+  }
+
+  return results;
+}
+
+export async function suggestByType(
+  vaultPath: string,
+  pokemonType: string,
+  opts?: Opts & { evolution_stage?: "basic" | "stage1" | "stage2" }
+): Promise<PokeAPISuggestion[]> {
   const key = `type:${pokemonType.toLowerCase()}`;
   const cached = await getCached<PokeAPISuggestion[]>(vaultPath, key);
-  if (cached) return cached;
+  if (cached) {
+    if (opts?.evolution_stage) {
+      return filterByEvolutionStage(vaultPath, cached, opts.evolution_stage, opts);
+    }
+    return cached;
+  }
 
   const raw = await doFetch(`${POKEAPI_BASE}/type/${pokemonType.toLowerCase()}`, opts);
   const list: PokeAPISuggestion[] = Array.isArray(raw.pokemon)
@@ -157,5 +232,9 @@ export async function suggestByType(vaultPath: string, pokemonType: string, opts
       }))
     : [];
   setCached(vaultPath, key, list);
+
+  if (opts?.evolution_stage) {
+    return filterByEvolutionStage(vaultPath, list, opts.evolution_stage, opts);
+  }
   return list;
 }
