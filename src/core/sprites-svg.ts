@@ -6,8 +6,13 @@
  * half-pixel cell.
  *
  * Grid dimensions (fixed):
- *   viewBox="0 0 48 24"  (48 cols × 24 half-rows, matching the ASCII layout)
- *   Each rect: x=col, y=halfRow, width=1, height=1
+ *   viewBox="0 0 48 48"  (48 cols × 48 visual rows — square aspect)
+ *   Each rect: x=col, y=halfRow*2, width=1, height=2
+ *   The source PNG is 96×96; the half-block encoding downsamples 2x horizontally
+ *   and 4x vertically (one character row = 2 half-pixels = 4 source rows). For
+ *   ASCII rendering each character cell renders ~2:1 tall so the aspect comes
+ *   out square in a terminal. For SVG/PNG rendering we double the vertical
+ *   pixel size to recover the original square aspect.
  *
  * Color modes (matching `sprites-runtime` semantics):
  *   "truecolor" → fill="rgb(R,G,B)"
@@ -84,7 +89,8 @@ function resolveSvgCachePath(input: SpriteSvgInput): string {
 // ---------------------------------------------------------------------------
 
 const SVG_COLS = 48;
-const SVG_HALF_ROWS = 24; // 12 char rows × 2 halves each
+const SVG_ROWS = 48; // 12 char rows × 2 halves × 2 vertical scale = 48 (matches 96px source aspect)
+const HALF_PIXEL_HEIGHT = 2; // each half-pixel rendered as 1×2 to recover square aspect
 
 function emitSvg(
   grid: { cells: { top: HalfStats; bot: HalfStats }[][]; cols: number; rows: number },
@@ -96,24 +102,24 @@ function emitSvg(
     for (let col = 0; col < grid.cols; col++) {
       const cell = grid.cells[row][col];
 
-      // Top half (half-row = row*2)
+      // Top half — y = row*4 (two half-pixels per char row × 2 scale)
       if (cell.top.alpha >= 0.5) {
         const fill = resolveColor(cell.top, mode);
-        rects.push(`<rect x="${col}" y="${row * 2}" width="1" height="1" fill="${fill}"/>`);
+        rects.push(`<rect x="${col}" y="${row * 4}" width="1" height="${HALF_PIXEL_HEIGHT}" fill="${fill}"/>`);
       }
 
-      // Bottom half (half-row = row*2+1)
+      // Bottom half — y = row*4 + 2 (offset by one half-pixel of height 2)
       if (cell.bot.alpha >= 0.5) {
         const fill = resolveColor(cell.bot, mode);
-        rects.push(`<rect x="${col}" y="${row * 2 + 1}" width="1" height="1" fill="${fill}"/>`);
+        rects.push(`<rect x="${col}" y="${row * 4 + 2}" width="1" height="${HALF_PIXEL_HEIGHT}" fill="${fill}"/>`);
       }
     }
   }
 
   const inner = rects.join("");
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SVG_COLS} ${SVG_HALF_ROWS}" ` +
-    `width="${SVG_COLS}" height="${SVG_HALF_ROWS}" shape-rendering="crispEdges">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SVG_COLS} ${SVG_ROWS}" ` +
+    `width="${SVG_COLS}" height="${SVG_ROWS}" shape-rendering="crispEdges">` +
     inner +
     `</svg>`
   );

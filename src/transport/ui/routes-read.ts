@@ -101,7 +101,7 @@ export function mountReadRoutes(app: Hono, ctx: ReadRoutesCtx): void {
       // Return empty array on any error (e.g. missing vault)
     }
 
-    return c.json(tasks);
+    return c.json({ tasks, generatedAt: new Date().toISOString() });
   });
 
   // ------------------------------------------------------------------
@@ -131,7 +131,7 @@ export function mountReadRoutes(app: Hono, ctx: ReadRoutesCtx): void {
       // Return empty array on error
     }
 
-    return c.json(agents);
+    return c.json({ agents, generatedAt: new Date().toISOString() });
   });
 
   // ------------------------------------------------------------------
@@ -169,7 +169,7 @@ export function mountReadRoutes(app: Hono, ctx: ReadRoutesCtx): void {
       // On network / cache error return empty list rather than 500
     }
 
-    return c.json(suggestions);
+    return c.json({ suggestions });
   });
 
   // ------------------------------------------------------------------
@@ -275,6 +275,6 @@ export function mountReadRoutes(app: Hono, ctx: ReadRoutesCtx): void {
       // Return empty on error
     }
 
-    return c.json(wikis);
+    return c.json({ wikis });
   });
 }

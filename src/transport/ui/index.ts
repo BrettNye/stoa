@@ -86,12 +86,15 @@ export async function startUiServer(opts: StartUiServerOpts): Promise<UiServerHa
   // ------------------------------------------------------------------
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = dirname(__filename);
-  const staticDir = resolve(__dirname, "static");
+  const staticParent = __dirname;
 
   // serveStatic expects a path relative to CWD.
   // path.relative() always produces a correct relative path (using ../ segments
   // when needed), which is correct for all install locations including global npm.
-  const relRoot = relative(process.cwd(), staticDir).replace(/\\/g, "/");
+  // serveStatic at /static/* with root=<parent> means request /static/index.html
+  // resolves to <root>/static/index.html. If root were staticDir itself, the prefix
+  // would double up (/static/static/index.html → 404).
+  const relRoot = relative(process.cwd(), staticParent).replace(/\\/g, "/") || ".";
   app.use("/static/*", serveStatic({ root: relRoot }));
 
   // ------------------------------------------------------------------

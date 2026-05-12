@@ -104,7 +104,7 @@ describe("sprites-svg — renderSpriteSvg", () => {
       fetcher: makeFetcher(),
     });
 
-    expect(out.svg).toMatch(/^<svg [^>]*viewBox="0 0 48 24"/);
+    expect(out.svg).toMatch(/^<svg [^>]*viewBox="0 0 48 48"/);
     expect(out.svg).toMatch(/<rect /);
     expect(out.source).toBe("rendered");
     expect(existsSync(out.cachePath)).toBe(true);
