@@ -17,12 +17,14 @@ import type {
   ClaimConflictResponse,
   PostResponse,
   RegisterAgentResponse,
+  ReleaseResponse,
+  ReleaseConflictResponse,
 } from "./types.js";
 import { taskClaimTool } from "../../tools/task-claim.js";
 import { channelPostTool } from "../../tools/channel-post.js";
 import { profileRegisterTool } from "../../tools/profile-register.js";
 import { newTool } from "../../tools/new.js";
-import { AlreadyClaimedError } from "../../core/tasks.js";
+import { AlreadyClaimedError, releaseTask, NotClaimedError } from "../../core/tasks.js";
 import { ConflictError } from "../../core/pages.js";
 
 // ---------------------------------------------------------------------------
@@ -56,6 +58,12 @@ const RegisterBody = z.object({
   dev_specialty: z.string().optional(),
   pokemon_type: z.string().optional(),
   evolution_stage: z.enum(["basic", "stage1", "stage2"]).optional(),
+});
+
+const ReleaseBody = z.object({
+  expected_updated: z.string(),
+  reason: z.string().optional(),
+  wiki: z.string(),
 });
 
 // ---------------------------------------------------------------------------
@@ -126,6 +134,53 @@ export function mountWriteRoutes(app: Hono, ctx: WriteRoutesCtx): void {
       }
       // Unknown error — re-throw as 500
       const msg = err instanceof Error ? err.message : String(err);
+      return c.json({ ok: false, error: msg }, 500);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // POST /api/tasks/:id/release
+  // -------------------------------------------------------------------------
+  app.post("/api/tasks/:id/release", async (c) => {
+    const taskId = c.req.param("id");
+
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json({ ok: false, error: "invalid JSON body" }, 400);
+    }
+
+    const parsed = ReleaseBody.safeParse(rawBody);
+    if (!parsed.success) {
+      return c.json({ ok: false, error: parsed.error.message }, 400);
+    }
+
+    try {
+      const result = releaseTask(ctx.vaultPath, { task_id: taskId, ...parsed.data });
+      const body: ReleaseResponse = {
+        ok: true,
+        task: result.task as ReleaseResponse["task"],
+      };
+      return c.json(body, 200);
+    } catch (e) {
+      if (e instanceof NotClaimedError) {
+        const body: ReleaseConflictResponse = {
+          ok: false,
+          error: "NotClaimed",
+          current_status: e.currentStatus as ReleaseConflictResponse["current_status"],
+        };
+        return c.json(body, 409);
+      }
+      if (e instanceof ConflictError) {
+        const body: ReleaseConflictResponse = {
+          ok: false,
+          error: "OccMismatch",
+          current_updated: e.actualUpdated,
+        };
+        return c.json(body, 412);
+      }
+      const msg = e instanceof Error ? e.message : String(e);
       return c.json({ ok: false, error: msg }, 500);
     }
   });
