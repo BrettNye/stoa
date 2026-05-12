@@ -4,7 +4,7 @@ import type {
   ApiChannelSummary, ApiChannelEntry, ApiWiki,
 } from "./types.js";
 import { listTasks } from "../../core/tasks.js";
-import { listAllChannels } from "../../core/channel.js";
+import { listAllChannels, tailChannel } from "../../core/channel.js";
 import { listProfilesEnriched } from "../../core/profiles.js";
 import { listWikis } from "../../core/wikis.js";
 import { suggestByType } from "../../core/pokeapi.js";
@@ -63,11 +63,23 @@ export function mountReadRoutes(app: Hono, ctx: ReadRoutesCtx): void {
   // ------------------------------------------------------------------
   app.get("/api/tasks", (c) => {
     const wiki = c.req.query("wiki") ?? undefined;
-    const status = c.req.query("status") as
+    const statusStr = c.req.query("status");
+    const VALID_STATUSES = ["pending", "claimed", "in_progress", "completed", "failed", "blocked"] as const;
+    if (statusStr !== undefined && statusStr !== null && !(VALID_STATUSES as readonly string[]).includes(statusStr)) {
+      return c.json({ error: `Invalid status: "${statusStr}". Must be one of: ${VALID_STATUSES.join(", ")}` }, 400);
+    }
+    const status = statusStr as
       | "pending" | "claimed" | "in_progress" | "completed" | "failed" | "blocked"
       | undefined;
     const limitStr = c.req.query("limit");
-    const limit = limitStr ? parseInt(limitStr, 10) : undefined;
+    let limit: number | undefined;
+    if (limitStr !== undefined && limitStr !== null) {
+      const parsed = parseInt(limitStr, 10);
+      if (isNaN(parsed) || parsed < 1) {
+        return c.json({ error: `Invalid limit: "${limitStr}". Must be a positive integer.` }, 400);
+      }
+      limit = parsed;
+    }
 
     let tasks: ApiTask[] = [];
     try {
@@ -166,6 +178,7 @@ export function mountReadRoutes(app: Hono, ctx: ReadRoutesCtx): void {
   // sorted newest-first (single round-trip decision).
   // ------------------------------------------------------------------
   app.get("/api/channels", (c) => {
+    const channelLimitStr = c.req.query("limit");
     let channels: ApiChannelSummary[] = [];
     let entries: ApiChannelEntry[] = [];
 
@@ -193,11 +206,32 @@ export function mountReadRoutes(app: Hono, ctx: ReadRoutesCtx): void {
         };
       });
 
-      // Flat entries: all lastEntry values that are non-null, sorted newest-first
-      entries = channels
-        .filter((ch) => ch.lastEntry !== null)
-        .map((ch) => ch.lastEntry as ApiChannelEntry)
-        .sort((a, b) => b.ts.localeCompare(a.ts));
+      // Flat entries: ALL entries across all channels, sorted newest-first
+      // Fetch all entries from each channel (no time restriction) and concatenate
+      const entriesLimit = channelLimitStr ? parseInt(channelLimitStr, 10) : 50;
+      const allEntries: ApiChannelEntry[] = [];
+      for (const summary of summaries) {
+        const tail = tailChannel(vaultPath, {
+          channel: summary.name,
+          wiki: summary.wiki,
+          since: "1970-01-01T00:00:00.000Z",
+          limit: 1000,
+        });
+        for (const e of tail.entries) {
+          allEntries.push({
+            id: e.id,
+            channel: summary.name,
+            wiki: e.wiki,
+            author: e.author,
+            ts: e.created,
+            excerpt: e.body.trim().slice(0, 240),
+            pageId: e.id,
+          });
+        }
+      }
+      entries = allEntries
+        .sort((a, b) => b.ts.localeCompare(a.ts))
+        .slice(0, entriesLimit);
     } catch {
       // Return empty on error
     }

@@ -182,6 +182,30 @@ summary: Item ${i}
     expect(body.length).toBeLessThanOrEqual(2);
   });
 
+  it("GET /api/tasks with ?limit=abc returns 400", async () => {
+    const app = makeApp(ctx);
+    const res = await app.request("/api/tasks?limit=abc");
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBeTruthy();
+  });
+
+  it("GET /api/tasks with ?limit=-1 returns 400", async () => {
+    const app = makeApp(ctx);
+    const res = await app.request("/api/tasks?limit=-1");
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBeTruthy();
+  });
+
+  it("GET /api/tasks with ?status=garbage returns 400", async () => {
+    const app = makeApp(ctx);
+    const res = await app.request("/api/tasks?status=garbage");
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBeTruthy();
+  });
+
   // -------------------------------------------------------------------------
   // GET /api/agents
   // -------------------------------------------------------------------------
@@ -338,6 +362,88 @@ Hello from dev channel
     const channelSummary = body.channels[0];
     expect(channelSummary.name).toBe("dev");
     expect(channelSummary.wiki).toBe("alpha");
+  });
+
+  it("GET /api/channels returns ALL entries across channels sorted newest-first", async () => {
+    // Seed two channels with multiple entries each
+    const journalDir = join(vaultPath, "wikis", "alpha", "journal");
+    mkdirSync(journalDir, { recursive: true });
+
+    const pages = [
+      {
+        id: "journal-2026-05-01-1000-dev-old",
+        channel: "dev",
+        created: "2026-05-01T10:00:00.000Z",
+        body: "dev old",
+      },
+      {
+        id: "journal-2026-05-01-1200-dev-new",
+        channel: "dev",
+        created: "2026-05-01T12:00:00.000Z",
+        body: "dev new",
+      },
+      {
+        id: "journal-2026-05-01-1100-ops-mid",
+        channel: "ops",
+        created: "2026-05-01T11:00:00.000Z",
+        body: "ops mid",
+      },
+      {
+        id: "journal-2026-05-01-0900-ops-old",
+        channel: "ops",
+        created: "2026-05-01T09:00:00.000Z",
+        body: "ops old",
+      },
+    ];
+
+    const pagesJson = {
+      pages: pages.map((p) => ({
+        id: p.id,
+        type: "journal",
+        wiki: "alpha",
+        title: `Channel post: ${p.channel}`,
+        summary: p.body,
+        tags: [],
+        status: "active",
+        created: p.created,
+        updated: p.created,
+        channel: p.channel,
+        path: `wikis/alpha/journal/${p.id}.md`,
+      })),
+    };
+    writeFileSync(join(vaultPath, "_index", "pages.json"), JSON.stringify(pagesJson));
+
+    for (const p of pages) {
+      writeFileSync(
+        join(journalDir, `${p.id}.md`),
+        `---
+id: ${p.id}
+title: "Channel post: ${p.channel}"
+type: journal
+wiki: alpha
+status: active
+created: ${p.created}
+author: agent:testbot
+channel: ${p.channel}
+---
+${p.body}
+`
+      );
+    }
+
+    const app = makeApp(ctx);
+    const res = await app.request("/api/channels");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    // Should return ALL 4 entries, not just 1 per channel (which would be 2)
+    expect(body.entries.length).toBe(4);
+
+    // Verify newest-first ordering: 12:00 > 11:00 > 10:00 > 09:00
+    expect(body.entries[0].ts).toBe("2026-05-01T12:00:00.000Z");
+    expect(body.entries[1].ts).toBe("2026-05-01T11:00:00.000Z");
+    expect(body.entries[2].ts).toBe("2026-05-01T10:00:00.000Z");
+    expect(body.entries[3].ts).toBe("2026-05-01T09:00:00.000Z");
   });
 
   // -------------------------------------------------------------------------
