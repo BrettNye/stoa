@@ -14,10 +14,14 @@ export function registerSyncSkills(p: Command) {
         {
           repo_path: repoPath,
           pokemon: opts.pokemon,
+          all: false,
+          exclude: [],
+          pokemon_type: [],
           target: opts.target as "claude-code" | "openclaw" | "codex",
           mode: opts.mode as "copy" | "symlink",
           reverify: false,
-          fix: false
+          fix: false,
+          continue_on_error: false
         },
         { vaultPath: ctx.vaultPath }
       );

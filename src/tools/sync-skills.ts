@@ -11,9 +11,17 @@ import { getClaimsConfig } from "../config.js";
 const Input = z.object({
   repo_path: z.string(),
   // `pokemon` is optional only when `reverify=true` (a reverify scan can span
-  // every deployment matching `repo_path` + `target`). For the default deploy
-  // path, the handler enforces that `pokemon` is set.
+  // every deployment matching `repo_path` + `target`) OR when `all: true` is
+  // set (Task 5 / sync-all-flag plan). For the default deploy path, the
+  // handler enforces that `pokemon` is set.
   pokemon: z.string().optional(),
+  // sync-all-flag plan (Task 5). When true, deploy every profile matching
+  // `pokemon_type` and not in `exclude`. Mutually exclusive with `pokemon:`.
+  // Coexists with the pre-existing `reverify` implicit-all path — refines
+  // (not a discriminated union) so that path keeps working.
+  all: z.boolean().default(false),
+  exclude: z.array(z.string()).default([]),
+  pokemon_type: z.array(z.string()).default([]),
   target: z.enum(["claude-code", "openclaw", "codex"]).default("claude-code"),
   mode: z.enum(["copy", "symlink"]).default("symlink"),
   // T3-2 (v1.6 §6.2). When true, the tool no-ops the deploy and instead scans
@@ -21,8 +29,15 @@ const Input = z.object({
   // its canonical vault source to detect drift. With `fix: true`, drifted
   // moves are re-deployed atomically per move.
   reverify: z.boolean().default(false),
-  fix: z.boolean().default(false)
-});
+  fix: z.boolean().default(false),
+  continue_on_error: z.boolean().default(false),
+}).refine(
+  (v) => !(v.pokemon && v.all),
+  { message: "`pokemon` and `all` are mutually exclusive" }
+).refine(
+  (v) => v.reverify || v.pokemon || v.all,
+  { message: "deploy mode (reverify=false) requires `pokemon` or `all: true`" }
+);
 
 function bareName(pokemonId: string): string {
   return pokemonId.startsWith("profile-")
