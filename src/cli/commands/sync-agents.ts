@@ -9,7 +9,7 @@ export function registerSyncAgents(p: Command) {
     .option("--all", "deploy every profile in wikis/_agents/profiles/", false)
     .option("--exclude <ids>", "comma-separated profile ids to skip (only with --all)")
     .option("--type <types>", "comma-separated pokemon_type filter (only with --all)")
-    .option("--runtime <name>", "claude-code", "claude-code")
+    .option("--runtime <name>", "runtime adapter name (claude-code)", "claude-code")
     .option("--mode <mode>", "copy | symlink", "copy")
     .option("--no-overwrite", "skip files that already exist")
     .option("--no-include-moveset", "do not sync each profile's moveset")
@@ -41,9 +41,7 @@ export function registerSyncAgents(p: Command) {
             continue_on_error: continueOnError,
           }
         : {
-            pokemon: opts.pokemon.includes(",")
-              ? opts.pokemon.split(",").map((s: string) => s.trim())
-              : opts.pokemon,
+            pokemon: opts.pokemon.split(",").map((s: string) => s.trim()),
             target,
             runtime: opts.runtime,
             mode: opts.mode,
