@@ -24,14 +24,33 @@ import type { RuntimeName, ValidationDiagnostic } from "../core/runtime-adapters
 
 const PokemonInput = z.union([z.string(), z.array(z.string())]);
 
-const Input = z.object({
-  pokemon: PokemonInput,
+const Common = z.object({
   target: z.string(),
   runtime: z.enum(["claude-code"]).default("claude-code"),
   mode: z.enum(["copy", "symlink"]).default("copy"),
   overwrite: z.boolean().default(true),
   include_moveset: z.boolean().default(true),
+  continue_on_error: z.boolean().default(false),
 });
+
+const Explicit = Common.extend({
+  pokemon: PokemonInput,
+  all: z.literal(false).optional(),
+  exclude: z.undefined().optional(),
+  pokemon_type: z.undefined().optional(),
+});
+
+const All = Common.extend({
+  pokemon: z.undefined().optional(),
+  all: z.literal(true),
+  exclude: z.array(z.string()).default([]),
+  pokemon_type: z.array(z.string()).default([]),
+});
+
+const Input = z.union([Explicit, All]).refine(
+  (v) => v.all === true || v.pokemon !== undefined,
+  { message: "one of `pokemon` or `all: true` is required" }
+);
 
 export interface PerPokemonResult {
   pokemon: string;
@@ -150,7 +169,10 @@ export const syncAgentsTool = {
     input: z.infer<typeof Input>,
     ctx: { vaultPath: string }
   ): Promise<ResultShape> => {
-    const list = Array.isArray(input.pokemon) ? input.pokemon : [input.pokemon];
+    // Task 3 will dispatch on (input as any).all === true and call enumerateProfilesForSync.
+    // For now, the existing explicit-pokemon path remains the only supported branch.
+    const pokemonRaw = (input as any).pokemon as string | string[] | undefined;
+    const list = Array.isArray(pokemonRaw) ? pokemonRaw : pokemonRaw !== undefined ? [pokemonRaw] : [];
     const results: PerPokemonResult[] = [];
 
     for (const p of list) {
