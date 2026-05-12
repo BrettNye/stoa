@@ -97,6 +97,12 @@ export interface RegisterAgentRequest {
 export interface RegisterAgentResponse {
   ok: true;
   agent: ApiAgent;
+  /**
+   * True when the Stadium platform also accepted the registration.
+   * False when Stadium is unreachable / misconfigured; the local profile
+   * .md was still created and is fully usable.
+   */
+  stadium_registered: boolean;
 }
 
 // ---- Stuck-claim watchdog ----

@@ -271,33 +271,53 @@ describe("mountWriteRoutes — write endpoints", () => {
   });
 
   // -------------------------------------------------------------------------
-  // POST /api/agents — Stadium failure → 502
+  // POST /api/agents — Stadium failure → 201 (best-effort; .md persists)
   // -------------------------------------------------------------------------
 
-  it("POST /api/agents when Stadium is unreachable returns 502", async () => {
+  it("POST /api/agents when Stadium is unreachable returns 201 with stadium_registered: false", async () => {
     const app = makeApp(ctx);
     // No real Stadium configured — profileRegisterTool will fail trying to reach it
-    // (network error or missing API key). Either way: 502.
+    // (network error or missing API key). New contract: best-effort, not required.
     const res = await postJson(app, "/api/agents", {
       selected_species: "charmander",
       evolution_stage: "basic",
       wiki: "alpha",
     });
-    // Stadium integration will fail (no API key / no server) — should be 502
-    expect(res.status).toBe(502);
+    // Stadium integration will fail (no API key / no server) — should still be 201
+    expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.ok).toBe(false);
+    expect(body.ok).toBe(true);
+    expect(body.stadium_registered).toBe(false);
+    expect(body.agent).toBeDefined();
+    expect(body.agent.pokemon).toBe("charmander");
+  });
 
-    // No orphan profile file should remain after Stadium failure (Step 2 cleanup)
-    const profileDir = join(vaultPath, "wikis", "alpha", "profile");
-    const agentsProfileDir = join(vaultPath, "wikis", "_agents", "profile");
-    const profilesInAlpha = existsSync(profileDir)
-      ? readdirSync(profileDir).filter((f) => f.endsWith(".md"))
+  it("POST /api/agents when Stadium is unreachable leaves the .md file on disk", async () => {
+    const app = makeApp(ctx);
+    // No real Stadium configured — profileRegisterTool will fail.
+    // The profile .md should persist despite Stadium failure.
+    const res = await postJson(app, "/api/agents", {
+      selected_species: "squirtle",
+      evolution_stage: "basic",
+    });
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.stadium_registered).toBe(false);
+
+    // The .md file MUST still exist — check both possible profile directories.
+    // profile type maps to "profiles" folder (plural).
+    // ctx.defaultWiki is "alpha", so the file lands in wikis/alpha/profiles/
+    const alphaProfileDir = join(vaultPath, "wikis", "alpha", "profiles");
+    const agentsProfileDir = join(vaultPath, "wikis", "_agents", "profiles");
+    const profilesInAlpha = existsSync(alphaProfileDir)
+      ? readdirSync(alphaProfileDir).filter((f) => f.endsWith(".md"))
       : [];
     const profilesInAgents = existsSync(agentsProfileDir)
       ? readdirSync(agentsProfileDir).filter((f) => f.endsWith(".md"))
       : [];
-    expect(profilesInAlpha.length + profilesInAgents.length).toBe(0);
+    // At least one profile .md was created and not deleted
+    expect(profilesInAlpha.length + profilesInAgents.length).toBeGreaterThan(0);
   });
 
   // -------------------------------------------------------------------------

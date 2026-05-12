@@ -7,10 +7,9 @@
 //   - 412: ConflictError / OCC mismatch on task claim
 //   - 400: validation / body parsing failure
 //   - 500: local/server-side failure in Step 1 (profile page creation)
-//   - 502: upstream/Stadium failure in Step 2 (register-agent only)
+//   - 201: always returned for POST /api/agents (Stadium registration is best-effort)
 
 import type { Hono } from "hono";
-import { unlinkSync } from "node:fs";
 import { z } from "zod";
 import type {
   ClaimResponse,
@@ -261,7 +260,7 @@ export function mountWriteRoutes(app: Hono, ctx: WriteRoutesCtx): void {
     // Build a title for the profile
     const title = `${selected_species} agent`;
 
-    // Step 1: Create the profile page via newTool (local/server-side operation)
+    // Phase 1: Create the profile page via newTool (local/server-side operation; required).
     const frontmatterExtras: Record<string, unknown> = {
       pokemon: selected_species,
       evolution_stage: evolution_stage ?? "basic",
@@ -284,37 +283,37 @@ export function mountWriteRoutes(app: Hono, ctx: WriteRoutesCtx): void {
     } catch (err) {
       // Local server-side failure (disk full, invalid frontmatter, etc.) → 500
       const msg = err instanceof Error ? err.message : String(err);
-      return c.json({ ok: false, error: msg }, 500);
+      return c.json({ ok: false, error: `local profile create failed: ${msg}` }, 500);
     }
 
     const profileId = newResult.id;
 
-    // Step 2: Register with Stadium via profileRegisterTool (upstream operation)
+    // Phase 2: Best-effort Stadium register. Failure leaves the .md in place.
+    let stadiumRegistered = false;
     try {
       await profileRegisterTool.handler(
         { profile_id: profileId, wiki },
         toolCtx
       );
+      stadiumRegistered = true;
     } catch (err) {
-      // Stadium / upstream failure → clean up orphan profile file, return 502
-      try { unlinkSync(newResult.path); } catch { /* best-effort; ignore if already gone */ }
-      const msg = err instanceof Error ? err.message : String(err);
-      return c.json({ ok: false, error: msg }, 502);
+      // Stadium unavailable — log and continue. Don't unlink.
+      console.warn(`[stoa] Stadium register failed for ${profileId}: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // Build ApiAgent response
+    // Build ApiAgent response. stadium_registered reflects Phase 2 outcome.
     const agent = {
       id: profileId,
       wiki,
       pokemon: selected_species,
       pokemon_type: pokemon_type,
       evolution_stage: evolution_stage ?? "basic",
-      spriteUrl: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${selected_species}.png`,
+      spriteUrl: `/api/sprites/${encodeURIComponent(selected_species)}.svg`,
       updated: newResult.updated,
       claimedTaskCount: 0,
     };
 
-    const body: RegisterAgentResponse = { ok: true, agent };
+    const body: RegisterAgentResponse = { ok: true, agent, stadium_registered: stadiumRegistered };
     return c.json(body, 201);
   });
 }
