@@ -179,7 +179,11 @@ function resolveCachePath(input: SpriteRenderInput): string {
 // Helpers — fetching
 // ---------------------------------------------------------------------------
 
-async function fetchSpriteUrl(input: SpriteRenderInput): Promise<string> {
+async function fetchSpriteUrl(input: {
+  pokeapiUrl: string;
+  spriteVariant: SpriteVariant;
+  fetcher: Fetcher;
+}): Promise<string> {
   let response: Response;
   try {
     response = await input.fetcher(input.pokeapiUrl);
@@ -276,10 +280,7 @@ export async function decodeSpriteGrid(input: {
   vaultPath: string;
   fetcher: Fetcher;
 }): Promise<SpriteGrid> {
-  const spriteUrl = await fetchSpriteUrl({
-    ...input,
-    colorMode: "truecolor", // colorMode is not used by fetchSpriteUrl
-  });
+  const spriteUrl = await fetchSpriteUrl(input);
   const pngBuffer = await fetchPngBytes(spriteUrl, input.fetcher);
   const decoded = decodePng(pngBuffer);
 
