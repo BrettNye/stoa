@@ -85,6 +85,15 @@ header button:disabled {
 }
 
 /* ---------------------------------------------------------------------------
+   Pinned views chip row
+--------------------------------------------------------------------------- */
+
+.pinned-views { display: inline-flex; gap: 4px; align-items: center; }
+.pin-chip { background: var(--color-pill-bg, var(--color-surface)); color: var(--color-text); border: 1px solid var(--color-border); border-radius: 999px; padding: 2px 8px; cursor: pointer; font-size: 0.85em; font-family: inherit; }
+.pin-chip:hover { background: var(--color-accent); }
+.pin-add { background: transparent; color: var(--color-text-muted); border: 1px dashed var(--color-border); border-radius: 999px; padding: 2px 8px; cursor: pointer; font-size: 0.85em; font-family: inherit; }
+
+/* ---------------------------------------------------------------------------
    Live-dot indicator
 --------------------------------------------------------------------------- */
 

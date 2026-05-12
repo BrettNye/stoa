@@ -34,6 +34,10 @@ function dashboard() {
       sending: false,
     },
 
+    // Pinned views — [{name, hash}], persisted in localStorage
+    pinnedViews: [],
+    pinning: false,
+
     // Internal
     _lastFetchAt: null,
     _pollHandle: null,
@@ -44,6 +48,13 @@ function dashboard() {
     // -----------------------------------------------------------------------
 
     async boot() {
+      this.hydrateFromHash();
+      this.pinnedViews = this.loadPinnedViews();
+      window.addEventListener("hashchange", () => this.hydrateFromHash());
+
+      // Watch taskStatusFilter and sync to URL hash on every change
+      this.$watch("taskStatusFilter", () => this.syncToHash());
+
       await this.refresh();
       this.startPolling();
 
@@ -410,6 +421,52 @@ function dashboard() {
       const vault = encodeURIComponent(this.vaultBaseName);
       const file = encodeURIComponent(e.pageId);
       return `obsidian://open?vault=${vault}&file=${file}`;
+    },
+
+    // -----------------------------------------------------------------------
+    // Session state — URL hash serialisation
+    // -----------------------------------------------------------------------
+
+    hydrateFromHash() {
+      const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const filter = params.get("tasks");
+      if (filter) this.taskStatusFilter = filter;
+      // Future fields plug in here.
+    },
+
+    syncToHash() {
+      const params = new URLSearchParams();
+      if (this.taskStatusFilter !== "active") params.set("tasks", this.taskStatusFilter);
+      const next = params.toString();
+      const target = next ? `#${next}` : "";
+      if (window.location.hash !== target) {
+        window.history.replaceState(null, "", `${window.location.pathname}${target}`);
+      }
+    },
+
+    // -----------------------------------------------------------------------
+    // Session state — pinned views (localStorage)
+    // -----------------------------------------------------------------------
+
+    loadPinnedViews() {
+      try { return JSON.parse(localStorage.getItem("stoa.pinnedViews") || "[]"); }
+      catch { return []; }
+    },
+
+    savePinnedViews() {
+      localStorage.setItem("stoa.pinnedViews", JSON.stringify(this.pinnedViews));
+    },
+
+    addPin() {
+      const name = prompt("Name this view:");
+      if (!name) return;
+      const hash = window.location.hash.replace(/^#/, "");
+      this.pinnedViews.push({ name, hash });
+      this.savePinnedViews();
+    },
+
+    applyPin(pin) {
+      window.location.hash = pin.hash;
     },
   };
 }

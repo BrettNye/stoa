@@ -17,6 +17,12 @@
       &middot; <span x-text="lastRefreshDelta"></span>
       <span class="live-dot" :class="{ paused: pollPaused }"></span>
     </div>
+    <div class="pinned-views">
+      <template x-for="pin in pinnedViews" :key="pin.name">
+        <button class="pin-chip" @click="applyPin(pin)" x-text="pin.name"></button>
+      </template>
+      <button class="pin-add" @click="addPin()">&#xFF0B; pin</button>
+    </div>
     <button @click="refresh()" :disabled="loading">refresh</button>
   </header>
   <main class="grid">
