@@ -1,6 +1,5 @@
 // stoa dashboard — Alpine.js state machine
 // Field names mirror the contract types from src/transport/ui/types.ts.
-// No write affordances here; those are added by task-frontend-writes.
 
 function dashboard() {
   return {
@@ -16,6 +15,21 @@ function dashboard() {
     lastRefreshDelta: "—",
     pollPaused: false,
     loading: false,
+
+    // Spawn modal state
+    spawnOpen: false,
+    spawnSpecialty: "",
+    spawnSuggestions: [],
+    spawnSelected: null,
+    spawnLoading: false,
+
+    // Channel composer state
+    composer: {
+      open: false,
+      channel: "",
+      content: "",
+      sending: false,
+    },
 
     // Internal
     _lastFetchAt: null,
@@ -131,8 +145,214 @@ function dashboard() {
     },
 
     // -----------------------------------------------------------------------
-    // Helpers
+    // Write — Claim task
     // -----------------------------------------------------------------------
+
+    async claim(task) {
+      if (task.loading) return;
+
+      // Save previous state for rollback
+      const prev = { status: task.status, claimed_by: task.claimed_by };
+
+      // Optimistic update
+      task.loading = true;
+      task.status = "claimed";
+
+      try {
+        const res = await fetch(`/api/tasks/${task.id}/claim`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ expected_updated: task.updated }),
+        });
+
+        if (res.status === 409) {
+          // Already claimed by someone else — rollback
+          task.status = prev.status;
+          task.claimed_by = prev.claimed_by;
+          this.flashError(task, "already claimed");
+          return;
+        }
+
+        if (res.status === 412) {
+          // OCC mismatch — task changed since we last loaded — rollback
+          task.status = prev.status;
+          task.claimed_by = prev.claimed_by;
+          this.flashError(task, "task changed — refresh");
+          return;
+        }
+
+        if (!res.ok) {
+          // Other error — rollback
+          task.status = prev.status;
+          task.claimed_by = prev.claimed_by;
+          this.flashError(task, "claim failed");
+          return;
+        }
+
+        // Success — update with server response
+        const updated = await res.json();
+        task.status = updated.status || "claimed";
+        task.claimed_by = updated.claimed_by || task.claimed_by;
+        task.updated = updated.updated || task.updated;
+      } catch (err) {
+        // Network error — rollback
+        task.status = prev.status;
+        task.claimed_by = prev.claimed_by;
+        this.flashError(task, "network error");
+        console.error("[stoa] claim error:", err);
+      } finally {
+        task.loading = false;
+      }
+    },
+
+    // -----------------------------------------------------------------------
+    // Write — Channel composer
+    // -----------------------------------------------------------------------
+
+    openComposer(channel) {
+      this.composer.open = true;
+      if (channel) {
+        this.composer.channel = channel;
+      }
+    },
+
+    async post() {
+      if (this.composer.sending) return;
+      if (!this.composer.content.trim()) return;
+
+      this.composer.sending = true;
+
+      // Optimistic prepend
+      const optimisticEntry = {
+        id: `opt-${Date.now()}`,
+        channel: this.composer.channel,
+        wiki: "",
+        author: "me",
+        ts: new Date().toISOString(),
+        excerpt: this.composer.content,
+        pageId: "",
+      };
+      this.channelEntries.unshift(optimisticEntry);
+
+      try {
+        const res = await fetch(`/api/channels/${encodeURIComponent(this.composer.channel)}/posts`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: this.composer.content }),
+        });
+
+        if (!res.ok) {
+          // Rollback optimistic entry
+          this.channelEntries = this.channelEntries.filter((e) => e.id !== optimisticEntry.id);
+          console.error("[stoa] post error:", res.status);
+          return;
+        }
+
+        // Replace optimistic entry with server response
+        const created = await res.json();
+        const idx = this.channelEntries.findIndex((e) => e.id === optimisticEntry.id);
+        if (idx !== -1) {
+          this.channelEntries.splice(idx, 1, created);
+        }
+
+        // Clear composer content on success (keep open)
+        this.composer.content = "";
+      } catch (err) {
+        // Network error — rollback optimistic entry
+        this.channelEntries = this.channelEntries.filter((e) => e.id !== optimisticEntry.id);
+        console.error("[stoa] post error:", err);
+      } finally {
+        this.composer.sending = false;
+      }
+    },
+
+    // -----------------------------------------------------------------------
+    // Write — Spawn agent modal
+    // -----------------------------------------------------------------------
+
+    openSpawn() {
+      this.spawnOpen = true;
+      this.spawnSpecialty = "";
+      this.spawnSuggestions = [];
+      this.spawnSelected = null;
+      this.spawnLoading = false;
+    },
+
+    closeSpawn() {
+      this.spawnOpen = false;
+    },
+
+    async suggest() {
+      try {
+        const params = this.spawnSpecialty
+          ? `?specialty=${encodeURIComponent(this.spawnSpecialty)}`
+          : "";
+        const res = await fetch(`/api/agents/suggest${params}`);
+        if (res.ok) {
+          const data = await res.json();
+          this.spawnSuggestions = Array.isArray(data) ? data : (data.suggestions || []);
+        }
+      } catch (err) {
+        console.error("[stoa] suggest error:", err);
+      }
+    },
+
+    async register() {
+      if (this.spawnLoading) return;
+      if (!this.spawnSelected) return;
+
+      this.spawnLoading = true;
+      try {
+        const res = await fetch("/api/agents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ selected_species: this.spawnSelected }),
+        });
+
+        if (!res.ok) {
+          console.error("[stoa] register error:", res.status);
+          return;
+        }
+
+        const newAgent = await res.json();
+        this.agents.push(newAgent);
+        this.closeSpawn();
+      } catch (err) {
+        console.error("[stoa] register error:", err);
+      } finally {
+        this.spawnLoading = false;
+      }
+    },
+
+    // -----------------------------------------------------------------------
+    // Utility
+    // -----------------------------------------------------------------------
+
+    /**
+     * Transiently adds a red-flash CSS class to the element matching target._el (if present),
+     * or falls back to setting a reactive _errorClass on the target object.
+     * The class is removed after a short timeout (transient red flash).
+     */
+    flashError(target, msg) {
+      target._errorMsg = msg;
+      // Try DOM classList if target._el is an element reference
+      if (target._el && target._el.classList) {
+        target._el.classList.add("error-flash");
+        if (target._flashTimeout) clearTimeout(target._flashTimeout);
+        target._flashTimeout = setTimeout(() => {
+          target._el.classList.remove("error-flash");
+          target._errorMsg = "";
+        }, 3000);
+      } else {
+        // Reactive fallback — Alpine x-bind:class picks this up
+        target._errorClass = "error-flash";
+        if (target._flashTimeout) clearTimeout(target._flashTimeout);
+        target._flashTimeout = setTimeout(() => {
+          target._errorClass = "";
+          target._errorMsg = "";
+        }, 3000);
+      }
+    },
 
     /**
      * Returns a human-readable relative time string for an ISO timestamp.

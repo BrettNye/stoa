@@ -345,10 +345,4 @@ describe("frontend-shell: app.js", () => {
     expect(match).not.toBeNull();
   });
 
-  it("does not wire up any POST endpoints (no write actions)", () => {
-    // Should not contain fetch calls to POST endpoints
-    // A simple check: no method: 'POST' string
-    expect(js).not.toContain("method: 'POST'");
-    expect(js).not.toContain('method: "POST"');
-  });
 });
