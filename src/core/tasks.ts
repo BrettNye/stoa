@@ -250,6 +250,80 @@ export function findTaskOnDisk(vaultPath: string, taskId: string): TaskOnDisk | 
   };
 }
 
+export interface Task {
+  id: string;
+  title: string;
+  type: string;
+  wiki: string;
+  status: string;
+  claimed_by?: string;
+  claimed_at?: string;
+  updated: string;
+  body: string;
+}
+
+export interface ReleaseInput {
+  task_id: string;
+  expected_updated: string;
+  wiki: string;
+  reason?: string;
+}
+
+export interface ReleaseResult {
+  task: Task;
+}
+
+export class NotClaimedError extends Error {
+  code = "NotClaimed" as const;
+  constructor(public currentStatus: string) {
+    super(`task is not in a claimed state (current: ${currentStatus})`);
+    this.name = "NotClaimedError";
+  }
+}
+
+export function releaseTask(vaultPath: string, input: ReleaseInput): ReleaseResult {
+  const wiki = input.wiki;
+  const page = readPage(vaultPath, input.task_id, wiki);
+
+  const currentStatus = String(page.frontmatter.status ?? "pending");
+  const allowedStatuses = new Set(["claimed", "in_progress"]);
+  if (!allowedStatuses.has(currentStatus)) {
+    throw new NotClaimedError(currentStatus);
+  }
+
+  const newFm: Record<string, any> = { ...page.frontmatter };
+  newFm.status = "pending";
+  delete newFm.claimed_by;
+  delete newFm.claimed_at;
+
+  let body = page.body;
+  if (input.reason) {
+    const date = new Date().toISOString().slice(0, 10);
+    body = `${body.trimEnd()}\n\n## Released ${date}: ${input.reason}\n`;
+  }
+
+  const result = writePage(vaultPath, {
+    id: input.task_id,
+    type: "task",
+    wiki,
+    frontmatter: newFm,
+    body,
+    expectedUpdated: input.expected_updated
+  });
+
+  const task: Task = {
+    id: input.task_id,
+    title: String(newFm.title ?? ""),
+    type: "task",
+    wiki,
+    status: "pending",
+    updated: result.updated,
+    body
+  };
+
+  return { task };
+}
+
 export interface UpdateTaskInput {
   task_id: string;
   wiki: string;
