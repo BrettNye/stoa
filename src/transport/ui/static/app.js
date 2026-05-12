@@ -351,7 +351,9 @@ function dashboard() {
           return;
         }
 
-        const newAgent = await res.json();
+        const response = await res.json();
+        // Server returns { ok, agent, stadium_registered } — push the agent object
+        const newAgent = response.agent ?? response;
         this.agents.push(newAgent);
         this.closeSpawn();
       } catch (err) {

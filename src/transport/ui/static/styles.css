@@ -533,6 +533,47 @@ main.grid {
 .spawn-hint { font-size: 0.75rem; color: var(--color-text-muted); font-style: italic; text-align: center; padding: 0.5rem; }
 
 /* ---------------------------------------------------------------------------
+   Rarity rings — spawn candidates + agent roster cards
+--------------------------------------------------------------------------- */
+
+.rarity-common   { /* baseline — no special border */ }
+.rarity-baby     { box-shadow: 0 0 0 2px #f9a8d4 inset; }
+.rarity-legendary{ box-shadow: 0 0 0 2px var(--color-yellow) inset; }
+.rarity-mythical { box-shadow: 0 0 0 2px var(--color-accent) inset; }
+
+.rarity-badge {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin-top: 0.15rem;
+}
+.rarity-legendary .rarity-badge { color: var(--color-yellow); }
+.rarity-mythical  .rarity-badge { color: var(--color-accent); }
+.rarity-baby      .rarity-badge { color: #f9a8d4; }
+
+/* ---------------------------------------------------------------------------
+   Shiny glow — agent cards with is_shiny: true
+--------------------------------------------------------------------------- */
+
+.is-shiny {
+  position: relative;
+}
+.is-shiny .sprite {
+  filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.6));
+  animation: shiny-pulse 3s ease-in-out infinite;
+}
+.shiny-marker {
+  position: absolute;
+  top: 2px; right: 4px;
+  font-size: 0.7rem;
+}
+@keyframes shiny-pulse {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.5)); }
+  50%      { filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.9)); }
+}
+
+/* ---------------------------------------------------------------------------
    Scrollbars
 --------------------------------------------------------------------------- */
 

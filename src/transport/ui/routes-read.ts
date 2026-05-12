@@ -1,17 +1,21 @@
+import { readFileSync, existsSync as fsExistsSync, readdirSync as fsReaddirSync } from "node:fs";
+import { join as pathJoin } from "node:path";
 import type { Hono } from "hono";
 import type {
   ApiHealth, ApiTask, ApiAgent, ApiSuggestion,
   ApiChannelSummary, ApiChannelEntry, ApiWiki,
   ApiSynthesisStaleness, ApiSynthesisStalenessResponse,
 } from "./types.js";
+import type { Rarity } from "./types.js";
 import { listTasks } from "../../core/tasks.js";
 import { listAllChannels, tailChannel } from "../../core/channel.js";
 import { listProfilesEnriched } from "../../core/profiles.js";
 import { listWikis } from "../../core/wikis.js";
-import { suggestByType } from "../../core/pokeapi.js";
+import { suggestByType, fetchSpecies, classifyRarity } from "../../core/pokeapi.js";
 import { mapDevSpecialty, isValidPokemonType } from "../../core/pokemon.js";
 import { loadIndex } from "../../core/index.js";
 import { listSynthesesWithStaleness } from "../../core/syntheses.js";
+import { parseFrontmatter } from "../../core/frontmatter.js";
 
 export interface ReadRoutesCtx {
   vaultPath: string;
@@ -115,18 +119,54 @@ export function mountReadRoutes(app: Hono, ctx: ReadRoutesCtx): void {
 
     let agents: ApiAgent[] = [];
     try {
+      // listProfilesEnriched returns the core fields; we need is_shiny and rarity
+      // from frontmatter directly. We read the frontmatter map via a thin approach:
+      // re-read each file's frontmatter to pick up is_shiny and rarity.
       const profiles = listProfilesEnriched(vaultPath, { wiki });
+
+      // Build a frontmatter lookup map by profile id
+      const fmMap = new Map<string, Record<string, unknown>>();
+      const wikisDir = pathJoin(vaultPath, "wikis");
+      if (fsExistsSync(wikisDir)) {
+        const wikiDirs = fsReaddirSync(wikisDir, { withFileTypes: true });
+        for (const dirEntry of wikiDirs) {
+          if (!dirEntry.isDirectory()) continue;
+          const wikiName = dirEntry.name;
+          const profilesDir = pathJoin(wikisDir, wikiName, "profiles");
+          if (!fsExistsSync(profilesDir)) continue;
+          const profileFiles = fsReaddirSync(profilesDir);
+          for (const file of profileFiles) {
+            if (!String(file).endsWith(".md")) continue;
+            const id = String(file).replace(/\.md$/, "");
+            try {
+              const raw = readFileSync(pathJoin(profilesDir, String(file)), "utf8");
+              const { frontmatter } = parseFrontmatter(raw);
+              fmMap.set(id, frontmatter);
+            } catch { /* skip malformed */ }
+          }
+        }
+      }
+
       agents = profiles.map((p) => {
+        const fm = fmMap.get(p.id) ?? {};
+        const isShiny = fm.is_shiny === true;
+        const spriteUrl = isShiny
+          ? `/api/sprites/${encodeURIComponent(p.pokemon)}.svg?variant=front_shiny`
+          : spriteUrlFor(p.pokemon);
+        const rarity = fm.rarity as Rarity | undefined;
+
         const agent: ApiAgent = {
           id: p.id,
           wiki: p.wiki,
           pokemon: p.pokemon,
           evolution_stage: (p.evolution_stage as ApiAgent["evolution_stage"]) ?? "basic",
-          spriteUrl: spriteUrlFor(p.pokemon),
+          spriteUrl,
           updated: p.updated,
           claimedTaskCount: p.claimedTaskCount,
         };
         if (p.pokemon_type) agent.pokemon_type = p.pokemon_type;
+        if (rarity !== undefined) agent.rarity = rarity;
+        agent.is_shiny = isShiny;
         return agent;
       });
     } catch {
@@ -162,10 +202,15 @@ export function mountReadRoutes(app: Hono, ctx: ReadRoutesCtx): void {
     let suggestions: ApiSuggestion[] = [];
     try {
       const raw = await suggestByType(vaultPath, resolvedType, { fetcher, evolution_stage: "basic" });
-      suggestions = raw.map((s) => ({
-        name: s.name,
-        pokemon_type: s.pokemon_type,
-        spriteUrl: s.sprite_url ?? spriteUrlFor(s.name),
+      suggestions = await Promise.all(raw.map(async (s) => {
+        const species = await fetchSpecies(vaultPath, s.name, { fetcher });
+        const rarity = species ? classifyRarity(species) : "common" as Rarity;
+        return {
+          name: s.name,
+          pokemon_type: s.pokemon_type,
+          spriteUrl: s.sprite_url ?? spriteUrlFor(s.name),
+          rarity,
+        };
       }));
     } catch {
       // On network / cache error return empty list rather than 500

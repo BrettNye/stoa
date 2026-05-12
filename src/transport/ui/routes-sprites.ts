@@ -16,7 +16,7 @@
 import type { Hono } from "hono";
 import { renderSpriteSvg, type SpriteSvgInput, type SpriteSvgOutput } from "../../core/sprites-svg.js";
 import { readDisplayConfig } from "../../core/display-config.js";
-import type { ColorMode } from "../../core/sprites-runtime.js";
+import type { ColorMode, SpriteVariant } from "../../core/sprites-runtime.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -60,11 +60,18 @@ export function mountSpriteRoute(app: Hono, ctx: SpriteRouteCtx): void {
     const queryMode = c.req.query("mode") as ColorMode | undefined;
     const colorMode: ColorMode = queryMode ?? cfgMode;
 
+    // Resolve sprite variant: ?variant= query param with allowlist
+    const variantParam = c.req.query("variant");
+    const ALLOWED_VARIANTS = new Set(["front_default", "front_shiny"]);
+    const spriteVariant: SpriteVariant = (variantParam && ALLOWED_VARIANTS.has(variantParam))
+      ? (variantParam as SpriteVariant)
+      : "front_default";
+
     try {
       const out = await render({
         pokeapiUrl: `https://pokeapi.co/api/v2/pokemon/${bareSpriteName}`,
         bareSpriteName,
-        spriteVariant: "front_default",
+        spriteVariant,
         colorMode,
         vaultPath: ctx.vaultPath,
         fetcher: ctx.fetcher,

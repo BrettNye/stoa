@@ -62,7 +62,7 @@
       <h2>Agents</h2>
       <ul x-show="agents.length > 0">
         <template x-for="a in agents" :key="a.id">
-          <li class="agent-card">
+          <li class="agent-card" :class="['rarity-' + (a.rarity || 'common'), { 'is-shiny': a.is_shiny }]">
             <img :src="a.spriteUrl" :alt="a.pokemon" class="sprite" />
             <div class="agent-info">
               <span class="agent-name" x-text="a.pokemon"></span>
@@ -70,6 +70,7 @@
               <span class="agent-stage" x-text="a.evolution_stage"></span>
               <span class="agent-tasks" x-text="a.claimedTaskCount + ' task(s)'"></span>
             </div>
+            <span class="shiny-marker" x-show="a.is_shiny">✨</span>
             <div class="agent-row-actions"></div>
           </li>
         </template>
@@ -150,11 +151,13 @@
 
       <div class="spawn-grid" x-show="spawnSuggestions.length > 0">
         <template x-for="s in spawnSuggestions" :key="s.name">
-          <button class="spawn-candidate" :class="{ selected: spawnSelected && spawnSelected.name === s.name }"
+          <button class="spawn-candidate"
+                  :class="['rarity-' + s.rarity, { selected: spawnSelected && spawnSelected.name === s.name }]"
                   @click="spawnSelected = s">
             <img :src="s.spriteUrl" :alt="s.name" width="48" height="48" class="sprite">
             <span class="candidate-name" x-text="s.name"></span>
             <span class="candidate-type" x-text="s.pokemon_type"></span>
+            <span class="rarity-badge" x-text="s.rarity" x-show="s.rarity !== 'common'"></span>
           </button>
         </template>
       </div>

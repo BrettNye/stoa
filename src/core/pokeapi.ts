@@ -144,9 +144,21 @@ export async function nextEvolution(vaultPath: string, currentName: string, opts
 
 interface SpeciesData {
   evolves_from_species: { name: string; url: string } | null;
+  is_legendary?: boolean;
+  is_mythical?: boolean;
+  is_baby?: boolean;
 }
 
-async function fetchSpecies(vaultPath: string, name: string, opts?: Opts): Promise<SpeciesData | null> {
+export type Rarity = "common" | "baby" | "legendary" | "mythical";
+
+export function classifyRarity(species: { is_legendary?: boolean; is_mythical?: boolean; is_baby?: boolean }): Rarity {
+  if (species.is_mythical) return "mythical";
+  if (species.is_legendary) return "legendary";
+  if (species.is_baby) return "baby";
+  return "common";
+}
+
+export async function fetchSpecies(vaultPath: string, name: string, opts?: Opts): Promise<SpeciesData | null> {
   const key = `species:${name.toLowerCase()}`;
   const cached = await getCached<SpeciesData>(vaultPath, key);
   if (cached !== null) return cached;
@@ -156,7 +168,10 @@ async function fetchSpecies(vaultPath: string, name: string, opts?: Opts): Promi
     const result: SpeciesData = {
       evolves_from_species: raw.evolves_from_species
         ? { name: String(raw.evolves_from_species.name ?? ""), url: String(raw.evolves_from_species.url ?? "") }
-        : null
+        : null,
+      is_legendary: Boolean(raw.is_legendary),
+      is_mythical: Boolean(raw.is_mythical),
+      is_baby: Boolean(raw.is_baby),
     };
     setCached(vaultPath, key, result);
     return result;

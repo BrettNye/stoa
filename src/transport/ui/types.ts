@@ -34,6 +34,8 @@ export interface ApiChannelSummary {
   count24h: number;
 }
 
+export type Rarity = "common" | "baby" | "legendary" | "mythical";
+
 export interface ApiAgent {
   id: string;
   wiki: string;
@@ -43,6 +45,8 @@ export interface ApiAgent {
   spriteUrl: string;
   updated: string;
   claimedTaskCount: number;
+  rarity?: Rarity;      // optional — legacy profiles may not have it
+  is_shiny?: boolean;
 }
 
 export interface ApiWiki {
@@ -56,6 +60,7 @@ export interface ApiSuggestion {
   name: string;
   pokemon_type: string;
   spriteUrl: string;
+  rarity: Rarity;       // required — enriched at suggestion time
 }
 
 export interface ClaimRequest {

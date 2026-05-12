@@ -6,7 +6,7 @@
 import { it, expect } from "vitest";
 import { Hono } from "hono";
 import { mountSpriteRoute, type SpriteRouteCtx } from "../../src/transport/ui/routes-sprites.js";
-import type { ColorMode } from "../../src/core/sprites-runtime.js";
+import type { ColorMode, SpriteVariant } from "../../src/core/sprites-runtime.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -289,4 +289,101 @@ it("uses truecolor default when no ?mode param and no vault config", async () =>
 
   // Default from display-config when CLAUDE.md doesn't exist is "truecolor"
   expect(capturedMode).toBe("truecolor");
+});
+
+// ---------------------------------------------------------------------------
+// ?variant= query param
+// ---------------------------------------------------------------------------
+
+it("passes spriteVariant=front_shiny when ?variant=front_shiny", async () => {
+  const app = new Hono();
+  let capturedVariant: SpriteVariant | undefined;
+
+  const ctx: SpriteRouteCtx = {
+    vaultPath: "/tmp/fake-vault",
+    fetcher: fetch as FetcherFn,
+    renderFn: async (input) => {
+      capturedVariant = input.spriteVariant;
+      return {
+        svg: "<svg></svg>",
+        cachePath: "/tmp",
+        source: "rendered" as const,
+      };
+    },
+  };
+
+  mountSpriteRoute(app, ctx);
+  await app.request("/api/sprites/pikachu.svg?variant=front_shiny");
+
+  expect(capturedVariant).toBe("front_shiny");
+});
+
+it("passes spriteVariant=front_default when no ?variant param", async () => {
+  const app = new Hono();
+  let capturedVariant: SpriteVariant | undefined;
+
+  const ctx: SpriteRouteCtx = {
+    vaultPath: "/tmp/fake-vault",
+    fetcher: fetch as FetcherFn,
+    renderFn: async (input) => {
+      capturedVariant = input.spriteVariant;
+      return {
+        svg: "<svg></svg>",
+        cachePath: "/tmp",
+        source: "rendered" as const,
+      };
+    },
+  };
+
+  mountSpriteRoute(app, ctx);
+  await app.request("/api/sprites/pikachu.svg");
+
+  expect(capturedVariant).toBe("front_default");
+});
+
+it("falls back to front_default for invalid ?variant= value", async () => {
+  const app = new Hono();
+  let capturedVariant: SpriteVariant | undefined;
+
+  const ctx: SpriteRouteCtx = {
+    vaultPath: "/tmp/fake-vault",
+    fetcher: fetch as FetcherFn,
+    renderFn: async (input) => {
+      capturedVariant = input.spriteVariant;
+      return {
+        svg: "<svg></svg>",
+        cachePath: "/tmp",
+        source: "rendered" as const,
+      };
+    },
+  };
+
+  mountSpriteRoute(app, ctx);
+  // "back_shiny" is valid in SpriteVariant type but not in our allowlist — should fall back
+  await app.request("/api/sprites/pikachu.svg?variant=back_shiny");
+
+  expect(capturedVariant).toBe("front_default");
+});
+
+it("falls back to front_default for unknown ?variant= value", async () => {
+  const app = new Hono();
+  let capturedVariant: SpriteVariant | undefined;
+
+  const ctx: SpriteRouteCtx = {
+    vaultPath: "/tmp/fake-vault",
+    fetcher: fetch as FetcherFn,
+    renderFn: async (input) => {
+      capturedVariant = input.spriteVariant;
+      return {
+        svg: "<svg></svg>",
+        cachePath: "/tmp",
+        source: "rendered" as const,
+      };
+    },
+  };
+
+  mountSpriteRoute(app, ctx);
+  await app.request("/api/sprites/pikachu.svg?variant=garbage");
+
+  expect(capturedVariant).toBe("front_default");
 });

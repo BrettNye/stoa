@@ -82,7 +82,9 @@ describe("mountReadRoutes — read endpoints", () => {
     const res = await app.request("/api/tasks");
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(Array.isArray(body)).toBe(true);
+    // Server wraps tasks in { tasks: [...], generatedAt } — accept both bare and wrapped
+    const arr = Array.isArray(body) ? body : (body && Array.isArray(body.tasks) ? body.tasks : body);
+    expect(Array.isArray(arr)).toBe(true);
   });
 
   it("GET /api/tasks with a real task file returns task shape", async () => {
@@ -109,9 +111,10 @@ summary: A test task
     const res = await app.request("/api/tasks?wiki=alpha");
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(Array.isArray(body)).toBe(true);
-    expect(body.length).toBeGreaterThan(0);
-    const task = body[0];
+    const arr = Array.isArray(body) ? body : (body && Array.isArray(body.tasks) ? body.tasks : body);
+    expect(Array.isArray(arr)).toBe(true);
+    expect(arr.length).toBeGreaterThan(0);
+    const task = arr[0];
     expect(task.id).toBe("task-do-something");
     expect(task.wiki).toBe("alpha");
     expect(task.status).toBe("pending");
@@ -153,7 +156,8 @@ summary: Claimed
     const app = makeApp(ctx);
     const res = await app.request("/api/tasks?status=pending");
     const body = await res.json();
-    expect(body.every((t: any) => t.status === "pending")).toBe(true);
+    const arr = Array.isArray(body) ? body : (body && Array.isArray(body.tasks) ? body.tasks : []);
+    expect(arr.every((t: any) => t.status === "pending")).toBe(true);
   });
 
   it("GET /api/tasks accepts ?limit= param", async () => {
@@ -179,7 +183,8 @@ summary: Item ${i}
     const app = makeApp(ctx);
     const res = await app.request("/api/tasks?limit=2");
     const body = await res.json();
-    expect(body.length).toBeLessThanOrEqual(2);
+    const arr = Array.isArray(body) ? body : (body && Array.isArray(body.tasks) ? body.tasks : []);
+    expect(arr.length).toBeLessThanOrEqual(2);
   });
 
   it("GET /api/tasks with ?limit=abc returns 400", async () => {
@@ -215,7 +220,9 @@ summary: Item ${i}
     const res = await app.request("/api/agents");
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(Array.isArray(body)).toBe(true);
+    // Server wraps agents in { agents: [...], generatedAt } — accept both bare and wrapped
+    const arr = Array.isArray(body) ? body : (body && Array.isArray(body.agents) ? body.agents : body);
+    expect(Array.isArray(arr)).toBe(true);
   });
 
   it("GET /api/agents with a profile returns ApiAgent shape", async () => {
@@ -246,8 +253,9 @@ applies_to: [claude-code]
     const res = await app.request("/api/agents");
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.length).toBeGreaterThan(0);
-    const agent = body[0];
+    const arr = Array.isArray(body) ? body : (body && Array.isArray(body.agents) ? body.agents : body);
+    expect(arr.length).toBeGreaterThan(0);
+    const agent = arr[0];
     // ApiAgent shape
     expect(typeof agent.id).toBe("string");
     expect(typeof agent.pokemon).toBe("string");
@@ -255,6 +263,83 @@ applies_to: [claude-code]
     expect(typeof agent.spriteUrl).toBe("string");
     expect(typeof agent.claimedTaskCount).toBe("number");
     expect(typeof agent.updated).toBe("string");
+    // is_shiny is always present on enriched agents
+    expect(typeof agent.is_shiny).toBe("boolean");
+  });
+
+  it("GET /api/agents with a shiny profile returns spriteUrl with ?variant=front_shiny", async () => {
+    const profilesDir = join(vaultPath, "wikis", "_agents", "profiles");
+    mkdirSync(profilesDir, { recursive: true });
+    mkdirSync(join(vaultPath, "wikis", "_agents", "tasks"), { recursive: true });
+    writeFileSync(
+      join(profilesDir, "profile-charmander-shiny.md"),
+      `---
+id: profile-charmander-shiny
+title: Charmander shiny
+type: profile
+wiki: _agents
+status: active
+created: 2026-05-01
+updated: 2026-05-01
+summary: Shiny fire type agent
+pokemon: charmander
+pokemon_type: fire
+evolution_stage: basic
+is_shiny: true
+rarity: common
+autonomy_level: restricted
+moveset: [move-tdd-cycle]
+applies_to: [claude-code]
+---
+`
+    );
+
+    const app = makeApp(ctx);
+    const res = await app.request("/api/agents");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const arr = Array.isArray(body) ? body : (body && Array.isArray(body.agents) ? body.agents : body);
+    const shinyAgent = arr.find((a: any) => a.id === "profile-charmander-shiny");
+    expect(shinyAgent).toBeDefined();
+    expect(shinyAgent.is_shiny).toBe(true);
+    expect(shinyAgent.spriteUrl).toContain("?variant=front_shiny");
+  });
+
+  it("GET /api/agents returns rarity from profile frontmatter", async () => {
+    const profilesDir = join(vaultPath, "wikis", "_agents", "profiles");
+    mkdirSync(profilesDir, { recursive: true });
+    mkdirSync(join(vaultPath, "wikis", "_agents", "tasks"), { recursive: true });
+    writeFileSync(
+      join(profilesDir, "profile-mewtwo.md"),
+      `---
+id: profile-mewtwo
+title: Mewtwo
+type: profile
+wiki: _agents
+status: active
+created: 2026-05-01
+updated: 2026-05-01
+summary: Legendary psychic agent
+pokemon: mewtwo
+pokemon_type: psychic
+evolution_stage: basic
+is_shiny: false
+rarity: legendary
+autonomy_level: restricted
+moveset: []
+applies_to: [claude-code]
+---
+`
+    );
+
+    const app = makeApp(ctx);
+    const res = await app.request("/api/agents");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const arr = Array.isArray(body) ? body : (body && Array.isArray(body.agents) ? body.agents : body);
+    const legendaryAgent = arr.find((a: any) => a.id === "profile-mewtwo");
+    expect(legendaryAgent).toBeDefined();
+    expect(legendaryAgent.rarity).toBe("legendary");
   });
 
   // -------------------------------------------------------------------------
@@ -279,6 +364,19 @@ applies_to: [claude-code]
 
   it("GET /api/agents/suggest returns 200 for valid pokemon_type", async () => {
     const fireFetcher: typeof fetch = (async (url: string | URL | Request) => {
+      const urlStr = String(url);
+      if (urlStr.includes("pokemon-species")) {
+        return new Response(
+          JSON.stringify({
+            name: "charmander",
+            is_legendary: false,
+            is_mythical: false,
+            is_baby: false,
+            evolves_from_species: null,
+          }),
+          { status: 200 }
+        );
+      }
       return new Response(
         JSON.stringify({ pokemon: [{ pokemon: { name: "charmander", url: "https://pokeapi.co/api/v2/pokemon/4/" } }] }),
         { status: 200 }
@@ -290,7 +388,108 @@ applies_to: [claude-code]
     const res = await app.request("/api/agents/suggest?pokemon_type=fire");
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(Array.isArray(body)).toBe(true);
+    // Server wraps suggestions in { suggestions: [...] } — accept both bare and wrapped
+    const arr = Array.isArray(body) ? body : (body && Array.isArray(body.suggestions) ? body.suggestions : body);
+    expect(Array.isArray(arr)).toBe(true);
+  });
+
+  it("GET /api/agents/suggest returns rarity field on each suggestion", async () => {
+    const fireFetcher: typeof fetch = (async (url: string | URL | Request) => {
+      const urlStr = String(url);
+      if (urlStr.includes("pokemon-species")) {
+        return new Response(
+          JSON.stringify({
+            name: "charmander",
+            is_legendary: false,
+            is_mythical: false,
+            is_baby: false,
+            evolves_from_species: null,
+          }),
+          { status: 200 }
+        );
+      }
+      return new Response(
+        JSON.stringify({ pokemon: [{ pokemon: { name: "charmander", url: "https://pokeapi.co/api/v2/pokemon/4/" } }] }),
+        { status: 200 }
+      );
+    }) as typeof fetch;
+
+    const appCtx: ReadRoutesCtx = { ...ctx, fetcher: fireFetcher };
+    const app = makeApp(appCtx);
+    const res = await app.request("/api/agents/suggest?pokemon_type=fire");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const arr = Array.isArray(body) ? body : (body && Array.isArray(body.suggestions) ? body.suggestions : []);
+    // Each suggestion must have a rarity field
+    if (arr.length > 0) {
+      const s = arr[0];
+      expect(s.rarity).toBeDefined();
+      expect(["common", "baby", "legendary", "mythical"]).toContain(s.rarity);
+    }
+  });
+
+  it("GET /api/agents/suggest returns rarity: 'common' for non-legendary species", async () => {
+    const fireFetcher: typeof fetch = (async (url: string | URL | Request) => {
+      const urlStr = String(url);
+      if (urlStr.includes("pokemon-species")) {
+        return new Response(
+          JSON.stringify({
+            name: "charmander",
+            is_legendary: false,
+            is_mythical: false,
+            is_baby: false,
+            evolves_from_species: null,
+          }),
+          { status: 200 }
+        );
+      }
+      return new Response(
+        JSON.stringify({ pokemon: [{ pokemon: { name: "charmander", url: "https://pokeapi.co/api/v2/pokemon/4/" } }] }),
+        { status: 200 }
+      );
+    }) as typeof fetch;
+
+    const appCtx: ReadRoutesCtx = { ...ctx, fetcher: fireFetcher };
+    const app = makeApp(appCtx);
+    const res = await app.request("/api/agents/suggest?pokemon_type=fire");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const arr = Array.isArray(body) ? body : (body && Array.isArray(body.suggestions) ? body.suggestions : []);
+    if (arr.length > 0) {
+      expect(arr[0].rarity).toBe("common");
+    }
+  });
+
+  it("GET /api/agents/suggest returns rarity: 'legendary' for legendary species", async () => {
+    const psychicFetcher: typeof fetch = (async (url: string | URL | Request) => {
+      const urlStr = String(url);
+      if (urlStr.includes("pokemon-species")) {
+        return new Response(
+          JSON.stringify({
+            name: "mewtwo",
+            is_legendary: true,
+            is_mythical: false,
+            is_baby: false,
+            evolves_from_species: null,
+          }),
+          { status: 200 }
+        );
+      }
+      return new Response(
+        JSON.stringify({ pokemon: [{ pokemon: { name: "mewtwo", url: "https://pokeapi.co/api/v2/pokemon/150/" } }] }),
+        { status: 200 }
+      );
+    }) as typeof fetch;
+
+    const appCtx: ReadRoutesCtx = { ...ctx, fetcher: psychicFetcher };
+    const app = makeApp(appCtx);
+    const res = await app.request("/api/agents/suggest?pokemon_type=psychic");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const arr = Array.isArray(body) ? body : (body && Array.isArray(body.suggestions) ? body.suggestions : []);
+    if (arr.length > 0) {
+      expect(arr[0].rarity).toBe("legendary");
+    }
   });
 
   it("GET /api/agents/suggest returns 200 for valid specialty", async () => {
@@ -298,7 +497,9 @@ applies_to: [claude-code]
     const res = await app.request("/api/agents/suggest?specialty=backend");
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(Array.isArray(body)).toBe(true);
+    // Server wraps suggestions in { suggestions: [...] }
+    const arr = Array.isArray(body) ? body : (body && Array.isArray(body.suggestions) ? body.suggestions : body);
+    expect(Array.isArray(arr)).toBe(true);
   });
 
   // -------------------------------------------------------------------------
@@ -455,7 +656,9 @@ ${p.body}
     const res = await app.request("/api/wikis");
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(Array.isArray(body)).toBe(true);
+    // Server wraps wikis in { wikis: [...] } — accept both bare and wrapped
+    const arr = Array.isArray(body) ? body : (body && Array.isArray(body.wikis) ? body.wikis : body);
+    expect(Array.isArray(arr)).toBe(true);
   });
 
   it("GET /api/wikis returns ApiWiki shape when wikis indexed", async () => {
@@ -476,8 +679,9 @@ ${p.body}
     const res = await app.request("/api/wikis");
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.length).toBeGreaterThan(0);
-    const wiki = body[0];
+    const arr = Array.isArray(body) ? body : (body && Array.isArray(body.wikis) ? body.wikis : body);
+    expect(arr.length).toBeGreaterThan(0);
+    const wiki = arr[0];
     expect(wiki.name).toBe("alpha");
     expect(wiki.mode).toBe("idea-map");
     expect(typeof wiki.pageCount).toBe("number");

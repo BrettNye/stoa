@@ -25,6 +25,9 @@ import { profileRegisterTool } from "../../tools/profile-register.js";
 import { newTool } from "../../tools/new.js";
 import { AlreadyClaimedError, releaseTask, NotClaimedError } from "../../core/tasks.js";
 import { ConflictError } from "../../core/pages.js";
+import { fetchSpecies, classifyRarity } from "../../core/pokeapi.js";
+import { parseFrontmatter, serializeFrontmatter } from "../../core/frontmatter.js";
+import { readFileSync, writeFileSync } from "node:fs";
 
 // ---------------------------------------------------------------------------
 // Context
@@ -287,6 +290,31 @@ export function mountWriteRoutes(app: Hono, ctx: WriteRoutesCtx): void {
     }
 
     const profileId = newResult.id;
+    const profilePath = newResult.path;
+
+    // Gamification: roll for rarity and shiny BEFORE Phase 2 (Stadium).
+    // fetch species data (already cached after suggest round if the same species),
+    // then do the 1/64 shiny roll and persist into profile frontmatter.
+    let rarity: "common" | "baby" | "legendary" | "mythical" = "common";
+    let isShiny = false;
+    try {
+      const species = await fetchSpecies(ctx.vaultPath, selected_species, { fetcher: ctx.fetcher });
+      if (species) {
+        rarity = classifyRarity(species);
+      }
+      isShiny = Math.random() < (1 / 64);
+
+      // Rewrite the profile's frontmatter to include is_shiny and rarity.
+      const rawContent = readFileSync(profilePath, "utf8");
+      const { frontmatter: fm, body: mdBody } = parseFrontmatter(rawContent);
+      fm.is_shiny = isShiny;
+      fm.rarity = rarity;
+      const updated = serializeFrontmatter(fm, mdBody);
+      writeFileSync(profilePath, updated);
+    } catch (err) {
+      // Non-fatal: gamification data is best-effort. Profile still created.
+      console.warn(`[stoa] shiny roll failed for ${profileId}: ${err instanceof Error ? err.message : String(err)}`);
+    }
 
     // Phase 2: Best-effort Stadium register. Failure leaves the .md in place.
     let stadiumRegistered = false;
@@ -302,15 +330,21 @@ export function mountWriteRoutes(app: Hono, ctx: WriteRoutesCtx): void {
     }
 
     // Build ApiAgent response. stadium_registered reflects Phase 2 outcome.
+    const spriteUrl = isShiny
+      ? `/api/sprites/${encodeURIComponent(selected_species)}.svg?variant=front_shiny`
+      : `/api/sprites/${encodeURIComponent(selected_species)}.svg`;
+
     const agent = {
       id: profileId,
       wiki,
       pokemon: selected_species,
       pokemon_type: pokemon_type,
       evolution_stage: evolution_stage ?? "basic",
-      spriteUrl: `/api/sprites/${encodeURIComponent(selected_species)}.svg`,
+      spriteUrl,
       updated: newResult.updated,
       claimedTaskCount: 0,
+      rarity,
+      is_shiny: isShiny,
     };
 
     const body: RegisterAgentResponse = { ok: true, agent, stadium_registered: stadiumRegistered };
