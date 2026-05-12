@@ -1,6 +1,5 @@
-import { listProfiles } from "./profiles.js";
+import { listProfiles, readProfile } from "./profiles.js";
 import { resolveCurrent } from "./aliases.js";
-import { readProfile } from "./profiles.js";
 
 export interface EnumerateOptions {
   exclude: string[];
@@ -44,7 +43,7 @@ export function enumerateProfilesForSync(
         secondary = typeof p.frontmatter.secondary_pokemon_type === "string"
           ? p.frontmatter.secondary_pokemon_type
           : undefined;
-      } catch { /* skip malformed */ }
+      } catch { /* profile disappeared between list and read; skip */ }
 
       const matches = typeFilter.includes(summary.pokemon_type) ||
                       (secondary !== undefined && typeFilter.includes(secondary));
