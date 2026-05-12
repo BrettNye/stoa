@@ -317,3 +317,74 @@ describe("frontend-writes: flashError() utility", () => {
     expect(js).toContain("setTimeout");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Fixup: suggest() clears stale suggestions on entry + surfaces errors
+// ---------------------------------------------------------------------------
+
+describe("frontend-writes: suggest() error-handling fixup", () => {
+  let js: string;
+  try {
+    js = readAppJs();
+  } catch {
+    js = "";
+  }
+
+  it("suggest() resets spawnSuggestions to [] before the fetch (not inside the success branch)", () => {
+    // The reset must appear BEFORE the fetch call within suggest().
+    // Heuristic: the assignment `spawnSuggestions = []` must appear before
+    // `fetch(` inside the suggest function body.
+    const suggestStart = js.indexOf("async suggest()");
+    expect(suggestStart).toBeGreaterThan(-1);
+    const fetchIdx = js.indexOf("fetch(", suggestStart);
+    const resetIdx = js.indexOf("spawnSuggestions = []", suggestStart);
+    expect(resetIdx).toBeGreaterThan(-1);
+    expect(resetIdx).toBeLessThan(fetchIdx);
+  });
+
+  it("suggest() calls flashError when the response is not ok", () => {
+    // flashError must be referenced inside suggest(), after the fetch, on the
+    // non-ok branch (i.e. not only inside `if (res.ok)`).
+    const suggestStart = js.indexOf("async suggest()");
+    const nextMethod = js.indexOf("async register()", suggestStart);
+    const suggestBody = js.slice(suggestStart, nextMethod);
+    expect(suggestBody).toContain("flashError");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fixup: register() surfaces errors via flashError (modal stays open)
+// ---------------------------------------------------------------------------
+
+describe("frontend-writes: register() error-handling fixup", () => {
+  let js: string;
+  try {
+    js = readAppJs();
+  } catch {
+    js = "";
+  }
+
+  it("register() calls flashError when the response is not ok", () => {
+    const registerStart = js.indexOf("async register()");
+    // Next method starts after register block — find closing brace region
+    const flashCallAfterStart = js.indexOf("flashError", registerStart);
+    expect(flashCallAfterStart).toBeGreaterThan(-1);
+    // Confirm it's within register's body (before the next top-level method)
+    const nextSection = js.indexOf("// ---", registerStart);
+    expect(flashCallAfterStart).toBeLessThan(nextSection);
+  });
+
+  it("register() does NOT call closeSpawn() on the failure path (modal stays open)", () => {
+    // closeSpawn must only be called AFTER res.ok is confirmed — not on the error branch.
+    // The error path must NOT contain closeSpawn. We verify by checking the
+    // !res.ok block does not call closeSpawn.
+    const registerStart = js.indexOf("async register()");
+    const resNotOkIdx = js.indexOf("!res.ok", registerStart);
+    expect(resNotOkIdx).toBeGreaterThan(-1);
+    // Extract only the "if (!res.ok) { ... }" block (up to the closing brace)
+    const blockStart = js.indexOf("{", resNotOkIdx);
+    const blockEnd = js.indexOf("}", blockStart);
+    const errorBlock = js.slice(blockStart, blockEnd + 1);
+    expect(errorBlock).not.toContain("closeSpawn");
+  });
+});

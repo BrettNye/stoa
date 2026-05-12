@@ -283,6 +283,7 @@ function dashboard() {
     },
 
     async suggest() {
+      this.spawnSuggestions = [];
       try {
         const params = this.spawnSpecialty
           ? `?specialty=${encodeURIComponent(this.spawnSpecialty)}`
@@ -291,9 +292,12 @@ function dashboard() {
         if (res.ok) {
           const data = await res.json();
           this.spawnSuggestions = Array.isArray(data) ? data : (data.suggestions || []);
+        } else {
+          this.flashError(this, `Suggest failed (${res.status})`);
         }
       } catch (err) {
         console.error("[stoa] suggest error:", err);
+        this.flashError(this, "Suggest request failed");
       }
     },
 
@@ -311,6 +315,7 @@ function dashboard() {
 
         if (!res.ok) {
           console.error("[stoa] register error:", res.status);
+          this.flashError(this, `Register failed (${res.status})`);
           return;
         }
 
