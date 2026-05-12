@@ -44,9 +44,14 @@ export function registerSyncSkills(p: Command) {
         { vaultPath: ctx.vaultPath }
       );
       console.log(JSON.stringify(result, null, 2));
-      // For all-mode, exit non-zero on any failure; for single-mode the old
-      // shape doesn't carry a summary, so exit 0 unless an error was thrown.
-      if (opts.all && result && (result as any).summary?.failed > 0) {
+      const r = result as any;
+      // Exit 1 on:
+      //   all-mode failure: r.summary.failed > 0
+      //   reverify with unresolved drift: r.drift.length > r.drift_fixed
+      // Single-mode deploy throws on failure; commander handles the non-zero exit.
+      const allFailed = r?.summary?.failed > 0;
+      const driftUnresolved = Array.isArray(r?.drift) && r.drift.length > (r.drift_fixed ?? 0);
+      if (allFailed || driftUnresolved) {
         process.exit(1);
       }
     });
