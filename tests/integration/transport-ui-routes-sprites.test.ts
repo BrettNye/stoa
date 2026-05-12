@@ -197,6 +197,26 @@ it("returns 502 with error message when renderFn throws", async () => {
   expect(body.error).toBe("PokeAPI is down");
 });
 
+it("returns 502 with string error message when renderFn throws a non-Error", async () => {
+  const app = new Hono();
+  const ctx: SpriteRouteCtx = {
+    vaultPath: "/tmp/fake-vault",
+    fetcher: fetch as FetcherFn,
+    renderFn: async (_input) => {
+      // eslint-disable-next-line @typescript-eslint/no-throw-literal
+      throw "blew up";
+    },
+  };
+
+  mountSpriteRoute(app, ctx);
+  const res = await app.request("/api/sprites/pikachu.svg");
+
+  expect(res.status).toBe(502);
+  const body = await res.json();
+  expect(body.ok).toBe(false);
+  expect(body.error).toBe("blew up");
+});
+
 // ---------------------------------------------------------------------------
 // ?mode= query param override
 // ---------------------------------------------------------------------------

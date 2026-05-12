@@ -76,7 +76,8 @@ export function mountSpriteRoute(app: Hono, ctx: SpriteRouteCtx): void {
         "X-Sprite-Source": out.source,
       });
     } catch (e) {
-      return c.json({ ok: false, error: (e as Error).message }, 502);
+      const msg = e instanceof Error ? e.message : String(e);
+      return c.json({ ok: false, error: msg }, 502);
     }
   });
 }
