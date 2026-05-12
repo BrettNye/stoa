@@ -160,6 +160,11 @@ async function deployOnePokemonSkills(
     : [];
   const today = ctx.today ?? new Date();
   const claimsConfig = getClaimsConfig(ctx.rawConfig ?? {});
+  // Note: this overwrites the vault SKILL.md per-call. Under `all: true`, profiles
+  // sharing a move see the vault file rewritten each iteration — each deployed
+  // copy carries its own caller's claim block, but the vault SKILL.md ends up
+  // with the LAST profile's block. Callers reading vault-side SKILL.md after a
+  // multi-profile sync should not assume stability across the loop.
   for (const moveId of moveset) {
     const skillMdPath = join(ctx.vaultPath, "wikis", "_agents", "moves", moveId, "SKILL.md");
     try {
