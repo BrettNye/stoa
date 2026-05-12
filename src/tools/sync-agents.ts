@@ -20,6 +20,7 @@ import { getAdapter } from "../core/runtime-adapters/registry.js";
 import { syncMoveset } from "../core/skills.js";
 import { resolveCurrent } from "../core/aliases.js";
 import { ProfileNotFoundError } from "../core/profiles.js";
+import { enumerateProfilesForSync } from "../core/sync-enumerate.js";
 import type { RuntimeName, ValidationDiagnostic } from "../core/runtime-adapters/types.js";
 
 const PokemonInput = z.union([z.string(), z.array(z.string())]);
@@ -163,16 +164,22 @@ async function deploySingle(
 
 export const syncAgentsTool = {
   name: "vault.sync-agents",
-  description: "Deploy a Pokemon (or list of Pokemon) as runtime subagent definitions in a target repo. Builds a SubagentIntent from the profile + moveset, hands to the per-runtime adapter (currently claude-code), and writes <target>/.claude/agents/<pokemon-id>.md plus optional moveset SKILL.md files. Idempotent on source_revision. Sequential halt-on-first-error for multi-Pokemon batches.",
+  description: "Deploy a Pokemon (or list of Pokemon, or all profiles via `all: true`) as runtime subagent definitions in a target repo. Builds a SubagentIntent per profile, hands to the per-runtime adapter (currently claude-code), and writes <target>/.claude/agents/<pokemon-id>.md plus optional moveset SKILL.md files. Idempotent on source_revision. Halt-on-first-error by default; pass `continue_on_error: true` for best-effort batches.",
   inputSchema: Input,
   handler: async (
     input: z.infer<typeof Input>,
     ctx: { vaultPath: string }
   ): Promise<ResultShape> => {
-    // Task 3 will dispatch on (input as any).all === true and call enumerateProfilesForSync.
-    // For now, the existing explicit-pokemon path remains the only supported branch.
-    const pokemonRaw = (input as any).pokemon as string | string[] | undefined;
-    const list = Array.isArray(pokemonRaw) ? pokemonRaw : pokemonRaw !== undefined ? [pokemonRaw] : [];
+    const list: string[] = input.all === true
+      ? enumerateProfilesForSync(ctx.vaultPath, {
+          exclude: input.exclude ?? [],
+          pokemon_type: input.pokemon_type ?? [],
+        })
+      : Array.isArray(input.pokemon)
+        ? input.pokemon
+        : [input.pokemon as string];
+
+    const continueOnError = input.continue_on_error === true;
     const results: PerPokemonResult[] = [];
 
     for (const p of list) {
@@ -181,7 +188,7 @@ export const syncAgentsTool = {
         input.mode, input.overwrite, input.include_moveset
       );
       results.push(r);
-      if (r.status === "failed") break;  // halt-on-first-error
+      if (r.status === "failed" && !continueOnError) break;
     }
 
     const summary = {
