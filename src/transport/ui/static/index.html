@@ -67,7 +67,7 @@
             <span class="channel-ts" x-text="relTime(e.ts)"></span>
             <span class="channel-excerpt" x-text="e.excerpt"></span>
             <span class="channel-wiki" x-text="e.wiki"></span>
-            <a :href="'obsidian://open?vault=' + vaultBaseName + '&file=' + e.pageId" class="channel-link">open</a>
+            <a :href="channelHref(e)" class="channel-link">open</a>
             <div class="channel-row-actions"></div>
           </li>
         </template>

@@ -127,17 +127,24 @@ describe("frontend-shell: index.html", () => {
     expect(html).toContain('claimedTaskCount');
   });
 
-  it("references ApiChannelEntry fields in templates: channel, author, ts, excerpt, pageId", () => {
+  it("references ApiChannelEntry fields in templates: channel, author, ts, excerpt, pageId (via channelHref)", () => {
     expect(html).toContain('.channel');
     expect(html).toContain('.author');
     expect(html).toContain('.ts');
     expect(html).toContain('.excerpt');
-    expect(html).toContain('pageId');
+    // pageId is accessed via channelHref(e) helper rather than directly in the template
+    expect(html).toContain('channelHref(e)');
   });
 
   it("has per-row slot for write affordances in task rows", () => {
     // task-row-actions or similar anchor inside each task <li>
     expect(html).toContain('task-row-actions');
+  });
+
+  it("channel link uses channelHref(e) helper (not raw string concat)", () => {
+    expect(html).toContain(':href="channelHref(e)"');
+    // Must not use raw string concatenation with vaultBaseName
+    expect(html).not.toContain("'obsidian://open?vault=' + vaultBaseName");
   });
 });
 
@@ -179,6 +186,16 @@ describe("frontend-shell: styles.css", () => {
 
   it("styles the paused state of live-dot", () => {
     expect(css).toContain('paused');
+  });
+
+  it("main.grid height+overflow:hidden are inside the 1024px media query (not unconditional)", () => {
+    // Split on the @media boundary
+    const beforeMedia = css.split('@media')[0];
+    // The pre-media main.grid rule must not contain overflow: hidden
+    expect(beforeMedia).not.toContain('overflow: hidden');
+    // Bare `  height: calc(100vh` (not min-height or max-height) must not appear before media block
+    // We check for lines that start whitespace then exactly "height:" (not prefixed by min- or max-)
+    expect(beforeMedia).not.toMatch(/^\s+height:\s*calc\(100vh/m);
   });
 });
 
@@ -316,8 +333,16 @@ describe("frontend-shell: app.js", () => {
 
   it("references ApiChannelEntry field names in js: channel, ts, excerpt, pageId", () => {
     // These are referenced directly in app.js logic / channel data handling
-    expect(js).toContain('channel');
+    expect(js).toContain('channelEntries');
     expect(js).toContain('pageId');
+  });
+
+  it("has channelHref() helper that uses encodeURIComponent for vault and pageId", () => {
+    expect(js).toContain('channelHref(');
+    expect(js).toContain('e.pageId');
+    // Both vault and file must be URI-encoded
+    const match = js.match(/channelHref\([^)]*\)\s*\{[\s\S]*?encodeURIComponent[\s\S]*?encodeURIComponent[\s\S]*?\}/);
+    expect(match).not.toBeNull();
   });
 
   it("does not wire up any POST endpoints (no write actions)", () => {

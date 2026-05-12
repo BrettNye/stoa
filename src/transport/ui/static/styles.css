@@ -117,8 +117,7 @@ main.grid {
   flex-direction: column;
   gap: var(--gap);
   padding: var(--gap);
-  height: calc(100vh - var(--header-height));
-  overflow: hidden;
+  min-height: calc(100vh - var(--header-height));
 }
 
 @media (min-width: 1024px) {
@@ -127,6 +126,8 @@ main.grid {
     grid-template-columns: 22% 48% 30%;
     grid-template-rows: 1fr;
     gap: var(--gap);
+    height: calc(100vh - var(--header-height));
+    overflow: hidden;
   }
 }
 

@@ -159,5 +159,15 @@ function dashboard() {
       const file = encodeURIComponent(`wikis/${t.wiki}/tasks/${t.id}.md`);
       return `obsidian://open?vault=${vault}&file=${file}`;
     },
+
+    /**
+     * Produces an obsidian:// deep-link URI for a given ApiChannelEntry.
+     * Uses the vaultBaseName resolved from /api/health.
+     */
+    channelHref(e) {
+      const vault = encodeURIComponent(this.vaultBaseName);
+      const file = encodeURIComponent(e.pageId);
+      return `obsidian://open?vault=${vault}&file=${file}`;
+    },
   };
 }
