@@ -28,3 +28,12 @@ it("applies only to claim type pages", () => {
   const page = { frontmatter: { type: "task", scope_wiki: ["nope"] }, content: "" };
   expect(rule.appliesTo(page)).toBe(false);
 });
+
+it("fires for every missing entry when none of scope_wiki is valid", () => {
+  const rule = makeClaimScopeWikiRule(new Set(["alpha"]));
+  const page = { frontmatter: fm({ scope_wiki: ["ghost-wiki", "phantom-wiki"] }), content: "" };
+  const findings = rule.check(page);
+  expect(findings).toHaveLength(1);
+  expect(findings[0].message).toMatch(/ghost-wiki/);
+  expect(findings[0].message).toMatch(/phantom-wiki/);
+});
