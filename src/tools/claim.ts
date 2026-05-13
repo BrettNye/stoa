@@ -115,7 +115,16 @@ export const claimTool = {
 
     // Profile scoping default (§6.6): no `profile:` arg → [<as>]; explicit
     // [] → global (preserved as-is).
-    const profile = input.profile === undefined ? [input.as] : input.profile;
+    //
+    // Bare-name normalization: agent ids in `profile:` must be stored without
+    // `agent:` or `profile-` prefixes, because `vault.agent-memory` normalizes
+    // its `agent_id` query input the same way and the predicate compares with
+    // exact equality (`C.profile contains <A>`). Storing prefixed values would
+    // silently make profile-targeted claims invisible to the targeted agent's
+    // memory pull. Same convention as `src/tools/agent-memory.ts` handler.
+    // Non-agent prefixes (e.g., `human:brett`) are preserved as-is.
+    const profileRaw = input.profile === undefined ? [input.as] : input.profile;
+    const profile = profileRaw.map(p => p.replace(/^agent:/, "").replace(/^profile-/, ""));
     const move = input.move ?? [];
     const scope_wiki = input.scope_wiki ?? [];
     const tags = input.tags ?? [];
