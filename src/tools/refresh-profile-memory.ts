@@ -6,12 +6,12 @@ import { ProfileNotFoundError } from "../core/profiles.js";
 import { resolveTrainerContext, type TrainerContext } from "../core/resolve-trainer-context.js";
 
 const Input = z.object({
-  pokemon_id: z.string(),
+  agent_id: z.string(),
   wiki: z.string().optional()
 });
 
-function bareName(pokemonId: string): string {
-  return pokemonId.startsWith("profile-") ? pokemonId.slice("profile-".length) : pokemonId;
+function bareName(agentId: string): string {
+  return agentId.startsWith("profile-") ? agentId.slice("profile-".length) : agentId;
 }
 
 export const refreshProfileMemoryTool = {
@@ -37,12 +37,12 @@ export const refreshProfileMemoryTool = {
     if (!wiki) throw new Error("wiki resolution failed: no explicit arg and no resolved trainer context");
 
     // Verify the profile exists in the wiki-scoped path
-    const profilePath = join(ctx.vaultPath, "wikis", wiki, "profiles", `${input.pokemon_id}.md`);
+    const profilePath = join(ctx.vaultPath, "wikis", wiki, "profiles", `${input.agent_id}.md`);
     if (!existsSync(profilePath)) {
-      throw new ProfileNotFoundError(input.pokemon_id);
+      throw new ProfileNotFoundError(input.agent_id);
     }
 
-    const agent = bareName(input.pokemon_id);
+    const agent = bareName(input.agent_id);
     const result = synthesize(ctx.vaultPath, {
       topic: `${agent} memory`,
       by_agent: agent,
