@@ -11,9 +11,22 @@ export function isValidPokemonType(t: string): t is PokemonType {
   return (POKEMON_TYPES as readonly string[]).includes(t);
 }
 
-// Spec §7.1 — opinionated dev-specialty → pokemon-type mapping.
+// Spec §7.1 (vault-mcp v1.5 design, 2026-04-29) — opinionated specialty → pokemon-type mapping.
+// Spec is closed; the vocabulary has since broadened beyond dev specialties to cover any agent role.
+// The mapping is editorial, not load-bearing — users can override via per-profile body content.
+// Lint enforces the type enum (18-canon), not the specialty vocabulary.
 // Default to "normal" for unknown specialties.
+//
+// Dev specialties (spec §7.1 originals):
+//   backend, frontend, realtime, research, infrastructure, tests, orchestration,
+//   full-stack, security, design, refactoring, caching, data, devops, apis,
+//   debugging, legacy
+// Business / non-dev specialties (added 2026-05-13 per the broadening conversation
+// in `wikis/_agents/journal/journal-2026-05-12-2000-spawn-ui-wired-basic-stage-filter`):
+//   marketing, sales, seo, content, copy, brand, analytics, ml, finance, ops,
+//   support, recruiting, hr, legal, compliance, pr, social
 export const DEV_SPECIALTY_TO_TYPE: Record<string, PokemonType> = {
+  // --- Dev specialties (spec §7.1 originals) ---
   backend: "fire",
   "processing-heavy": "fire",
   frontend: "water",
@@ -49,7 +62,36 @@ export const DEV_SPECIALTY_TO_TYPE: Record<string, PokemonType> = {
   debugging: "bug",
   forensics: "bug",
   legacy: "poison",
-  migration: "poison"
+  migration: "poison",
+  // --- Business / non-dev specialties ---
+  marketing: "fairy",        // charm / influence / persuasion
+  sales: "fairy",            // same as marketing
+  seo: "flying",             // search visibility / ascending rankings
+  content: "grass",          // creative growth, parallels research/docs
+  copywriting: "grass",      // writing as creative growth
+  copy: "grass",
+  brand: "fairy",
+  branding: "fairy",
+  analytics: "psychic",      // insight / pattern recognition
+  "data-science": "psychic",
+  ml: "psychic",
+  "machine-learning": "psychic",
+  finance: "steel",          // precise, structured
+  accounting: "steel",
+  ops: "ground",             // foundational
+  operations: "ground",
+  support: "fairy",          // charm / helping
+  "customer-success": "fairy",
+  recruiting: "flying",      // scouting, seeing far
+  hiring: "flying",
+  hr: "fairy",
+  people: "fairy",
+  legal: "steel",            // structured / defensive
+  compliance: "steel",
+  pr: "fairy",
+  "public-relations": "fairy",
+  social: "fairy",
+  "social-media": "fairy"
 };
 
 export const TYPE_TO_DEV_SPECIALTY: Record<PokemonType, string> = (() => {

@@ -194,7 +194,11 @@ export function mountReadRoutes(app: Hono, ctx: ReadRoutesCtx): void {
       }
       resolvedType = pokemonTypeParam;
     } else if (specialty !== undefined) {
-      resolvedType = mapDevSpecialty(specialty);
+      // If the specialty IS literally a pokemon type name, use it directly.
+      // Avoids the surprise where `?specialty=psychic` silently routes to "normal"
+      // (the default fall-through in mapDevSpecialty for unknown specialties).
+      const lower = specialty.toLowerCase();
+      resolvedType = isValidPokemonType(lower) ? lower : mapDevSpecialty(specialty);
     } else {
       return c.json({ error: "At least one of 'specialty' or 'pokemon_type' is required." }, 400);
     }
