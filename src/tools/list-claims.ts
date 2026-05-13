@@ -28,6 +28,7 @@ import path from "node:path";
 import { ClaimsStore, type ParsedClaim } from "../core/claims.js";
 import { effectiveConfidence } from "../core/decay.js";
 import { getClaimsConfig } from "../config.js";
+import type { ClaimsIndex } from "../types/claims-index.js";
 
 // `min_effective_confidence` and `limit` are intentionally optional here so
 // the handler can distinguish "caller omitted, fall back to config defaults"
@@ -43,16 +44,6 @@ const Input = z.object({
 });
 
 type ListInput = z.infer<typeof Input>;
-
-interface SidecarShape {
-  by_profile: Record<string, string[]>;
-  by_move: Record<string, string[]>;
-  by_scope_wiki: Record<string, string[]>;
-  by_tag: Record<string, string[]>;
-  global: string[];
-  generated_at: string;
-  schema_version?: number;
-}
 
 export interface ListClaimsCtx {
   vaultPath: string;
@@ -152,19 +143,19 @@ export const listClaimsTool = {
 // helpers
 // ─────────────────────────────────────────────────────────────────────────
 
-async function readSidecar(file: string): Promise<SidecarShape | null> {
+async function readSidecar(file: string): Promise<ClaimsIndex | null> {
   try {
     const raw = await fs.readFile(file, "utf8");
     const json = JSON.parse(raw);
     if (typeof json !== "object" || json === null) return null;
     if (typeof json.generated_at !== "string") return null;
-    return json as SidecarShape;
+    return json as ClaimsIndex;
   } catch {
     return null;
   }
 }
 
-function selectBucket(s: SidecarShape, by?: string, value?: string): string[] {
+function selectBucket(s: ClaimsIndex, by?: string, value?: string): string[] {
   if (by === "global") return [...(s.global ?? [])];
   if (by && value) {
     const map = (s as unknown as Record<string, Record<string, string[]>>)[`by_${by}`];
