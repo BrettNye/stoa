@@ -259,6 +259,195 @@ describe("agent-memory scope filter — below-floor cutoff", () => {
   });
 });
 
+describe("agent-memory scope filter — task-derived scope (§6.1 + §6.2)", () => {
+  async function writeTaskFile(
+    vault: string,
+    taskId: string,
+    wiki: string,
+    tags: string[],
+  ): Promise<void> {
+    const dir = path.join(vault, "wikis", wiki, "tasks");
+    await fs.mkdir(dir, { recursive: true });
+    const fm = [
+      `id: ${JSON.stringify(taskId)}`,
+      `type: "task"`,
+      `title: ${JSON.stringify(taskId)}`,
+      `created: "2026-05-02"`,
+      `wiki: ${JSON.stringify(wiki)}`,
+      `status: "draft"`,
+      `summary: "test task"`,
+      `updated: "2026-05-02"`,
+      `tags: ${JSON.stringify(tags)}`,
+    ].join("\n");
+    await fs.writeFile(path.join(dir, `${taskId}.md`), `---\n${fm}\n---\n\nbody\n`, "utf8");
+  }
+
+  it("derives scope_wiki from task's wiki field when scope_wiki arg is absent", async () => {
+    const vault = await seedAndIndex([
+      {
+        id: "claim-wiki-task-derived",
+        key: "test.wiki-task-derived",
+        status: "active",
+        confidence: 0.7,
+        tags: [],
+        profile: [],
+        scope_wiki: ["project-gamma"],
+        authored_by: "agent:charmander",
+      },
+    ]);
+    await writeTaskFile(vault, "task-foo", "project-gamma", []);
+
+    // No explicit scope_wiki; task-derived wiki should allow this wiki-scoped claim through
+    const result = agentMemory(vault, {
+      agent_id: "charmander",
+      task: "task-foo",
+      today: TODAY,
+    });
+    expect(result.claims.map((c) => c.id)).toContain("claim-wiki-task-derived");
+  });
+
+  it("merges task-derived tags with explicit tags for scope matching", async () => {
+    const vault = await seedAndIndex([
+      {
+        id: "claim-task-tag-merged",
+        key: "test.task-tag-merged",
+        status: "active",
+        confidence: 0.7,
+        tags: ["typescript"],
+        profile: [],
+        scope_wiki: [],
+        authored_by: "agent:other",
+      },
+    ]);
+    await writeTaskFile(vault, "task-bar", "_agents", ["typescript"]);
+
+    // No explicit tags, but task has "typescript" tag — should trigger scope match
+    const result = agentMemory(vault, {
+      agent_id: "charmander",
+      task: "task-bar",
+      today: TODAY,
+    });
+    expect(result.claims.map((c) => c.id)).toContain("claim-task-tag-merged");
+  });
+
+  it("explicit scope_wiki arg wins over task-derived wiki (§6.1 precedence)", async () => {
+    const vault = await seedAndIndex([
+      {
+        id: "claim-explicit-wiki-wins",
+        key: "test.explicit-wiki-wins",
+        status: "active",
+        confidence: 0.7,
+        tags: [],
+        profile: [],
+        scope_wiki: ["project-explicit"],
+        authored_by: "agent:charmander",
+      },
+      {
+        id: "claim-task-wiki-blocked",
+        key: "test.task-wiki-blocked",
+        status: "active",
+        confidence: 0.7,
+        tags: [],
+        profile: [],
+        scope_wiki: ["project-gamma"],
+        authored_by: "agent:charmander",
+      },
+    ]);
+    // Task's wiki is "project-gamma", but explicit scope_wiki overrides it
+    await writeTaskFile(vault, "task-baz", "project-gamma", []);
+
+    const result = agentMemory(vault, {
+      agent_id: "charmander",
+      task: "task-baz",
+      scope_wiki: ["project-explicit"],
+      today: TODAY,
+    });
+
+    // explicit scope_wiki wins → only project-explicit-scoped claim should be reachable
+    expect(result.claims.map((c) => c.id)).toContain("claim-explicit-wiki-wins");
+    expect(result.claims.map((c) => c.id)).not.toContain("claim-task-wiki-blocked");
+  });
+
+  it("explicit tags are merged with task-derived tags (concat + dedupe)", async () => {
+    const vault = await seedAndIndex([
+      {
+        id: "claim-merged-both-tags",
+        key: "test.merged-both",
+        status: "active",
+        confidence: 0.7,
+        tags: ["rust"],
+        profile: [],
+        scope_wiki: [],
+        authored_by: "agent:other",
+      },
+    ]);
+    // Task has tag "python"; explicit call has tag "rust"
+    await writeTaskFile(vault, "task-qux", "_agents", ["python"]);
+
+    const result = agentMemory(vault, {
+      agent_id: "charmander",
+      task: "task-qux",
+      tags: ["rust"],
+      today: TODAY,
+    });
+    // "rust" tag claim should be matched via the explicit tag
+    expect(result.claims.map((c) => c.id)).toContain("claim-merged-both-tags");
+    // scope_used.tags should contain both
+    expect(result.scope_used.tags).toContain("rust");
+    expect(result.scope_used.tags).toContain("python");
+  });
+
+  it("tags are deduped when same tag appears in both explicit and task-derived", async () => {
+    const vault = await seedAndIndex([
+      {
+        id: "claim-dedup-tag",
+        key: "test.dedup",
+        status: "active",
+        confidence: 0.7,
+        tags: ["shared"],
+        profile: [],
+        scope_wiki: [],
+        authored_by: "agent:other",
+      },
+    ]);
+    await writeTaskFile(vault, "task-dedup", "_agents", ["shared"]);
+
+    const result = agentMemory(vault, {
+      agent_id: "charmander",
+      task: "task-dedup",
+      tags: ["shared"],
+      today: TODAY,
+    });
+    // "shared" should appear only once in scope_used.tags
+    expect(result.scope_used.tags.filter((t) => t === "shared")).toHaveLength(1);
+  });
+
+  it("on task-page read failure, falls back to non-task scope without throwing (§8.3 soft warning)", async () => {
+    const vault = await seedAndIndex([
+      {
+        id: "claim-fallback-ok",
+        key: "test.fallback",
+        status: "active",
+        confidence: 0.7,
+        tags: [],
+        profile: [],
+        scope_wiki: [],
+        authored_by: "agent:charmander",
+      },
+    ]);
+    // task-missing does NOT exist on disk
+
+    // Should not throw; should return result as if task were absent
+    const result = agentMemory(vault, {
+      agent_id: "charmander",
+      task: "task-missing",
+      today: TODAY,
+    });
+    // authored_by claim still surfaced; no crash
+    expect(result.claims.map((c) => c.id)).toContain("claim-fallback-ok");
+  });
+});
+
 describe("agent-memory scope filter — status exclusion", () => {
   it("excludes superseded claims", async () => {
     const vault = await seedAndIndex([

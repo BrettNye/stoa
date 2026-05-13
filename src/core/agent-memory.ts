@@ -103,10 +103,31 @@ export function agentMemory(vaultPath: string, input: AgentMemoryInput): AgentMe
   // Step 1: Normalize agent_id (strip "agent:" or "profile-" prefix)
   const agentId = normalizeAgentId(input.agent_id);
 
-  // Step 2: Derive scope
-  const scopeTags = input.tags ?? [];
-  const scopeWiki = input.scope_wiki ?? [];
-  // Note: task-derived scope is a future enhancement; for now explicit args only
+  // Step 2: Derive scope (§6.1 + §6.2)
+  // Precedence: explicit args > task-derived > empty
+  let taskDerivedTags: string[] = [];
+  let taskDerivedWiki: string | null = null;
+
+  if (input.task) {
+    const taskScope = readTaskScope(vaultPath, input.task);
+    if (taskScope !== null) {
+      taskDerivedTags = taskScope.tags;
+      taskDerivedWiki = taskScope.wiki;
+    }
+    // On failure (null), soft-fall-through — treat as if task were absent (§8.3)
+  }
+
+  // scope_wiki: explicit arg wins (§6.1 step 1); otherwise task-derived wiki as single-element array
+  const scopeWiki: string[] =
+    input.scope_wiki !== undefined && input.scope_wiki.length > 0
+      ? input.scope_wiki
+      : taskDerivedWiki !== null
+        ? [taskDerivedWiki]
+        : input.scope_wiki ?? [];
+
+  // tags: explicit tags merged with task-derived (§6.2 — concat + dedupe)
+  const rawTags = [...(input.tags ?? []), ...taskDerivedTags];
+  const scopeTags: string[] = [...new Set(rawTags)];
 
   const scopeUsed = {
     tags: scopeTags,
@@ -405,6 +426,52 @@ function normalizeAgentId(raw: string): string {
   if (raw.startsWith("agent:")) return raw.slice("agent:".length);
   if (raw.startsWith("profile-")) return raw.slice("profile-".length);
   return raw;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Task scope reading (§6.1 + §6.2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface TaskScope {
+  tags: string[];
+  wiki: string | null;
+}
+
+/**
+ * Read a task page and extract tags + wiki for scope derivation.
+ *
+ * Searches `wikis/<wiki>/tasks/<task-id>.md` across all wikis.
+ * Returns null on any failure (missing file, malformed frontmatter) — callers
+ * treat null as "task absent" per §8.3 soft-warning posture.
+ */
+function readTaskScope(vaultPath: string, taskId: string): TaskScope | null {
+  const wikisDir = path.join(vaultPath, "wikis");
+  if (!existsSync(wikisDir)) return null;
+
+  let wikis: string[];
+  try {
+    wikis = readdirSync(wikisDir);
+  } catch {
+    return null;
+  }
+
+  for (const wiki of wikis) {
+    const file = path.join(wikisDir, wiki, "tasks", `${taskId}.md`);
+    if (!existsSync(file)) continue;
+    try {
+      const raw = readFileSync(file, "utf8");
+      const parsed = matter(raw);
+      if (!parsed.data || Object.keys(parsed.data).length === 0) return null;
+      const fm = parsed.data;
+      const tags = Array.isArray(fm.tags) ? (fm.tags as unknown[]).filter((t): t is string => typeof t === "string") : [];
+      const wikiField = typeof fm.wiki === "string" ? fm.wiki : null;
+      return { tags, wiki: wikiField };
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
