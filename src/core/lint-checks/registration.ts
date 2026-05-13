@@ -58,6 +58,7 @@ import { claimWithoutEvidence } from "./claim-without-evidence.js";
 import { claimWithNoScope } from "./claim-with-no-scope.js";
 import { claimSupersededWithoutSupersedor } from "./claim-superseded-without-supersedor.js";
 import { taskNotReady } from "./task-not-ready.js";
+import { makeClaimScopeWikiRule } from "./claim-scope-wiki-nonexistent.js";
 
 // Severity mapping. The Group B `LintFinding.severity` / `LintSeverity` enum
 // is `"warn" | "error" | "info"`; the registry `Diagnostic.severity` enum is
@@ -160,3 +161,35 @@ registerPerPageRule(claimWithoutEvidence, "claim", "claim");
 registerPerPageRule(claimWithNoScope, "claim", "claim");
 registerPerPageRule(claimSupersededWithoutSupersedor, "claim", "claim");
 registerPerPageRule(taskNotReady, "tasks", "task");
+
+{
+  const code = "CLAIM_SCOPE_WIKI_NONEXISTENT";
+  registerLintCheck({
+    code,
+    run(ctx, _idx, input) {
+      const wikisDir = join(ctx.vaultPath, "wikis");
+      const validWikis = existsSync(wikisDir)
+        ? new Set(
+            readdirSync(wikisDir, { withFileTypes: true })
+              .filter(e => e.isDirectory())
+              .map(e => e.name)
+          )
+        : new Set<string>();
+      const rule = makeClaimScopeWikiRule(validWikis);
+      const diagnostics: Diagnostic[] = [];
+      for (const { wiki, pageId, page } of walkPagesUnder(ctx.vaultPath, "claim", "claim", input.wiki)) {
+        if (!rule.appliesTo(page)) continue;
+        for (const f of rule.check(page)) {
+          diagnostics.push({
+            severity: mapSeverity(f.severity),
+            code,
+            page_id: pageId,
+            wiki,
+            message: f.message,
+          });
+        }
+      }
+      return diagnostics;
+    },
+  });
+}
