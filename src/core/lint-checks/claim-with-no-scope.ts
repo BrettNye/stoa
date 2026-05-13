@@ -18,39 +18,22 @@
 // reconciliation happens in the wiring task (task-lint-checks-
 // registration); this file is a leaf in the DAG and ships only the
 // rule itself.
+//
+// Local interface declarations have been removed in favour of the
+// canonical types in `./per-page-rule.ts` (task-type-hoist).
 
-export type LintSeverity = "error" | "warn" | "info";
-
-export interface LintFinding {
-  ruleId: string;
-  severity: LintSeverity;
-  line: number;
-  message: string;
-}
-
-export interface LintCheckPage {
-  frontmatter?: Record<string, unknown>;
-  content?: string;
-  filePath?: string;
-}
-
-export interface LintCheck {
-  id: string;
-  severity: LintSeverity;
-  appliesTo: (page: LintCheckPage) => boolean;
-  check: (page: LintCheckPage) => LintFinding[];
-}
+import type { PerPageRule, PerPageRuleFinding } from "./per-page-rule.js";
 
 function arrLen(v: unknown): number {
   return Array.isArray(v) ? v.length : 0;
 }
 
-export const claimWithNoScope: LintCheck = {
+export const claimWithNoScope: PerPageRule = {
   id: "claim-with-no-scope",
   severity: "warn",
   appliesTo: (page) =>
     page.frontmatter?.type === "claim" && page.frontmatter?.status === "active",
-  check: (page): LintFinding[] => {
+  check: (page): PerPageRuleFinding[] => {
     const fm = page.frontmatter ?? {};
     const allEmpty =
       arrLen(fm.profile) === 0 &&

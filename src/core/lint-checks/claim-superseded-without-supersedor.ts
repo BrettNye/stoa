@@ -12,36 +12,16 @@
 // breaks the supersession DAG, which downstream consumers (Plan 2 evolve-
 // profile, Plan 3 sync-skills) traverse to compute current claims.
 //
-// Note on type definitions: this file declares `LintCheck` + `LintFinding`
-// locally because the foundation `lint-check.ts` registry uses a different
-// (registerLintCheck + Diagnostic) shape and the registration adapter task
-// (`task-lint-checks-registration`) is what bridges the two. Keeping the
-// types co-located here means the rule compiles standalone; the wiring task
-// can later promote the types to a shared module.
+// Local interface declarations have been removed in favour of the
+// canonical types in `./per-page-rule.ts` (task-type-hoist).
 
-export interface LintFinding {
-  ruleId: string;
-  severity: "error" | "warn" | "info";
-  line: number;
-  message: string;
-}
+import type { PerPageRule, PerPageRuleFinding } from "./per-page-rule.js";
 
-export interface PageLike {
-  frontmatter?: Record<string, unknown>;
-}
-
-export interface LintCheck {
-  id: string;
-  severity: "error" | "warn" | "info";
-  appliesTo: (page: PageLike) => boolean;
-  check: (page: PageLike) => LintFinding[];
-}
-
-export const claimSupersededWithoutSupersedor: LintCheck = {
+export const claimSupersededWithoutSupersedor: PerPageRule = {
   id: "claim-superseded-without-supersedor",
   severity: "error",
   appliesTo: (page) => page.frontmatter?.type === "claim",
-  check: (page): LintFinding[] => {
+  check: (page): PerPageRuleFinding[] => {
     const fm = page.frontmatter ?? {};
     if (fm.status !== "superseded") return [];
     // Treat null, undefined, and empty-string as "no supersedor" — all three

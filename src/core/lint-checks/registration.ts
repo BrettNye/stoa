@@ -45,6 +45,7 @@ import { join } from "node:path";
 import { registerLintCheck } from "../lint-check.js";
 import { parseFrontmatter } from "../frontmatter.js";
 import type { Diagnostic } from "../lint.js";
+import type { PerPageRule, LintSeverity } from "./per-page-rule.js";
 
 // Group A — pull the side-effect registrations in via this barrel so
 // `tools/lint.ts` only needs one import for the whole claims rule set.
@@ -57,10 +58,10 @@ import { claimWithoutEvidence } from "./claim-without-evidence.js";
 import { claimWithNoScope } from "./claim-with-no-scope.js";
 import { claimSupersededWithoutSupersedor } from "./claim-superseded-without-supersedor.js";
 
-// Severity mapping. The Group B `LintFinding.severity` enum is `"warn" |
-// "error" | "info"`; the registry `Diagnostic.severity` enum is `"warning"
-// | "error" | "info"`. The mismatch is `"warn"` ↔ `"warning"`.
-function mapSeverity(s: "warn" | "error" | "info"): Diagnostic["severity"] {
+// Severity mapping. The Group B `LintFinding.severity` / `LintSeverity` enum
+// is `"warn" | "error" | "info"`; the registry `Diagnostic.severity` enum is
+// `"warning" | "error" | "info"`. The mismatch is `"warn"` ↔ `"warning"`.
+function mapSeverity(s: LintSeverity): Diagnostic["severity"] {
   return s === "warn" ? "warning" : s;
 }
 
@@ -129,20 +130,6 @@ function* walkClaimPages(
   }
 }
 
-// One adapter type that fits all three Group B rule objects without forcing
-// the (slightly-divergent) local types in those files to share a module.
-interface PerPageRule {
-  id: string;
-  severity: "warn" | "error" | "info";
-  appliesTo: (page: { frontmatter?: Record<string, unknown> }) => boolean;
-  check: (page: { frontmatter?: Record<string, unknown> }) => Array<{
-    ruleId: string;
-    severity: "warn" | "error" | "info";
-    line: number;
-    message: string;
-  }>;
-}
-
 function registerPerPageRule(rule: PerPageRule): void {
   const code = ruleIdToCode(rule.id);
   registerLintCheck({
@@ -169,6 +156,6 @@ function registerPerPageRule(rule: PerPageRule): void {
 
 // Wire each Group B rule. Order matches the plan §task-lint-checks-
 // registration `depends_on:` list: no-evidence, no-scope, superseded.
-registerPerPageRule(claimWithoutEvidence as PerPageRule);
-registerPerPageRule(claimWithNoScope as PerPageRule);
-registerPerPageRule(claimSupersededWithoutSupersedor as PerPageRule);
+registerPerPageRule(claimWithoutEvidence);
+registerPerPageRule(claimWithNoScope);
+registerPerPageRule(claimSupersededWithoutSupersedor);
