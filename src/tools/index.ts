@@ -57,6 +57,11 @@ import { syncAgentsTool } from "./sync-agents.js";
 import { claimTool } from "./claim.js";
 import { listClaimsTool } from "./list-claims.js";
 
+// agent-memory — vault.agent-memory. Identity-keyed working context for an
+// agent: ranked, scope-aware, decay-aware claims. Read-only. See spec
+// wikis/_meta/specs/2026-05-13-agent-memory-design.md.
+import { agentMemoryTool } from "./agent-memory.js";
+
 // Stadium Plan B (vault-side MCP tools) — trainer init/registration,
 // real-skill register/refresh, move fusion, telemetry push, queue/accept
 // match flow, invite listing, draft + move submission, and match watch.
@@ -102,6 +107,8 @@ export const allTools = [
   syncAgentsTool,
   // claims foundation (plan 1)
   claimTool, listClaimsTool,
+  // agent-memory
+  agentMemoryTool,
   // Stadium Plan B
   trainerInitTool, profileRegisterTool, realSkillRegisterTool, realSkillRefreshTool,
   moveFuseTool, telemetryPushTool, trainerQueueMatchTool, listInvitesTool,

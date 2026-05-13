@@ -2,9 +2,10 @@
 //
 // Two canonical constants used by every RuntimeAdapter:
 //
-//   MINIMAL_COORDINATION_TOOLSET — the 8-tool baseline every Pokemon receives
+//   MINIMAL_COORDINATION_TOOLSET — the 10-tool baseline every Pokemon receives
 //   so it can claim its own task, post and tail a channel, journal end-of-task,
-//   and read prior context. Missing any of these is a hard error per invariant 1.
+//   read prior context, and close the agent-memory feedback loop. Missing any
+//   of these is a hard error per invariant 1.
 //
 //   CHANNEL_JOURNAL_PROTOCOL_GUIDANCE — the canned ~200-word block embedded
 //   verbatim in every system prompt's "## Channel/journal protocol" section.
@@ -22,6 +23,8 @@ export const MINIMAL_COORDINATION_TOOLSET: readonly ToolName[] = Object.freeze([
   "vault.agent-journal",
   "vault.recall",
   "vault.read",
+  "vault.agent-memory",  // closes the read side of the agent-memory feedback loop
+  "vault.claim",          // closes the write side of the agent-memory feedback loop
 ]);
 
 export const CHANNEL_JOURNAL_PROTOCOL_GUIDANCE = `\

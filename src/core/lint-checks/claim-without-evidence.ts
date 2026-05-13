@@ -17,38 +17,16 @@
 // (`task-lint-checks-registration`) bridges these per-page rules into the
 // existing registry.
 //
-// Types are defined locally rather than imported from `../lint-check.js`
-// to (a) avoid the name-collision with the existing `LintCheck` interface
-// there and (b) keep this task's segregation contract intact (this task's
-// `files:` only lists this file). The 5 sibling claim rules will mirror
-// these types until the wiring task hoists them to a shared module.
+// Local interface declarations have been removed in favour of the
+// canonical types in `./per-page-rule.ts` (task-type-hoist).
 
-export interface ClaimLintFinding {
-  ruleId: string;
-  severity: "warn" | "error" | "info";
-  line: number;
-  message: string;
-  filePath?: string;
-}
+import type { PerPageRule, PerPageRuleFinding } from "./per-page-rule.js";
 
-export interface ClaimLintPage {
-  frontmatter: Record<string, unknown> | undefined;
-  content?: string;
-  filePath?: string;
-}
-
-export interface ClaimLintCheck {
-  id: string;
-  severity: "warn" | "error" | "info";
-  appliesTo: (page: ClaimLintPage) => boolean;
-  check: (page: ClaimLintPage) => ClaimLintFinding[];
-}
-
-export const claimWithoutEvidence: ClaimLintCheck = {
+export const claimWithoutEvidence: PerPageRule = {
   id: "claim-without-evidence",
   severity: "warn",
   appliesTo: (page) => page.frontmatter?.type === "claim",
-  check: (page): ClaimLintFinding[] => {
+  check: (page): PerPageRuleFinding[] => {
     const fm = page.frontmatter ?? {};
     if (fm.status !== "active") return [];
     const evidence = (fm.evidence as unknown[] | undefined) ?? [];

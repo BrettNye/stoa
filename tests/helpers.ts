@@ -85,7 +85,7 @@ export async function mkTempVaultWithSidecar(claims: ClaimFixtureInput[]): Promi
     by_tag: {} as Record<string, string[]>,
     global: [] as string[],
     generated_at: new Date().toISOString(),
-    schema_version: 1 as const,
+    schema_version: 2 as const,
   };
   for (const c of claims) {
     if (c.status !== "active") continue;

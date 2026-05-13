@@ -19,17 +19,9 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { ClaimsStore } from "./claims.js";
+import type { ClaimsIndex } from "../types/claims-index.js";
 
-export interface ClaimsIndex {
-  by_profile: Record<string, string[]>;
-  by_move: Record<string, string[]>;
-  by_scope_wiki: Record<string, string[]>;
-  by_tag: Record<string, string[]>;
-  global: string[];
-  /** ISO timestamp of when the sidecar was assembled. */
-  generated_at: string;
-  schema_version: 1;
-}
+export type { ClaimsIndex };
 
 /**
  * Walk every wiki's `claim/` folder and emit the inverted index. Only
@@ -47,9 +39,10 @@ export async function buildClaimsIndex(vaultPath: string): Promise<ClaimsIndex> 
     by_move: {},
     by_scope_wiki: {},
     by_tag: {},
+    by_authored_by: {},
     global: [],
     generated_at: new Date().toISOString(),
-    schema_version: 1,
+    schema_version: 2,
   };
 
   const push = (m: Record<string, string[]>, k: string, v: string) => {
@@ -72,6 +65,7 @@ export async function buildClaimsIndex(vaultPath: string): Promise<ClaimsIndex> 
       for (const m of claim.move) push(idx.by_move, m, claim.id);
       for (const w of claim.scope_wiki) push(idx.by_scope_wiki, w, claim.id);
       for (const t of claim.tags) push(idx.by_tag, t, claim.id);
+      if (claim.authored_by) push(idx.by_authored_by, claim.authored_by, claim.id);
       if (
         !claim.profile.length &&
         !claim.move.length &&

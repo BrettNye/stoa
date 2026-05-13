@@ -66,7 +66,7 @@ describe("tests/helpers.ts", () => {
     const sidecar = JSON.parse(
       await fs.readFile(path.join(vault, "_index", "claims.json"), "utf8"),
     );
-    expect(sidecar.schema_version).toBe(1);
+    expect(sidecar.schema_version).toBe(2);
     expect(sidecar.by_profile["gastly"]).toContain("claim-a");
     // superseded entries are excluded from the sidecar.
     expect(sidecar.by_profile["gastly"] ?? []).not.toContain("claim-c");

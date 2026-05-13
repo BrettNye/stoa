@@ -45,6 +45,7 @@ import { join } from "node:path";
 import { registerLintCheck } from "../lint-check.js";
 import { parseFrontmatter } from "../frontmatter.js";
 import type { Diagnostic } from "../lint.js";
+import type { PerPageRule, PerPageRulePage, LintSeverity } from "./per-page-rule.js";
 
 // Group A — pull the side-effect registrations in via this barrel so
 // `tools/lint.ts` only needs one import for the whole claims rule set.
@@ -56,11 +57,13 @@ import "./claim-tag-repo-prefix-malformed.js";
 import { claimWithoutEvidence } from "./claim-without-evidence.js";
 import { claimWithNoScope } from "./claim-with-no-scope.js";
 import { claimSupersededWithoutSupersedor } from "./claim-superseded-without-supersedor.js";
+import { taskNotReady } from "./task-not-ready.js";
+import { makeClaimScopeWikiRule } from "./claim-scope-wiki-nonexistent.js";
 
-// Severity mapping. The Group B `LintFinding.severity` enum is `"warn" |
-// "error" | "info"`; the registry `Diagnostic.severity` enum is `"warning"
-// | "error" | "info"`. The mismatch is `"warn"` ↔ `"warning"`.
-function mapSeverity(s: "warn" | "error" | "info"): Diagnostic["severity"] {
+// Severity mapping. The Group B `LintFinding.severity` / `LintSeverity` enum
+// is `"warn" | "error" | "info"`; the registry `Diagnostic.severity` enum is
+// `"warning" | "error" | "info"`. The mismatch is `"warn"` ↔ `"warning"`.
+function mapSeverity(s: LintSeverity): Diagnostic["severity"] {
   return s === "warn" ? "warning" : s;
 }
 
@@ -70,21 +73,19 @@ function ruleIdToCode(id: string): string {
   return id.replace(/-/g, "_").toUpperCase();
 }
 
-// Minimal page-shape the Group B rules expect. Parsed lazily from disk per
-// claim file. We don't put `content` on this stub because none of the three
-// rules currently inspect it — if a future Group B rule does, extend here.
-interface AdapterPage {
-  frontmatter: Record<string, unknown>;
-  filePath: string;
-}
-
-// Walk `wikis/<wiki>/claim/*.md` and yield parsed frontmatter for each file
-// the wiki filter allows. Malformed files are silently skipped — same
-// posture as the rest of the lint runner.
-function* walkClaimPages(
+// Walk `wikis/<wiki>/<subdir>/*.md` and yield parsed frontmatter for each file
+// whose `type` frontmatter matches `expectedType` and passes the wiki filter.
+// Malformed files are silently skipped — same posture as the rest of the lint runner.
+//
+// Replaces the former `walkClaimPages` (which was hardcoded to "claim"/"claim").
+// Claim rules call this with subdir="claim", expectedType="claim".
+// Task rules will call this with subdir="tasks", expectedType="task".
+export function* walkPagesUnder(
   vaultPath: string,
+  subdir: string,
+  expectedType: string,
   wikiFilter: string | undefined,
-): Generator<{ wiki: string; pageId: string; page: AdapterPage }> {
+): Generator<{ wiki: string; pageId: string; page: PerPageRulePage }> {
   const wikisDir = join(vaultPath, "wikis");
   if (!existsSync(wikisDir)) return;
 
@@ -102,19 +103,19 @@ function* walkClaimPages(
     : wikiNames;
 
   for (const wiki of targetWikis) {
-    const claimDir = join(wikisDir, wiki, "claim");
-    if (!existsSync(claimDir)) continue;
+    const dir = join(wikisDir, wiki, subdir);
+    if (!existsSync(dir)) continue;
 
     let entries: string[];
     try {
-      entries = readdirSync(claimDir);
+      entries = readdirSync(dir);
     } catch {
       continue;
     }
 
     for (const file of entries) {
       if (!file.endsWith(".md")) continue;
-      const filePath = join(claimDir, file);
+      const filePath = join(dir, file);
       let fm: Record<string, unknown>;
       try {
         const raw = readFileSync(filePath, "utf8");
@@ -122,34 +123,20 @@ function* walkClaimPages(
       } catch {
         continue;
       }
-      if (fm.type !== "claim") continue;
+      if (fm.type !== expectedType) continue;
       const pageId = String(fm.id ?? file.replace(/\.md$/, ""));
       yield { wiki, pageId, page: { frontmatter: fm, filePath } };
     }
   }
 }
 
-// One adapter type that fits all three Group B rule objects without forcing
-// the (slightly-divergent) local types in those files to share a module.
-interface PerPageRule {
-  id: string;
-  severity: "warn" | "error" | "info";
-  appliesTo: (page: { frontmatter?: Record<string, unknown> }) => boolean;
-  check: (page: { frontmatter?: Record<string, unknown> }) => Array<{
-    ruleId: string;
-    severity: "warn" | "error" | "info";
-    line: number;
-    message: string;
-  }>;
-}
-
-function registerPerPageRule(rule: PerPageRule): void {
+function registerPerPageRule(rule: PerPageRule, subdir: string, expectedType: string): void {
   const code = ruleIdToCode(rule.id);
   registerLintCheck({
     code,
     run(ctx, _idx, input) {
       const diagnostics: Diagnostic[] = [];
-      for (const { wiki, pageId, page } of walkClaimPages(ctx.vaultPath, input.wiki)) {
+      for (const { wiki, pageId, page } of walkPagesUnder(ctx.vaultPath, subdir, expectedType, input.wiki)) {
         if (!rule.appliesTo(page)) continue;
         const findings = rule.check(page);
         for (const f of findings) {
@@ -169,6 +156,40 @@ function registerPerPageRule(rule: PerPageRule): void {
 
 // Wire each Group B rule. Order matches the plan §task-lint-checks-
 // registration `depends_on:` list: no-evidence, no-scope, superseded.
-registerPerPageRule(claimWithoutEvidence as PerPageRule);
-registerPerPageRule(claimWithNoScope as PerPageRule);
-registerPerPageRule(claimSupersededWithoutSupersedor as PerPageRule);
+// All three claim rules explicitly pass subdir="claim", expectedType="claim".
+registerPerPageRule(claimWithoutEvidence, "claim", "claim");
+registerPerPageRule(claimWithNoScope, "claim", "claim");
+registerPerPageRule(claimSupersededWithoutSupersedor, "claim", "claim");
+registerPerPageRule(taskNotReady, "tasks", "task");
+
+{
+  const code = "CLAIM_SCOPE_WIKI_NONEXISTENT";
+  registerLintCheck({
+    code,
+    run(ctx, _idx, input) {
+      const wikisDir = join(ctx.vaultPath, "wikis");
+      const validWikis = existsSync(wikisDir)
+        ? new Set(
+            readdirSync(wikisDir, { withFileTypes: true })
+              .filter(e => e.isDirectory())
+              .map(e => e.name)
+          )
+        : new Set<string>();
+      const rule = makeClaimScopeWikiRule(validWikis);
+      const diagnostics: Diagnostic[] = [];
+      for (const { wiki, pageId, page } of walkPagesUnder(ctx.vaultPath, "claim", "claim", input.wiki)) {
+        if (!rule.appliesTo(page)) continue;
+        for (const f of rule.check(page)) {
+          diagnostics.push({
+            severity: mapSeverity(f.severity),
+            code,
+            page_id: pageId,
+            wiki,
+            message: f.message,
+          });
+        }
+      }
+      return diagnostics;
+    },
+  });
+}

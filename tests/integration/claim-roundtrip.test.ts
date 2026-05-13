@@ -105,7 +105,7 @@ describe("claim flow roundtrip — Plan 1 join point", () => {
     // ── step 2: vault.reindex builds the claims sidecar ───────────────────
     await callTool("vault.reindex", {}, vault);
     const sidecar1 = await readClaimsSidecar(vault);
-    expect(sidecar1.schema_version).toBe(1);
+    expect(sidecar1.schema_version).toBe(2);
     // Default scoping (§6.6): profile defaulted to ["agent:test"], so the
     // claim should show up under by_profile and NOT in `global`.
     expect(sidecar1.by_profile["agent:test"]).toEqual([created.claim_id]);
@@ -216,7 +216,7 @@ describe("claim flow roundtrip — Plan 1 join point", () => {
     expect(sidecar3.by_profile).toEqual({});
     expect(sidecar3.by_tag).toEqual({});
     expect(sidecar3.global).toEqual([]);
-    expect(sidecar3.schema_version).toBe(1);
+    expect(sidecar3.schema_version).toBe(2);
     expect(typeof sidecar3.generated_at).toBe("string");
 
     const finalList = await callTool(

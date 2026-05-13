@@ -563,7 +563,7 @@ describe("refresh-profile-memory wiki resolution", () => {
       "../../src/tools/refresh-profile-memory.js"
     );
     const out = await refreshProfileMemoryTool.handler(
-      { pokemon_id: "profile-charmander" },
+      { agent_id: "profile-charmander" },
       { vaultPath }
     );
     expect(out.caller_trainer_id).toBe("trainer-brett");
@@ -576,7 +576,7 @@ describe("refresh-profile-memory wiki resolution", () => {
     );
     await expect(
       refreshProfileMemoryTool.handler(
-        { pokemon_id: "profile-charmander" },
+        { agent_id: "profile-charmander" },
         { vaultPath }
       )
     ).rejects.toThrow("TRAINER_WIKI_UNSET");
@@ -610,7 +610,7 @@ describe("refresh-profile-memory wiki resolution", () => {
       "../../src/tools/refresh-profile-memory.js"
     );
     const out = await refreshProfileMemoryTool.handler(
-      { pokemon_id: "profile-charmander", wiki: "some-other-wiki" } as any,
+      { agent_id: "profile-charmander", wiki: "some-other-wiki" } as any,
       { vaultPath }
     );
     // Explicit wiki: some-other-wiki routes correctly; trainer resolves for caller_trainer_id
@@ -626,7 +626,7 @@ describe("refresh-profile-memory wiki resolution", () => {
     );
     await expect(
       refreshProfileMemoryTool.handler(
-        { pokemon_id: "profile-charmander" },
+        { agent_id: "profile-charmander" },
         { vaultPath: noTrainerVault }
       )
     ).rejects.toThrow("NO_ACTIVE_TRAINER");
@@ -673,7 +673,7 @@ describe("refresh-profile-memory wiki resolution", () => {
       "../../src/tools/refresh-profile-memory.js"
     );
     const out = await refreshProfileMemoryTool.handler(
-      { pokemon_id: "profile-pikachu", wiki: "some-other-wiki" } as any,
+      { agent_id: "profile-pikachu", wiki: "some-other-wiki" } as any,
       { vaultPath: noTrainerVault }
     );
     // No trainer → caller_trainer_id is undefined
