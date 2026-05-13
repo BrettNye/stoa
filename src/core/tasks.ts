@@ -1,4 +1,4 @@
-import { readPage, writePage, ConflictError } from "./pages.js";
+import { readPage, writePage } from "./pages.js";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseFrontmatter, toIsoDate } from "./frontmatter.js";
@@ -69,12 +69,6 @@ export function claimTask(vaultPath: string, input: ClaimInput): ClaimResult {
     if (agentType !== requiredType && agentSecondaryType !== requiredType) {
       throw new WrongTypeError(input.task_id, String(requiredType), agentType);
     }
-  }
-
-  // Stale-check (ConflictError) — run before readiness so that a stale
-  // expected_updated is surfaced immediately, matching writePage behavior.
-  if (input.expected_updated !== undefined && page.updated !== input.expected_updated) {
-    throw new ConflictError(input.task_id, input.expected_updated, page.updated);
   }
 
   // Readiness gate — runs after type check (cheaper failure first) and before
