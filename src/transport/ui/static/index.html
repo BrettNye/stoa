@@ -62,15 +62,21 @@
       <h2>Agents</h2>
       <ul x-show="agents.length > 0">
         <template x-for="a in agents" :key="a.id">
-          <li class="agent-card" :class="['rarity-' + (a.rarity || 'common'), { 'is-shiny': a.is_shiny }]">
-            <img :src="a.spriteUrl" :alt="a.pokemon" class="sprite" />
+          <li class="agent-card" :class="['rarity-' + (a.rarity || 'common'), { 'is-shiny': a.is_shiny, 'is-system': a.system }]">
+            <img :src="a.spriteUrl" :alt="a.pokemon" class="sprite">
             <div class="agent-info">
-              <span class="agent-name" x-text="a.pokemon"></span>
-              <span class="agent-type" x-text="a.pokemon_type"></span>
-              <span class="agent-stage" x-text="a.evolution_stage"></span>
-              <span class="agent-tasks" x-text="a.claimedTaskCount + ' task(s)'"></span>
+              <div class="agent-name-row">
+                <span class="agent-name" x-text="a.pokemon"></span>
+                <span class="agent-system-badge" x-show="a.system">SYSTEM</span>
+              </div>
+              <span class="agent-summary" x-text="a.summary || 'no description'" :class="{ 'is-stub': !a.summary }"></span>
+              <span class="agent-meta">
+                <span x-text="a.pokemon_type"></span>
+                &middot; <span x-text="a.evolution_stage"></span>
+                &middot; <span x-text="a.claimedTaskCount + ' task(s)'"></span>
+              </span>
+              <span class="shiny-marker" x-show="a.is_shiny">✨</span>
             </div>
-            <span class="shiny-marker" x-show="a.is_shiny">✨</span>
             <div class="agent-row-actions"></div>
           </li>
         </template>

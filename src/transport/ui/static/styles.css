@@ -247,10 +247,53 @@ main.grid {
   min-width: 0;
 }
 
+.agent-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .agent-name {
   font-weight: 600;
   font-size: 0.8rem;
   text-transform: capitalize;
+}
+
+.agent-system-badge {
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 1px 5px;
+  border-radius: 0.2rem;
+  background: var(--color-accent);
+  color: white;
+  text-transform: uppercase;
+}
+
+.agent-summary {
+  font-size: 0.7rem;
+  color: var(--color-text);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.agent-summary.is-stub {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.agent-meta {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  text-transform: lowercase;
+}
+
+.is-system {
+  border-left: 2px solid var(--color-accent);
+  padding-left: 0.6rem;
 }
 
 .agent-type,

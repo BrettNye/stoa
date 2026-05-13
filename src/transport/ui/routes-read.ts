@@ -167,6 +167,8 @@ export function mountReadRoutes(app: Hono, ctx: ReadRoutesCtx): void {
         if (p.pokemon_type) agent.pokemon_type = p.pokemon_type;
         if (rarity !== undefined) agent.rarity = rarity;
         agent.is_shiny = isShiny;
+        if (p.summary !== undefined) agent.summary = p.summary;
+        if (p.system !== undefined) agent.system = p.system;
         return agent;
       });
     } catch {

@@ -47,6 +47,10 @@ export interface ApiAgent {
   claimedTaskCount: number;
   rarity?: Rarity;      // optional — legacy profiles may not have it
   is_shiny?: boolean;
+  /** Role description from frontmatter summary. Absent when profile has no summary. */
+  summary?: string;
+  /** True for reserved system profiles (e.g. merge orchestrator). Absent for organic agents. */
+  system?: boolean;
 }
 
 export interface ApiWiki {

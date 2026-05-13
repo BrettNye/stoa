@@ -146,6 +146,10 @@ export interface ProfileEnriched extends ProfileSummary {
   pokemon: string;
   updated: string;
   claimedTaskCount: number;
+  /** Role description from frontmatter summary field. Empty/whitespace stubs are normalized to undefined. */
+  summary?: string;
+  /** True when frontmatter has `system: true`. Indicates a reserved system profile (e.g. merge orchestrator). */
+  system?: boolean;
 }
 
 export interface ListProfilesEnrichedOptions {
@@ -191,6 +195,8 @@ export function listProfilesEnriched(
     pokemon: string;
     updated: string;
     filePath: string;
+    summary?: string;
+    system?: boolean;
   }
 
   const rawEntries: RawEntry[] = [];
@@ -221,6 +227,16 @@ export function listProfilesEnriched(
           pokemon = id.startsWith("profile-") ? id.slice("profile-".length) : id;
         }
 
+        // summary: read from frontmatter, trim, normalize empty/whitespace to undefined
+        let summary: string | undefined;
+        if (fm.summary !== undefined && fm.summary !== null) {
+          const trimmed = String(fm.summary).trim();
+          summary = trimmed.length > 0 ? trimmed : undefined;
+        }
+
+        // system: only true when frontmatter explicitly has system: true
+        const system: boolean | undefined = fm.system === true ? true : undefined;
+
         rawEntries.push({
           id,
           title: String(fm.title ?? id),
@@ -230,7 +246,9 @@ export function listProfilesEnriched(
           wiki,
           pokemon,
           updated: mtime.toISOString(),
-          filePath
+          filePath,
+          summary,
+          system
         });
       } catch {
         // skip malformed
@@ -274,7 +292,7 @@ export function listProfilesEnriched(
       claimedTaskCount += taskCountByClaimed.get(agentId) ?? 0;
     }
 
-    out.push({
+    const enriched: ProfileEnriched = {
       id: entry.id,
       title: entry.title,
       pokemon_type: entry.pokemon_type,
@@ -284,7 +302,10 @@ export function listProfilesEnriched(
       pokemon: entry.pokemon,
       updated: entry.updated,
       claimedTaskCount
-    });
+    };
+    if (entry.summary !== undefined) enriched.summary = entry.summary;
+    if (entry.system !== undefined) enriched.system = entry.system;
+    out.push(enriched);
   }
 
   return out;
