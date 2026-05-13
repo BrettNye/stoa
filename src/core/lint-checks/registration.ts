@@ -57,6 +57,7 @@ import "./claim-tag-repo-prefix-malformed.js";
 import { claimWithoutEvidence } from "./claim-without-evidence.js";
 import { claimWithNoScope } from "./claim-with-no-scope.js";
 import { claimSupersededWithoutSupersedor } from "./claim-superseded-without-supersedor.js";
+import { taskNotReady } from "./task-not-ready.js";
 
 // Severity mapping. The Group B `LintFinding.severity` / `LintSeverity` enum
 // is `"warn" | "error" | "info"`; the registry `Diagnostic.severity` enum is
@@ -158,3 +159,4 @@ function registerPerPageRule(rule: PerPageRule, subdir: string, expectedType: st
 registerPerPageRule(claimWithoutEvidence, "claim", "claim");
 registerPerPageRule(claimWithNoScope, "claim", "claim");
 registerPerPageRule(claimSupersededWithoutSupersedor, "claim", "claim");
+registerPerPageRule(taskNotReady, "tasks", "task");
