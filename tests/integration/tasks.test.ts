@@ -7,6 +7,15 @@ import { ConflictError } from "../../src/core/pages.js";
 
 let vault: string;
 
+const GROOMED_BODY = `Touches \`src/foo.ts:1\`.
+
+**Scope:** stub.
+
+**Out of scope:** nothing.
+
+**Acceptance criteria:** test passes.
+`;
+
 function writeTask(claimedBy?: string) {
   const fm: any = {
     id: "task-foo", title: "Foo", type: "task", wiki: "alpha",
@@ -16,7 +25,7 @@ function writeTask(claimedBy?: string) {
   if (claimedBy) fm.claimed_by = claimedBy;
   writeFileSync(
     join(vault, "wikis", "alpha", "tasks", "task-foo.md"),
-    `---\n${Object.entries(fm).map(([k,v]) => `${k}: ${typeof v === "string" ? `"${v}"` : v}`).join("\n")}\n---\nWork.\n`
+    `---\n${Object.entries(fm).map(([k,v]) => `${k}: ${typeof v === "string" ? `"${v}"` : v}`).join("\n")}\n---\n${GROOMED_BODY}`
   );
 }
 

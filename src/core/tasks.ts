@@ -1,9 +1,10 @@
-import { readPage, writePage } from "./pages.js";
+import { readPage, writePage, ConflictError } from "./pages.js";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseFrontmatter, toIsoDate } from "./frontmatter.js";
 import { readProfile, ProfileNotFoundError } from "./profiles.js";
 import { findOnDisk } from "./disk-fallback.js";
+import { checkTaskReadiness, type TaskReadinessSignal } from "./task-readiness.js";
 
 export class AlreadyClaimedError extends Error {
   constructor(public taskId: string, public claimedBy: string) {
@@ -19,11 +20,19 @@ export class WrongTypeError extends Error {
   }
 }
 
+export class TaskNotReadyError extends Error {
+  constructor(public taskId: string, public missing: TaskReadinessSignal[]) {
+    super(`TASK_NOT_READY: task ${taskId} is missing required content: ${missing.join(", ")}`);
+    this.name = "TaskNotReadyError";
+  }
+}
+
 export interface ClaimInput {
   task_id: string;
   agent_id: string;
   expected_updated: string;
   wiki?: string;
+  force?: boolean;  // default false — skip readiness check
 }
 
 export interface ClaimResult {
@@ -59,6 +68,21 @@ export function claimTask(vaultPath: string, input: ClaimInput): ClaimResult {
     }
     if (agentType !== requiredType && agentSecondaryType !== requiredType) {
       throw new WrongTypeError(input.task_id, String(requiredType), agentType);
+    }
+  }
+
+  // Stale-check (ConflictError) — run before readiness so that a stale
+  // expected_updated is surfaced immediately, matching writePage behavior.
+  if (input.expected_updated !== undefined && page.updated !== input.expected_updated) {
+    throw new ConflictError(input.task_id, input.expected_updated, page.updated);
+  }
+
+  // Readiness gate — runs after type check (cheaper failure first) and before
+  // AlreadyClaimedError (no point checking readiness on something already grabbed).
+  if (!input.force) {
+    const readiness = checkTaskReadiness(page.body);
+    if (!readiness.ready) {
+      throw new TaskNotReadyError(input.task_id, readiness.missing);
     }
   }
 
@@ -134,7 +158,18 @@ export function createTask(vaultPath: string, input: CreateTaskInput): CreateTas
   const result = writePage(vaultPath, {
     id, type: "task", wiki: input.wiki,
     frontmatter: fm,
-    body: input.description ?? `# ${input.title}\n\n(no description)`
+    body: input.description ?? [
+      `# ${input.title}`,
+      ``,
+      `## Scope`,
+      `(add implementation details and affected files here — e.g. task.md)`,
+      ``,
+      `## Out of scope`,
+      `(list what this task explicitly does not cover)`,
+      ``,
+      `## Verification`,
+      `- [ ] (add acceptance criteria here)`,
+    ].join("\n")
   });
 
   return { id, path: result.path, updated: result.updated };
