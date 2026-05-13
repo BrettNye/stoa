@@ -45,7 +45,7 @@ import { join } from "node:path";
 import { registerLintCheck } from "../lint-check.js";
 import { parseFrontmatter } from "../frontmatter.js";
 import type { Diagnostic } from "../lint.js";
-import type { PerPageRule, LintSeverity } from "./per-page-rule.js";
+import type { PerPageRule, PerPageRulePage, LintSeverity } from "./per-page-rule.js";
 
 // Group A — pull the side-effect registrations in via this barrel so
 // `tools/lint.ts` only needs one import for the whole claims rule set.
@@ -71,21 +71,19 @@ function ruleIdToCode(id: string): string {
   return id.replace(/-/g, "_").toUpperCase();
 }
 
-// Minimal page-shape the Group B rules expect. Parsed lazily from disk per
-// claim file. We don't put `content` on this stub because none of the three
-// rules currently inspect it — if a future Group B rule does, extend here.
-interface AdapterPage {
-  frontmatter: Record<string, unknown>;
-  filePath: string;
-}
-
-// Walk `wikis/<wiki>/claim/*.md` and yield parsed frontmatter for each file
-// the wiki filter allows. Malformed files are silently skipped — same
-// posture as the rest of the lint runner.
-function* walkClaimPages(
+// Walk `wikis/<wiki>/<subdir>/*.md` and yield parsed frontmatter for each file
+// whose `type` frontmatter matches `expectedType` and passes the wiki filter.
+// Malformed files are silently skipped — same posture as the rest of the lint runner.
+//
+// Replaces the former `walkClaimPages` (which was hardcoded to "claim"/"claim").
+// Claim rules call this with subdir="claim", expectedType="claim".
+// Task rules will call this with subdir="tasks", expectedType="task".
+export function* walkPagesUnder(
   vaultPath: string,
+  subdir: string,
+  expectedType: string,
   wikiFilter: string | undefined,
-): Generator<{ wiki: string; pageId: string; page: AdapterPage }> {
+): Generator<{ wiki: string; pageId: string; page: PerPageRulePage }> {
   const wikisDir = join(vaultPath, "wikis");
   if (!existsSync(wikisDir)) return;
 
@@ -103,19 +101,19 @@ function* walkClaimPages(
     : wikiNames;
 
   for (const wiki of targetWikis) {
-    const claimDir = join(wikisDir, wiki, "claim");
-    if (!existsSync(claimDir)) continue;
+    const dir = join(wikisDir, wiki, subdir);
+    if (!existsSync(dir)) continue;
 
     let entries: string[];
     try {
-      entries = readdirSync(claimDir);
+      entries = readdirSync(dir);
     } catch {
       continue;
     }
 
     for (const file of entries) {
       if (!file.endsWith(".md")) continue;
-      const filePath = join(claimDir, file);
+      const filePath = join(dir, file);
       let fm: Record<string, unknown>;
       try {
         const raw = readFileSync(filePath, "utf8");
@@ -123,20 +121,20 @@ function* walkClaimPages(
       } catch {
         continue;
       }
-      if (fm.type !== "claim") continue;
+      if (fm.type !== expectedType) continue;
       const pageId = String(fm.id ?? file.replace(/\.md$/, ""));
       yield { wiki, pageId, page: { frontmatter: fm, filePath } };
     }
   }
 }
 
-function registerPerPageRule(rule: PerPageRule): void {
+function registerPerPageRule(rule: PerPageRule, subdir: string, expectedType: string): void {
   const code = ruleIdToCode(rule.id);
   registerLintCheck({
     code,
     run(ctx, _idx, input) {
       const diagnostics: Diagnostic[] = [];
-      for (const { wiki, pageId, page } of walkClaimPages(ctx.vaultPath, input.wiki)) {
+      for (const { wiki, pageId, page } of walkPagesUnder(ctx.vaultPath, subdir, expectedType, input.wiki)) {
         if (!rule.appliesTo(page)) continue;
         const findings = rule.check(page);
         for (const f of findings) {
@@ -156,6 +154,7 @@ function registerPerPageRule(rule: PerPageRule): void {
 
 // Wire each Group B rule. Order matches the plan §task-lint-checks-
 // registration `depends_on:` list: no-evidence, no-scope, superseded.
-registerPerPageRule(claimWithoutEvidence);
-registerPerPageRule(claimWithNoScope);
-registerPerPageRule(claimSupersededWithoutSupersedor);
+// All three claim rules explicitly pass subdir="claim", expectedType="claim".
+registerPerPageRule(claimWithoutEvidence, "claim", "claim");
+registerPerPageRule(claimWithNoScope, "claim", "claim");
+registerPerPageRule(claimSupersededWithoutSupersedor, "claim", "claim");
