@@ -6,8 +6,8 @@ import {
 } from "../../src/core/subagent-protocol.js";
 
 describe("subagent-protocol — minimal coordination toolset (v1.7 §6.4 invariant 1)", () => {
-  it("declares exactly eight tools", () => {
-    expect(MINIMAL_COORDINATION_TOOLSET).toHaveLength(8);
+  it("declares exactly ten tools", () => {
+    expect(MINIMAL_COORDINATION_TOOLSET).toHaveLength(10);
   });
 
   it("includes every tool named by spec §6.4 line 237", () => {
@@ -20,6 +20,8 @@ describe("subagent-protocol — minimal coordination toolset (v1.7 §6.4 invaria
       "vault.agent-journal",
       "vault.recall",
       "vault.read",
+      "vault.agent-memory",
+      "vault.claim",
     ];
     for (const t of expected) {
       expect(MINIMAL_COORDINATION_TOOLSET).toContain(t);
