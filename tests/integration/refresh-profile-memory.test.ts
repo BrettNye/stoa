@@ -64,7 +64,7 @@ charmander journal b
   });
 
   it("writes a memory synthesis at wikis/_agents/synthesis/synthesis-<bare>-memory.md", async () => {
-    const r = await refreshProfileMemoryTool.handler({ pokemon_id: "profile-charmander", wiki: "_agents" }, { vaultPath });
+    const r = await refreshProfileMemoryTool.handler({ agent_id: "profile-charmander", wiki: "_agents" }, { vaultPath });
     expect(r.memory_page_id).toBe("synthesis-charmander-memory");
     expect(r.path).toBe(join(vaultPath, "wikis", "_agents", "synthesis", "synthesis-charmander-memory.md"));
     expect(existsSync(r.path)).toBe(true);
@@ -73,8 +73,8 @@ charmander journal b
   });
 
   it("idempotent — re-running overwrites the same file with same id and updated last_compiled", async () => {
-    const r1 = await refreshProfileMemoryTool.handler({ pokemon_id: "profile-charmander", wiki: "_agents" }, { vaultPath });
-    const r2 = await refreshProfileMemoryTool.handler({ pokemon_id: "profile-charmander", wiki: "_agents" }, { vaultPath });
+    const r1 = await refreshProfileMemoryTool.handler({ agent_id: "profile-charmander", wiki: "_agents" }, { vaultPath });
+    const r2 = await refreshProfileMemoryTool.handler({ agent_id: "profile-charmander", wiki: "_agents" }, { vaultPath });
     expect(r2.path).toBe(r1.path);
     expect(r2.memory_page_id).toBe(r1.memory_page_id);
     expect(existsSync(r1.path)).toBe(true);
@@ -85,7 +85,7 @@ charmander journal b
 
   it("throws when pokemon_id has no profile", async () => {
     await expect(
-      refreshProfileMemoryTool.handler({ pokemon_id: "profile-nonexistent", wiki: "_agents" }, { vaultPath })
+      refreshProfileMemoryTool.handler({ agent_id: "profile-nonexistent", wiki: "_agents" }, { vaultPath })
     ).rejects.toThrow(/profile not found|not.found|PROFILE_NOT_FOUND/i);
   });
 });
