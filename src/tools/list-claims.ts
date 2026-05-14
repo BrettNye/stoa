@@ -35,7 +35,7 @@ import type { ClaimsIndex } from "../types/claims-index.js";
 // from "caller explicitly passed 0". Zod's `.default()` would erase that
 // distinction by filling them in pre-handler.
 const Input = z.object({
-  by: z.enum(["profile", "move", "tag", "scope_wiki", "global"]).optional(),
+  by: z.enum(["profile", "move", "tag", "scope_wiki", "global", "authored_by"]).optional(),
   value: z.string().optional(),
   min_effective_confidence: z.number().min(0).max(1).optional(),
   status: z.array(z.enum(["active", "superseded", "retracted"])).default(["active"]),
@@ -164,7 +164,7 @@ function selectBucket(s: ClaimsIndex, by?: string, value?: string): string[] {
   // No filter → union of all buckets, deduped.
   const all = new Set<string>();
   for (const id of s.global ?? []) all.add(id);
-  for (const m of [s.by_profile, s.by_move, s.by_scope_wiki, s.by_tag]) {
+  for (const m of [s.by_profile, s.by_move, s.by_scope_wiki, s.by_tag, s.by_authored_by]) {
     if (!m) continue;
     for (const ids of Object.values(m)) for (const id of ids) all.add(id);
   }
@@ -180,8 +180,9 @@ function matchesBucket(c: ParsedClaim, by: string, value?: string): boolean {
     case "profile":    return c.profile.includes(value);
     case "move":       return c.move.includes(value);
     case "tag":        return c.tags.includes(value);
-    case "scope_wiki": return c.scope_wiki.includes(value);
-    default:           return false;
+    case "scope_wiki":  return c.scope_wiki.includes(value);
+    case "authored_by": return c.authored_by === value;
+    default:            return false;
   }
 }
 
