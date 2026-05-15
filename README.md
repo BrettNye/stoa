@@ -1,10 +1,28 @@
 # Stoa
 
 > Persistent shared memory for AI coding agents.
-> Your Claude Code sessions stop forgetting things across days, repos, and machines.
+> Your sessions stop forgetting things across days, repos, and machines.
 
 [![npm version](https://img.shields.io/npm/v/@stoa-mcp/cli)](https://www.npmjs.com/package/@stoa-mcp/cli)
 [![License: FSL-1.1-MIT](https://img.shields.io/badge/license-FSL--1.1--MIT-blue)](LICENSE)
+
+**The pain it solves.** Every new AI chat session starts blank. You re-explain the same context, re-derive the same conclusions, re-justify the same decisions. Six months from now you'll spec the same thing for the fourth time because nobody — you or the AI — remembers the prior three.
+
+**What it is.** A local MCP server that turns a folder of markdown files on your disk into searchable memory for any MCP-speaking AI assistant (Claude Code, Cline, Cursor, others). When you start a new session and ask *"what did we figure out about X?"*, the assistant calls a tool that actually goes and looks. When you sketch an idea mid-conversation, the assistant files it as a typed page that future-you can find again. Plain text on your disk; nothing locked behind a SaaS.
+
+**What using it feels like.**
+
+> *Tuesday, mid-thought:* "Save this — event sourcing might be cleaner for state diffs." Lands in your inbox as a one-line capture.
+>
+> *Sunday morning:* "Process my inbox." The assistant walks each item, proposes a type (*idea*? *decision*? *question*?), files it.
+>
+> *Three weeks later, brand new chat:* "What do we know about state management?" The assistant finds four prior pages, summarizes them, offers to roll them into one synthesis page.
+
+**One vault, every repo.** Switch projects; your knowledge follows you. Stoa is registered once globally with your AI client and works in any repo you open.
+
+**Beyond a single user.** Multiple AI instances can read the same vault, claim tasks atomically, and coordinate via shared channels — the substrate works the same whether you're solo or running multiple agents.
+
+**Who it's for.** Anyone tired of starting over each session. You don't need to be technical — Stoa runs locally on your machine, the assistant does the organizing.
 
 ## Install
 
@@ -27,17 +45,6 @@ Then add to `~/.claude/settings.json`:
 ```
 
 Restart Claude Code. You now have `vault.recall`, `vault.inbox`, `vault.synthesize`, and ~30 other tools available in every session.
-
-## Why Stoa
-
-- **Persistent across sessions.** Decisions, specs, and context you capture today are instantly available in tomorrow's session — no re-explaining from scratch.
-- **Persistent across repos.** One vault serves every project. Switch repos; your knowledge follows you.
-- **Multi-agent coordination.** Multiple Claude Code instances can read the same vault, claim tasks, and post to shared channels without conflicts.
-- **Idea mapping, not just notes.** Typed pages (`concept`, `decision`, `synthesis`, `spec`) and structured indexes let AI search and reason over your knowledge — not just retrieve raw text.
-
-## How it works
-
-Stoa is a local MCP server that exposes your vault — a folder of Markdown files with structured frontmatter — as queryable tools. When Claude Code calls `vault.recall`, it searches a pre-built token index and returns ranked, layer-segmented hits with synthesis content inlined. When it calls `vault.inbox`, it appends a timestamped draft to your active wiki. Everything is plain files on disk; no database, no cloud sync required.
 
 ## Tools (quick reference)
 
