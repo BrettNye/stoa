@@ -48,7 +48,7 @@ function writeTaskFile(
     .join("\n");
   writeFileSync(
     join(tasksDir, `${id}.md`),
-    `---\n${yaml}\n---\n# Test task\n`
+    `---\n${yaml}\n---\n# Test task\n\n**Files:** src/test.ts\n\n**Scope:** Exercise the release route in tests.\n\n**Out of scope:** Anything not exercised here.\n\n**Verification:** Done when the test passes.\n`
   );
 }
 

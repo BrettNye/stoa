@@ -23,7 +23,7 @@ import { taskClaimTool } from "../../tools/task-claim.js";
 import { channelPostTool } from "../../tools/channel-post.js";
 import { profileRegisterTool } from "../../tools/profile-register.js";
 import { newTool } from "../../tools/new.js";
-import { AlreadyClaimedError, releaseTask, NotClaimedError } from "../../core/tasks.js";
+import { AlreadyClaimedError, TaskNotReadyError, releaseTask, NotClaimedError } from "../../core/tasks.js";
 import { ConflictError } from "../../core/pages.js";
 import { fetchSpecies, classifyRarity } from "../../core/pokeapi.js";
 import { parseFrontmatter, serializeFrontmatter } from "../../core/frontmatter.js";
@@ -133,6 +133,12 @@ export function mountWriteRoutes(app: Hono, ctx: WriteRoutesCtx): void {
           current_updated: err.actualUpdated,
         };
         return c.json(body, 412);
+      }
+      if (err instanceof TaskNotReadyError) {
+        return c.json(
+          { ok: false, error: "TaskNotReady", missing: err.missing },
+          422,
+        );
       }
       // Unknown error — re-throw as 500
       const msg = err instanceof Error ? err.message : String(err);

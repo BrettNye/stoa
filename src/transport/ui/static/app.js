@@ -541,6 +541,25 @@ function dashboard() {
     },
 
     /**
+     * Returns the type-restriction chip text for an ApiTask — empty when the
+     * task has no required_pokemon_type, otherwise the pokemon type slug.
+     * Mirrors the x-text binding in index.html's task row so the contract
+     * field stays referenced from the script side.
+     */
+    taskTypeBadge(t) {
+      return t.required_pokemon_type || "";
+    },
+
+    /**
+     * Comparator for the agents pane: agents with higher claimedTaskCount
+     * sort first (busy agents float to the top). The field is surfaced by
+     * routes-read.ts's agent enrichment.
+     */
+    agentBusySort(a, b) {
+      return (b.claimedTaskCount ?? 0) - (a.claimedTaskCount ?? 0);
+    },
+
+    /**
      * Produces an obsidian:// deep-link URI for a given ApiChannelEntry.
      * Uses the vaultBaseName resolved from /api/health.
      */

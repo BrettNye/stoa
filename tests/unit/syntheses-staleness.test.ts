@@ -392,15 +392,16 @@ describe("listSynthesesWithStaleness", () => {
     ]);
     writeLinksJson(vaultPath, { [synthId]: { outbound: [], inbound: [] } });
 
-    // Use a date exactly 30 days before today (2026-05-12 per env)
-    // today: 2026-05-12 → 30 days prior: 2026-04-12
-    writeSynthesisFile(vaultPath, "wiki-a", synthId, "2026-04-12");
+    // Use a date exactly 30 days before today.
+    // Computed at test time so the assertion does not rot as wall-clock moves.
+    const day = 24 * 60 * 60 * 1000;
+    const thirtyDaysAgo = new Date(Date.now() - 30 * day).toISOString().slice(0, 10);
+    writeSynthesisFile(vaultPath, "wiki-a", synthId, thirtyDaysAgo);
 
     const result = listSynthesesWithStaleness(vaultPath);
     expect(result).toHaveLength(1);
     const lag = result[0].lag_days;
     expect(lag).not.toBeNull();
-    // Should be exactly 30 days (or close, since "today" = 2026-05-12)
     expect(lag).toBe(30);
   });
 

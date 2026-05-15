@@ -72,7 +72,9 @@ describe("vault.claim — create path", () => {
     );
     const file = path.join(vault, "wikis", "_agents", "claim", `${result.claim_id}.md`);
     const parsed = matter(await fs.readFile(file, "utf8"));
-    expect(parsed.data.profile).toEqual(["agent:charmander"]);
+    // Handler strips `agent:` / `profile-` prefixes so the stored profile
+    // matches what `vault.agent-memory` normalizes its query input to.
+    expect(parsed.data.profile).toEqual(["charmander"]);
   });
 
   it("treats explicit `profile: []` as a global claim (§6.6)", async () => {
@@ -230,13 +232,15 @@ describe("vault.claim — revalidate path", () => {
   it("bumps last_validated in place; no new file", async () => {
     const vault = await mkTempVault();
     // Seed a stale claim directly via writeClaimFile so last_validated < today.
+    // Profile is stored in bare-name form so it matches the handler's
+    // normalization when it computes the lookup hash from `as: "agent:a"`.
     await writeClaimFile(vault, {
       id: "claim-revalidate-me",
       key: "rv.x",
       status: "active",
       confidence: 0.6,
       last_validated: "2026-01-01",
-      profile: ["agent:a"],
+      profile: ["a"],
       authored_by: "agent:a",
     });
 
@@ -458,11 +462,13 @@ describe("vault.claim — dedup via findByIdentity", () => {
     expect(second.action).toBe("superseded");
 
     // findByIdentity must now return the NEW claim, not the superseded one.
+    // scopeHash uses the bare-name profile that the handler stores after
+    // stripping `agent:` from `as: "agent:a"`.
     const store = new ClaimsStore();
     const found = await store.findByIdentity(
       vault,
       "dd.x",
-      scopeHash(["agent:a"], [], [], []),
+      scopeHash(["a"], [], [], []),
     );
     expect(found?.id).toBe(second.claim_id);
     expect(found?.id).not.toBe(first.claim_id);

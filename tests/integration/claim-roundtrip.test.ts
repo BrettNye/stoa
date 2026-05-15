@@ -106,19 +106,22 @@ describe("claim flow roundtrip — Plan 1 join point", () => {
     await callTool("vault.reindex", {}, vault);
     const sidecar1 = await readClaimsSidecar(vault);
     expect(sidecar1.schema_version).toBe(2);
-    // Default scoping (§6.6): profile defaulted to ["agent:test"], so the
-    // claim should show up under by_profile and NOT in `global`.
-    expect(sidecar1.by_profile["agent:test"]).toEqual([created.claim_id]);
+    // Default scoping (§6.6): profile defaulted to [`as`], with `agent:` /
+    // `profile-` prefixes stripped to match what `vault.agent-memory`
+    // normalizes its query input to. So the sidecar bucket is keyed by the
+    // bare name "test", not "agent:test".
+    expect(sidecar1.by_profile["test"]).toEqual([created.claim_id]);
     expect(sidecar1.by_tag["windows"]).toEqual([created.claim_id]);
     expect(sidecar1.global).toEqual([]);
 
     // ── step 3: vault.list-claims returns the new claim by profile ────────
+    // `value` matches the stored bare-name profile (see prefix-strip note above).
     // `status: ["active"]` is the schema default; the test helper invokes the
     // handler directly without re-parsing through Zod, so the default is not
     // applied for us — pass it explicitly here and below.
     const listed = await callTool(
       "vault.list-claims",
-      { by: "profile", value: "agent:test", status: ["active"] },
+      { by: "profile", value: "test", status: ["active"] },
       vault,
     );
     expect(listed.claims).toHaveLength(1);
@@ -146,12 +149,12 @@ describe("claim flow roundtrip — Plan 1 join point", () => {
     // ── step 5: reindex; old claim no longer in active buckets ────────────
     await callTool("vault.reindex", {}, vault);
     const sidecar2 = await readClaimsSidecar(vault);
-    expect(sidecar2.by_profile["agent:test"]).toEqual([superseded.claim_id]);
+    expect(sidecar2.by_profile["test"]).toEqual([superseded.claim_id]);
     expect(sidecar2.by_tag["windows"]).toEqual([superseded.claim_id]);
 
     const activeNow = await callTool(
       "vault.list-claims",
-      { by: "profile", value: "agent:test", status: ["active"] },
+      { by: "profile", value: "test", status: ["active"] },
       vault,
     );
     expect(activeNow.claims).toHaveLength(1);
@@ -166,7 +169,7 @@ describe("claim flow roundtrip — Plan 1 join point", () => {
       "vault.list-claims",
       {
         by: "profile",
-        value: "agent:test",
+        value: "test",
         status: ["superseded"],
         min_effective_confidence: 0,
       },
@@ -221,7 +224,7 @@ describe("claim flow roundtrip — Plan 1 join point", () => {
 
     const finalList = await callTool(
       "vault.list-claims",
-      { by: "profile", value: "agent:test", status: ["active"] },
+      { by: "profile", value: "test", status: ["active"] },
       vault,
     );
     expect(finalList.claims).toHaveLength(0);
@@ -232,7 +235,7 @@ describe("claim flow roundtrip — Plan 1 join point", () => {
       "vault.list-claims",
       {
         by: "profile",
-        value: "agent:test",
+        value: "test",
         status: ["retracted"],
         min_effective_confidence: 0,
       },
