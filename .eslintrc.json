@@ -10,5 +10,11 @@
     "no-control-regex": "off",
     "no-constant-condition": "off",
     "prefer-const": "warn"
-  }
+  },
+  "overrides": [
+    {
+      "files": ["src/transport/ui/static/**/*.js"],
+      "env": { "browser": true }
+    }
+  ]
 }

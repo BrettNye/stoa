@@ -203,7 +203,6 @@ it("returns 502 with string error message when renderFn throws a non-Error", asy
     vaultPath: "/tmp/fake-vault",
     fetcher: fetch as FetcherFn,
     renderFn: async (_input) => {
-      // eslint-disable-next-line @typescript-eslint/no-throw-literal
       throw "blew up";
     },
   };
