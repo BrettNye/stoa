@@ -79,6 +79,39 @@ Stoa is a local MCP server that exposes your vault — a folder of Markdown file
 3. `.active-wiki` file at vault root.
 4. Error.
 
+## Dashboard (`stoa ui`)
+
+Run `stoa ui` and a local HTTP dashboard opens in your browser. It's a read view onto the agent substrate — agents, tasks, channels — plus two ambient queues that surface obligations your `CLAUDE.md` declared but nothing is actively watching for you.
+
+The framing that drove the design: *the dashboard's job isn't to show vault state — it's to render `CLAUDE.md`'s unwritten obligations as actionable rows.* When you wrote "synthesize monthly" or "claims expire after 45 minutes" into your contract, you made promises with no enforcement. The dashboard turns each one into a row you can act on.
+
+![stoa dashboard](docs/img/dashboard.png)
+
+### The three panes
+
+- **Agents** (left) — every registered agent profile: sprite, Pokemon name, type, evolution stage, claimed-task count. `+ new agent` spawns one.
+- **Tasks** (center) — filterable by status (active / all / pending / claimed / in_progress / completed / failed / blocked). Each row shows title, wiki, status, claimer, channel, required Pokemon type, last-updated.
+- **Channels** (right) — recent posts across every coordination channel, newest first.
+
+### Two ambient queues
+
+- **Stuck-claim ribbon** (top of page, only when needed) — surfaces tasks claimed or in-progress past threshold (15min / 45min). Per row: `release` to free the claim, `ping` to nudge the channel.
+- **Stale-syntheses drawer** (header toggle) — synthesis pages sorted by `last_compiled` lag, with a count of `related:` pages that have moved since compile. One click deep-links to `/synthesize` for that topic.
+
+### Other niceties
+
+- **Pinned views** — every filter and selection serializes into the URL hash; `+ pin` saves the current view as a chip in the header.
+- **CSRF-protected writes** — `claim`, `release`, `post`, `spawn`. Origin-header check; localhost-bound by default.
+- **No build step** — Hono + vanilla JS + Alpine.js. Static files served from the same Node process.
+
+### Launch
+
+```bash
+stoa ui
+```
+
+Defaults: serves at `http://127.0.0.1:4321` and opens your default browser. Override with `--port`, `--bind`, `--no-open`.
+
 ## CLI
 
 You can also drive the vault from the terminal:
