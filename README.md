@@ -127,6 +127,9 @@ Set `STOA_VAULT_PATH` to skip `--vault=` on every call.
 ## Documentation
 
 - [Installation](docs/installation.md) — full install + configuration walkthrough
+- [Quickstart](docs/quickstart.md) — your first useful `recall` in 5 minutes
+- [Common workflows](docs/common-workflows.md) — task-driven recipes for the things you'll actually do
+- [Tool reference](docs/tool-reference.md) — alphabetical reference for every `vault.*` MCP tool
 - [Manual smoke test](docs/manual-smoke-test.md) — verify your setup
 - [wait-for: push primitives](docs/wait-for.md) — `vault.wait-for{,-any,-all,-many}` over the local FS-watch event bus
 
