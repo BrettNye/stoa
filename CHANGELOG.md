@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 — 2026-05-19
+
+### Fixed
+
+- **Missing runtime dependency.** `picomatch` is imported directly by the event-bus watcher (`src/core/eventbus/watcher.ts`) but was only present as a transitive dev dependency in 0.2.0. Installing via npm into a clean tree produced `ERR_MODULE_NOT_FOUND: Cannot find package 'picomatch'` when any code path touched the watcher. Now declared as a runtime dependency.
+
 ## 0.2.0 — 2026-05-19
 
 First substantial release after the initial publish. 117 commits, several new subsystems.

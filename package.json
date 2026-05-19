@@ -1,6 +1,6 @@
 {
   "name": "@stoa-mcp/cli",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Persistent shared memory for AI coding agents (MCP server + CLI)",
   "type": "module",
   "license": "FSL-1.1-MIT",
@@ -46,6 +46,7 @@
     "js-yaml": "^4.1.1",
     "natural": "^8.0.0",
     "open": "^10.1.0",
+    "picomatch": "^4.0.4",
     "pngjs": "7.0.0",
     "zod": "^3.23.0",
     "zod-to-json-schema": "^3.25.2"
