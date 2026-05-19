@@ -78,3 +78,71 @@ describe("vault.process-inbox (commit:false) — suggested_id derivation", () =>
     expect(out.proposals).toEqual([]);
   });
 });
+
+describe("vault.process-inbox (commit:true) — transactional / auto-mkdir", () => {
+  // Regression bug-2026-05-15 #2 — committing a batch errored ENOENT
+  // mid-batch when the target type subdir (e.g. `questions/`) didn't exist.
+  // Items past the failure were silently skipped. Fix: auto-mkdir the target
+  // directory at promotion time so the batch completes.
+  it("auto-creates the target type subdirectory when missing", async () => {
+    const filename = "2026-05-07-2300-some-question.md";
+    writeFileSync(
+      join(vault, "wikis", "alpha", "inbox", filename),
+      "is this a question?",
+    );
+    // Deliberately do NOT mkdir wikis/alpha/questions — the bug was that
+    // promoteInboxItem expected the dir to exist.
+    const inboxPath = join(vault, "wikis", "alpha", "inbox", filename);
+    const out = await processInboxTool.handler(
+      {
+        wiki: "alpha",
+        commit: true,
+        items: [
+          {
+            inbox_path: inboxPath,
+            type: "question",
+            id: "question-is-this-a-question",
+          },
+        ],
+      },
+      { vaultPath: vault },
+    );
+    expect(out.promoted).toHaveLength(1);
+    expect(out.promoted[0].to).toContain(join("alpha", "questions"));
+  });
+
+  it("promotes earlier items, then auto-mkdir for later items needing different dirs", async () => {
+    // Two items, two different target type subdirs. Neither dir pre-exists.
+    // Both must promote.
+    writeFileSync(
+      join(vault, "wikis", "alpha", "inbox", "first.md"),
+      "first body",
+    );
+    writeFileSync(
+      join(vault, "wikis", "alpha", "inbox", "second.md"),
+      "second body",
+    );
+    const out = await processInboxTool.handler(
+      {
+        wiki: "alpha",
+        commit: true,
+        items: [
+          {
+            inbox_path: join(vault, "wikis", "alpha", "inbox", "first.md"),
+            type: "idea",
+            id: "idea-first",
+          },
+          {
+            inbox_path: join(vault, "wikis", "alpha", "inbox", "second.md"),
+            type: "question",
+            id: "question-second",
+          },
+        ],
+      },
+      { vaultPath: vault },
+    );
+    expect(out.promoted).toHaveLength(2);
+    expect(out.promoted[0].id).toBe("idea-first");
+    expect(out.promoted[1].id).toBe("question-second");
+  });
+});
