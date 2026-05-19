@@ -5,6 +5,7 @@ import { parseFrontmatter, toIsoDate } from "./frontmatter.js";
 import { readProfile, ProfileNotFoundError } from "./profiles.js";
 import { findOnDisk } from "./disk-fallback.js";
 import { checkTaskReadiness, type TaskReadinessSignal } from "./task-readiness.js";
+import { slugify as sharedSlugify } from "./ids.js";
 
 export class AlreadyClaimedError extends Error {
   constructor(public taskId: string, public claimedBy: string) {
@@ -123,8 +124,12 @@ export interface CreateTaskResult {
   updated: string;
 }
 
+// Bug-2026-05-15 fix — delegate to the canonical slugify in `./ids.js` which
+// walks back to a word boundary when truncating. Raise the limit to 80 chars
+// (still well under any filesystem MAX_PATH constraint) so the typical task
+// title fits without truncation; long titles still walk back to a dash.
 function slugify(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+  return sharedSlugify(s, 80);
 }
 
 export function createTask(vaultPath: string, input: CreateTaskInput): CreateTaskResult {
