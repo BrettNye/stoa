@@ -102,7 +102,13 @@ export const listClaimsTool = {
       // must walk disk for those too — sidecar-only lookup would miss them.
       const activeOnly = arrayEquals(input.status.slice().sort(), ["active"]);
       if (activeOnly) {
-        const ids = selectBucket(sidecar, input.by, input.value);
+        // Bug-2026-05-19 fix — normalize the bucket value the same way
+        // vault.claim (src/tools/claim.ts:127) and vault.agent-memory
+        // (src/tools/agent-memory.ts:35-37) do, so a sidecar populated by
+        // vault.claim (which strips `agent:` / `profile-` before storing)
+        // is hit by callers who pass the prefixed form.
+        const normalizedValue = normalizeBucketValue(input.by, input.value);
+        const ids = selectBucket(sidecar, input.by, normalizedValue);
         const reads = await Promise.all(ids.map((id) => store.read(ctx.vaultPath, id)));
         candidates = reads.filter((c): c is ParsedClaim => c !== null);
       } else {
@@ -120,7 +126,11 @@ export const listClaimsTool = {
       filtered = filtered.filter((c) => c.wiki === input.wiki);
     }
     if (!sidecar && input.by) {
-      filtered = filtered.filter((c) => matchesBucket(c, input.by!, input.value));
+      // Bug-2026-05-19 fix — same normalization for the disk-walk fallback
+      // path so behavior is consistent regardless of whether the sidecar
+      // exists.
+      const normalizedValue = normalizeBucketValue(input.by, input.value);
+      filtered = filtered.filter((c) => matchesBucket(c, input.by!, normalizedValue));
     }
 
     // Project + decay + min-effective filter + sort.
@@ -153,6 +163,26 @@ async function readSidecar(file: string): Promise<ClaimsIndex | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * Bug-2026-05-19 fix — strip `agent:` / `profile-` prefixes from the value
+ * filter when the bucket dimension stores bare agent ids. This mirrors the
+ * input-side normalization in `src/tools/claim.ts:127` and
+ * `src/tools/agent-memory.ts:35-37`. Without this, a caller passing
+ * `value: "profile-charmander"` would miss a sidecar bucket keyed
+ * `by_profile["charmander"]`.
+ *
+ * Dimensions whose bucket keys are raw (e.g. `tag`, `move`, `scope_wiki`,
+ * `authored_by`) pass through unchanged. `authored_by` in particular is
+ * intentionally NOT stripped because `vault.claim` writes the raw `as:`
+ * value (which may legitimately include `human:` / `agent:` prefixes —
+ * see `claim.ts:247`).
+ */
+function normalizeBucketValue(by?: string, value?: string): string | undefined {
+  if (value === undefined) return undefined;
+  if (by !== "profile") return value;
+  return value.replace(/^agent:/, "").replace(/^profile-/, "");
 }
 
 function selectBucket(s: ClaimsIndex, by?: string, value?: string): string[] {

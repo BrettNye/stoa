@@ -42,10 +42,14 @@ async function setLastValidated(vaultPath: string, claimId: string, iso: string)
 
 describe("vault.list-claims tool", () => {
   it("returns claims sorted by effective confidence descending (by=profile)", async () => {
+    // NB (bug-2026-05-19): sidecar buckets are keyed by *bare* agent ids
+    // because vault.claim strips `profile-` / `agent:` before storing
+    // (src/tools/claim.ts:127). Tests must mirror that storage form, and
+    // the query value: filter is normalized the same way.
     const vault = await mkTempVaultWithSidecar([
-      { id: "claim-low",  key: "k.a", profile: ["profile-charmander"], confidence: 0.5, status: "active" },
-      { id: "claim-high", key: "k.b", profile: ["profile-charmander"], confidence: 0.9, status: "active" },
-      { id: "claim-mid",  key: "k.c", profile: ["profile-charmander"], confidence: 0.7, status: "active" },
+      { id: "claim-low",  key: "k.a", profile: ["charmander"], confidence: 0.5, status: "active" },
+      { id: "claim-high", key: "k.b", profile: ["charmander"], confidence: 0.9, status: "active" },
+      { id: "claim-mid",  key: "k.c", profile: ["charmander"], confidence: 0.7, status: "active" },
     ]);
     const out = await listClaimsTool.handler(
       { by: "profile", value: "profile-charmander", min_effective_confidence: 0, status: ["active"], limit: 50 },
@@ -136,8 +140,10 @@ describe("vault.list-claims tool", () => {
   });
 
   it("returns empty list (not error) for a non-existent profile", async () => {
+    // Storage uses bare agent ids (matches vault.claim) — see bug-2026-05-19
+    // notes on the descending-sort test above.
     const vault = await mkTempVaultWithSidecar([
-      { id: "claim-x", key: "k.x", profile: ["profile-real"], confidence: 0.8, status: "active" },
+      { id: "claim-x", key: "k.x", profile: ["real"], confidence: 0.8, status: "active" },
     ]);
     const out = await listClaimsTool.handler(
       { by: "profile", value: "profile-ghost", min_effective_confidence: 0, status: ["active"], limit: 50 },
@@ -233,6 +239,65 @@ describe("vault.list-claims tool", () => {
     );
     expect(out.claims).toHaveLength(1);
     expect(out.claims[0].id).toBe("claim-bug");
+  });
+
+  // Regression bug-2026-05-19 (untracked-at-claim) — list-claims did not
+  // strip `agent:` or `profile-` prefixes from value:, while vault.claim
+  // (src/tools/claim.ts:127) and vault.agent-memory (agent-memory.ts:35-37)
+  // both strip those prefixes before storing. Result: a production sidecar
+  // with `by_profile["charmander"]` was silently empty when queried with
+  // `value: "profile-charmander"`. Fix: normalize value: for by=profile.
+  describe("regression bug-2026-05-19: prefix-normalized value: filter", () => {
+    it("strips `profile-` prefix from value: when by=profile (matches vault.claim storage)", async () => {
+      // Sidecar bucket keyed by bare agent id, matching production behavior
+      // (vault.claim strips prefixes before storing).
+      const vault = await mkTempVaultWithSidecar([
+        { id: "claim-x", key: "k.x", profile: ["charmander"], confidence: 0.8, status: "active" },
+      ]);
+      const out = await listClaimsTool.handler(
+        { by: "profile", value: "profile-charmander", min_effective_confidence: 0, status: ["active"], limit: 50 },
+        { vaultPath: vault, rawConfig: {}, today: TODAY },
+      );
+      expect(out.claims).toHaveLength(1);
+      expect(out.claims[0].id).toBe("claim-x");
+    });
+
+    it("strips `agent:` prefix from value: when by=profile", async () => {
+      const vault = await mkTempVaultWithSidecar([
+        { id: "claim-x", key: "k.x", profile: ["charmander"], confidence: 0.8, status: "active" },
+      ]);
+      const out = await listClaimsTool.handler(
+        { by: "profile", value: "agent:charmander", min_effective_confidence: 0, status: ["active"], limit: 50 },
+        { vaultPath: vault, rawConfig: {}, today: TODAY },
+      );
+      expect(out.claims).toHaveLength(1);
+      expect(out.claims[0].id).toBe("claim-x");
+    });
+
+    it("bare agent-id value: still works (no over-strip)", async () => {
+      const vault = await mkTempVaultWithSidecar([
+        { id: "claim-x", key: "k.x", profile: ["charmander"], confidence: 0.8, status: "active" },
+      ]);
+      const out = await listClaimsTool.handler(
+        { by: "profile", value: "charmander", min_effective_confidence: 0, status: ["active"], limit: 50 },
+        { vaultPath: vault, rawConfig: {}, today: TODAY },
+      );
+      expect(out.claims).toHaveLength(1);
+      expect(out.claims[0].id).toBe("claim-x");
+    });
+
+    it("does NOT strip prefixes for by=tag (raw bucket keys)", async () => {
+      // Tag buckets use raw values — never strip.
+      const vault = await mkTempVaultWithSidecar([
+        { id: "claim-x", key: "k.x", tags: ["agent:something"], confidence: 0.8, status: "active" },
+      ]);
+      const out = await listClaimsTool.handler(
+        { by: "tag", value: "agent:something", min_effective_confidence: 0, status: ["active"], limit: 50 },
+        { vaultPath: vault, rawConfig: {}, today: TODAY },
+      );
+      expect(out.claims).toHaveLength(1);
+      expect(out.claims[0].id).toBe("claim-x");
+    });
   });
 
   it("by=scope_wiki + value selects scope_wiki bucket", async () => {
