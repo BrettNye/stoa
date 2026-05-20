@@ -17,8 +17,8 @@ const Input = z.object({
 });
 
 export const waitForAnyTool = {
-  name: "vault.wait-for-any",
-  description: "Wait for the first event matching any of `filters` (first-of-N). Returns within `timeout_ms` (default 25000) — call again with the returned `cursor` to wait longer.",
+  name: "vault_wait-for-any",
+  description: "Wait for the first event matching any of `filters` (first-of-N). Returns within `timeout_ms` (default 25000) — call again with the returned `cursor` to wait longer. When `since:` is omitted, defaults to the time the call enters the subscribe step (i.e., only fresh events count). Pass an explicit `since:` to include historical events.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: HandleWaitContext) => {
     const since = input.since ? Cursor.fromIso(input.since) : undefined;

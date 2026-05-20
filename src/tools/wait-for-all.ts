@@ -17,8 +17,8 @@ const Input = z.object({
 });
 
 export const waitForAllTool = {
-  name: "vault.wait-for-all",
-  description: "Wait for events matching all of `filters` (fan-in). Returns once every filter has been satisfied or `timeout_ms` (default 25000) elapses — call again with the returned `cursor` to continue waiting.",
+  name: "vault_wait-for-all",
+  description: "Wait for events matching all of `filters` (fan-in). Returns once every filter has been satisfied or `timeout_ms` (default 25000) elapses — call again with the returned `cursor` to continue waiting. When `since:` is omitted, defaults to the time the call enters the subscribe step (i.e., only fresh events count). Pass an explicit `since:` to include historical events.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: HandleWaitContext) => {
     const since = input.since ? Cursor.fromIso(input.since) : undefined;
