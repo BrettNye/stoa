@@ -1,9 +1,60 @@
-import { readFileSync, existsSync, writeFileSync } from "node:fs";
+import { readFileSync, existsSync, writeFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import type { NoteType, PageStatus } from "./frontmatter.js";
 import { parseFrontmatter } from "./frontmatter.js";
 import { withSerializedIndexWrite } from "./index-locking.js";
 import natural from "natural";
+
+// Process-scoped mtime-keyed JSON cache for the `_index/` sidecars.
+//
+// Background: `loadIndex` and `loadTokens` are called once per tool
+// dispatch by many handlers (recall, lint, list-wikis, start, merge-queue,
+// merge-record, channel, etc). `tokens.json` is the largest by far — easily
+// multiple MB on a mature vault — and `readFileSync` + `JSON.parse` on each
+// call dominates per-call latency on platforms where syscall hooks (macOS
+// EDR / antivirus, Spotlight) amplify file I/O.
+//
+// `upsertPage` and `reindex` both rewrite these files via `writeFileSync`,
+// which bumps mtime, so an mtime+size cache key invalidates naturally with
+// no explicit busting required. Cross-process consistency is preserved by
+// `withSerializedIndexWrite` (writers hold a lock during the rename).
+//
+// Callers do not mutate the returned arrays/objects (verified across
+// recall, lint, channel, list-wikis, merge-queue, merge-record, start,
+// rewrite-links, resolve-trainer-context, wikis as of v0.2.2), so sharing
+// cached references across calls is safe.
+type CacheEntry<T> = { mtimeMs: number; size: number; data: T };
+const _jsonCache = new Map<string, CacheEntry<unknown>>();
+
+function readJsonCached<T>(path: string): T | undefined {
+  let stat;
+  try { stat = statSync(path); } catch { return undefined; }
+  const hit = _jsonCache.get(path) as CacheEntry<T> | undefined;
+  if (hit && hit.mtimeMs === stat.mtimeMs && hit.size === stat.size) {
+    return hit.data;
+  }
+  const data = JSON.parse(readFileSync(path, "utf8")) as T;
+  _jsonCache.set(path, { mtimeMs: stat.mtimeMs, size: stat.size, data });
+  return data;
+}
+
+/**
+ * Drop a cached parse for a specific file. Called by every sidecar writer
+ * immediately after `writeFileSync` so a subsequent read in the same process
+ * always re-parses, regardless of OS-timer-quantized mtime collisions on
+ * rapid back-to-back writes (Windows is the worst offender here). Cross-process
+ * consistency still relies on mtime+size, which is fine: writers hold a lock
+ * during the write, and a different process's next stat sees the post-release
+ * mtime.
+ */
+export function invalidateIndexCache(path: string): void {
+  _jsonCache.delete(path);
+}
+
+/** Test-only hook: drop all cached index/token parses. */
+export function _clearIndexCache(): void {
+  _jsonCache.clear();
+}
 
 const KNOWLEDGE_TYPES: NoteType[] = ["concept", "spec", "decision", "synthesis", "guide", "source", "idea", "question"];
 const EXECUTION_TYPES: NoteType[] = ["task", "journal"];
@@ -43,14 +94,17 @@ export interface VaultIndex {
 }
 
 export function loadIndex(vaultPath: string): VaultIndex {
-  const idx: VaultIndex = { wikis: [], pages: [], links: {} };
   const wikisPath = join(vaultPath, "_index", "wikis.json");
   const pagesPath = join(vaultPath, "_index", "pages.json");
   const linksPath = join(vaultPath, "_index", "links.json");
-  if (existsSync(wikisPath)) idx.wikis = JSON.parse(readFileSync(wikisPath, "utf8")).wikis ?? [];
-  if (existsSync(pagesPath)) idx.pages = JSON.parse(readFileSync(pagesPath, "utf8")).pages ?? [];
-  if (existsSync(linksPath)) idx.links = JSON.parse(readFileSync(linksPath, "utf8")) ?? {};
-  return idx;
+  const wikisDoc = readJsonCached<{ wikis?: IndexedWiki[] }>(wikisPath);
+  const pagesDoc = readJsonCached<{ pages?: IndexedPage[] }>(pagesPath);
+  const linksDoc = readJsonCached<VaultIndex["links"]>(linksPath);
+  return {
+    wikis: wikisDoc?.wikis ?? [],
+    pages: pagesDoc?.pages ?? [],
+    links: linksDoc ?? {},
+  };
 }
 
 export interface PageTokens {
@@ -62,8 +116,7 @@ export interface PageTokens {
 
 export function loadTokens(vaultPath: string): Record<string, PageTokens> {
   const path = join(vaultPath, "_index", "tokens.json");
-  if (!existsSync(path)) return {};
-  return JSON.parse(readFileSync(path, "utf8"));
+  return readJsonCached<Record<string, PageTokens>>(path) ?? {};
 }
 
 export interface PageFilter {
@@ -168,6 +221,7 @@ export async function upsertPage(vaultPath: string, pagePath: string): Promise<v
     const filtered = (pagesData.pages ?? []).filter((p: any) => p.id !== id);
     filtered.push(entry);
     writeFileSync(pagesPath, JSON.stringify({ pages: filtered }, null, 2));
+    invalidateIndexCache(pagesPath);
 
     const tokensPath = join(vaultPath, "_index", "tokens.json");
     let tokens: Record<string, any> = {};
@@ -181,6 +235,7 @@ export async function upsertPage(vaultPath: string, pagePath: string): Promise<v
       tags: (Array.isArray(frontmatter.tags) ? frontmatter.tags : []).map((t: string) => upsertStemmer.stem(String(t).toLowerCase()))
     };
     writeFileSync(tokensPath, JSON.stringify(tokens, null, 2));
+    invalidateIndexCache(tokensPath);
 
     // v1.7 §5.1 — write-through for wikis.json (cheap aggregation).
     // Page-counts: increment by 1 if this id was not previously in pages.json
@@ -208,6 +263,7 @@ export async function upsertPage(vaultPath: string, pagePath: string): Promise<v
         wikiEntry.last_touched = ts;
       }
       writeFileSync(wikisPath, JSON.stringify({ ...wikisData, wikis }, null, 2));
+      invalidateIndexCache(wikisPath);
     }
   });
 }

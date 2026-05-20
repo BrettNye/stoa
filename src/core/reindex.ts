@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, writeFileSync, statSync, existsSync } from "
 import { join, relative } from "node:path";
 import natural from "natural";
 import { parseFrontmatter, toIsoDate } from "./frontmatter.js";
+import { invalidateIndexCache } from "./index.js";
 import type { IndexedPage, IndexedWiki, PageTokens } from "./index.js";
 import { listProfiles } from "./profiles.js";
 import { readAliases } from "./aliases.js";
@@ -228,13 +229,18 @@ function reindexScoped(vaultPath: string, scopeWiki: string, start: number): Pro
       }
       const links = rebuildLinks(combinedPages, existing.links, scopeOutbound);
 
-      writeFileSync(
-        join(vaultPath, "_index", "wikis.json"),
-        JSON.stringify({ wikis: combinedSummaries, families }, null, 2)
-      );
-      writeFileSync(join(vaultPath, "_index", "pages.json"), JSON.stringify({ pages: combinedPages }, null, 2));
-      writeFileSync(join(vaultPath, "_index", "tokens.json"), JSON.stringify(tokensMap, null, 2));
-      writeFileSync(join(vaultPath, "_index", "links.json"), JSON.stringify(links, null, 2));
+      const wikisPathScoped = join(vaultPath, "_index", "wikis.json");
+      const pagesPathScoped = join(vaultPath, "_index", "pages.json");
+      const tokensPathScoped = join(vaultPath, "_index", "tokens.json");
+      const linksPathScoped = join(vaultPath, "_index", "links.json");
+      writeFileSync(wikisPathScoped, JSON.stringify({ wikis: combinedSummaries, families }, null, 2));
+      invalidateIndexCache(wikisPathScoped);
+      writeFileSync(pagesPathScoped, JSON.stringify({ pages: combinedPages }, null, 2));
+      invalidateIndexCache(pagesPathScoped);
+      writeFileSync(tokensPathScoped, JSON.stringify(tokensMap, null, 2));
+      invalidateIndexCache(tokensPathScoped);
+      writeFileSync(linksPathScoped, JSON.stringify(links, null, 2));
+      invalidateIndexCache(linksPathScoped);
 
       writeProfilesJson(vaultPath);
       ensureAliasesJson(vaultPath);
@@ -441,13 +447,18 @@ async function reindexFullBody(vaultPath: string, start: number): Promise<Reinde
   // wikis array shape is intentionally unchanged — array → map is a separate
   // breaking change.
   const families = aggregateFamilies(summariesToFamilyInput(wikiSummaries));
-  writeFileSync(
-    join(vaultPath, "_index", "wikis.json"),
-    JSON.stringify({ wikis: wikiSummaries, families }, null, 2)
-  );
-  writeFileSync(join(vaultPath, "_index", "pages.json"), JSON.stringify({ pages: sanitized }, null, 2));
-  writeFileSync(join(vaultPath, "_index", "tokens.json"), JSON.stringify(tokensMap, null, 2));
-  writeFileSync(join(vaultPath, "_index", "links.json"), JSON.stringify(links, null, 2));
+  const wikisPathFull = join(vaultPath, "_index", "wikis.json");
+  const pagesPathFull = join(vaultPath, "_index", "pages.json");
+  const tokensPathFull = join(vaultPath, "_index", "tokens.json");
+  const linksPathFull = join(vaultPath, "_index", "links.json");
+  writeFileSync(wikisPathFull, JSON.stringify({ wikis: wikiSummaries, families }, null, 2));
+  invalidateIndexCache(wikisPathFull);
+  writeFileSync(pagesPathFull, JSON.stringify({ pages: sanitized }, null, 2));
+  invalidateIndexCache(pagesPathFull);
+  writeFileSync(tokensPathFull, JSON.stringify(tokensMap, null, 2));
+  invalidateIndexCache(tokensPathFull);
+  writeFileSync(linksPathFull, JSON.stringify(links, null, 2));
+  invalidateIndexCache(linksPathFull);
 
   writeProfilesJson(vaultPath);
   ensureAliasesJson(vaultPath);
