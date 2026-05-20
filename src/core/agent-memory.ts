@@ -15,7 +15,8 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
 import { effectiveConfidence } from "./decay.js";
-import { ClaimDraft } from "../types/claim.js";
+import { formatSourceTypeTag, formatAgentMemoryBullet } from "./claim-render.js";
+import { ClaimDraft, type ClaimSourceType } from "../types/claim.js";
 import type { ClaimsIndex } from "../types/claims-index.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -46,6 +47,34 @@ export interface AgentMemoryClaim {
   scope_match_score: number;
   score: number;
   authored_by: string;
+  /**
+   * specialist-agent-substrate spec §5.5 — claim provenance. Always populated
+   * on output; falls back to "lived" when the underlying claim has no
+   * `source_type` field (back-compat for pre-T1 indexed claims).
+   */
+  source_type: ClaimSourceType;
+  /**
+   * Rendered `[<source_type> | <effective_confidence:.2>]` tag (spec §5.5).
+   * Provided so callers do not need to re-derive the format string —
+   * informational only; does NOT influence ranking.
+   */
+  source_type_tag: string;
+  /**
+   * Canonical rendered claim line as the agent reads it (spec §5.5):
+   *
+   *   `[<source_type> | <eff_conf>] <body-or-summary>`
+   *
+   * The source_type tag is concatenated INLINE with the claim body so the
+   * agent's literal output looks like the spec example
+   * "[curricular | 0.62] In CrewTracks integration tests use the harness at
+   * apps/api/test/db-harness.ts." rather than two separately-addressable
+   * fields that a downstream consumer would have to join itself.
+   *
+   * `source_type` and `source_type_tag` remain available as structured fields
+   * for callers that want to parse the components separately; `rendered` is
+   * the canonical surface the spec mandates be a single string.
+   */
+  rendered: string;
 }
 
 export interface AgentMemoryResult {
@@ -91,6 +120,8 @@ interface RawClaim {
   authored_by: string;
   body: string;
   summary?: string;
+  /** spec §5.5 — provenance tag. Defaults to "lived" via ClaimDraft schema. */
+  source_type: ClaimSourceType;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -217,6 +248,13 @@ export function agentMemory(vaultPath: string, input: AgentMemoryInput): AgentMe
     const bodyRendered = renderBody(s.raw.body, detail);
     const summary = s.raw.summary ?? firstSentence(s.raw.body);
 
+    // spec §5.5 — canonical rendered string the agent reads. The body source
+    // for the inline concatenation is the summary (compact, single line) when
+    // present, falling back to the rendered body. `detail: "summary"` returns
+    // an empty body string, but `summary` is always populated (or derived
+    // from firstSentence), so the rendered line is never just a bare tag.
+    const renderedBody = summary.length > 0 ? summary : bodyRendered;
+
     return {
       id: s.raw.id,
       key: s.raw.key,
@@ -226,6 +264,19 @@ export function agentMemory(vaultPath: string, input: AgentMemoryInput): AgentMe
       scope_match_score: s.scopeMatch,
       score: s.score,
       authored_by: s.raw.authored_by,
+      // spec §5.5 — informational provenance tag rendered per claim. Does NOT
+      // alter the ranking algorithm above; computed at output-build time so
+      // ranking code is unchanged.
+      source_type: s.raw.source_type,
+      source_type_tag: formatSourceTypeTag({
+        source_type: s.raw.source_type,
+        effective_confidence: s.effConf,
+      }),
+      rendered: formatAgentMemoryBullet({
+        source_type: s.raw.source_type,
+        effective_confidence: s.effConf,
+        body: renderedBody,
+      }),
     };
   });
 
@@ -567,6 +618,10 @@ function parseClaimFile(file: string): RawClaim | null {
       authored_by: fm.authored_by ?? "",
       body: parsed.content,
       summary: typeof normalized.summary === "string" ? normalized.summary : undefined,
+      // ClaimDraft applies a "lived" default when source_type is absent in
+      // frontmatter; we forward fm.source_type directly so the rendering
+      // layer never sees `undefined` for back-compat claims (spec §5.5).
+      source_type: fm.source_type,
     };
   } catch {
     return null;

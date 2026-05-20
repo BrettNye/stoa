@@ -14,10 +14,10 @@
 // the sidecar is missing — agents shouldn't be blocked on a stale index.
 //
 // Filters: `by` + `value` (profile/move/tag/scope_wiki/global), `status`,
-// `min_effective_confidence`, `wiki`. Sort: effective confidence descending.
-// Defaults pulled from `getClaimsConfig`: `render_min_confidence` (0.4) when
-// the caller omits `min_effective_confidence`, `render_default_limit` (10)
-// when the caller omits `limit`.
+// `min_effective_confidence`, `wiki`, `source_type`. Sort: effective confidence
+// descending. Defaults pulled from `getClaimsConfig`: `render_min_confidence`
+// (0.4) when the caller omits `min_effective_confidence`,
+// `render_default_limit` (10) when the caller omits `limit`.
 //
 // Registration is the responsibility of task-tools-index-registration; this
 // module only exports the tool object. Tests import the handler directly.
@@ -37,6 +37,8 @@ import type { ClaimsIndex } from "../types/claims-index.js";
 const Input = z.object({
   by: z.enum(["profile", "move", "tag", "scope_wiki", "global", "authored_by"]).optional(),
   value: z.string().optional(),
+  /** Filter by claim source_type. When set, only claims matching this source_type are returned. */
+  source_type: z.enum(["lived", "curricular", "retro"]).optional(),
   min_effective_confidence: z.number().min(0).max(1).optional(),
   status: z.array(z.enum(["active", "superseded", "retracted"])).default(["active"]),
   limit: z.number().int().positive().optional(),
@@ -119,8 +121,10 @@ export const listClaimsTool = {
     }
 
     // Apply filters in order: status → wiki → bucket-membership (when no
-    // sidecar). Bucket selection is already performed sidecar-side; the
-    // disk-walk path needs an explicit bucket filter to match.
+    // sidecar) → source_type. Bucket selection is already performed
+    // sidecar-side; the disk-walk path needs an explicit bucket filter to
+    // match. source_type is always applied as a post-selection filter so it
+    // works on both the sidecar-fast-path and the disk-walk fallback.
     let filtered = candidates.filter((c) => input.status.includes(c.status as ClaimEntry["status"] as any));
     if (input.wiki) {
       filtered = filtered.filter((c) => c.wiki === input.wiki);
@@ -131,6 +135,10 @@ export const listClaimsTool = {
       // exists.
       const normalizedValue = normalizeBucketValue(input.by, input.value);
       filtered = filtered.filter((c) => matchesBucket(c, input.by!, normalizedValue));
+    }
+    if (input.source_type) {
+      const wantedSourceType = input.source_type;
+      filtered = filtered.filter((c) => (c.source_type ?? "lived") === wantedSourceType);
     }
 
     // Project + decay + min-effective filter + sort.
@@ -194,7 +202,7 @@ function selectBucket(s: ClaimsIndex, by?: string, value?: string): string[] {
   // No filter → union of all buckets, deduped.
   const all = new Set<string>();
   for (const id of s.global ?? []) all.add(id);
-  for (const m of [s.by_profile, s.by_move, s.by_scope_wiki, s.by_tag, s.by_authored_by]) {
+  for (const m of [s.by_profile, s.by_move, s.by_scope_wiki, s.by_tag, s.by_authored_by, s.by_source_type]) {
     if (!m) continue;
     for (const ids of Object.values(m)) for (const id of ids) all.add(id);
   }

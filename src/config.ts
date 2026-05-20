@@ -1,4 +1,6 @@
-import { resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import matter from "gray-matter";
 import { z } from "zod";
 
 export class ConfigError extends Error {
@@ -60,6 +62,131 @@ export function getClaimsConfig(rawConfig: unknown): ClaimsConfig {
     .object({ claims: ClaimsConfigSchema })
     .parse(typeof rawConfig === "object" && rawConfig !== null ? rawConfig : {});
   return top.claims;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Source-type weights (T5 of the specialist-agent-substrate DAG; spec
+// `wikis/_meta/specs/2026-05-19-specialist-agent-substrate-design.md` §5.4)
+//
+// Per-source-type weights applied during `vault.evolve-profile`'s claim-
+// cluster math (see `core/evolution-claims.ts`). The weight is multiplied
+// into each claim's `effective_confidence` when aggregating per-cluster
+// totals. Defaults baked here; an optional `yaml source_type_weights` fence
+// in `wikis/_agents/CLAUDE.md` overrides any subset.
+//
+// Weighting affects specialty-cluster identification and rationale ONLY —
+// `vault.agent-memory` ranking and the legacy task-count eligibility gate
+// are both unchanged.
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface SourceTypeWeights {
+  lived: number;
+  curricular: number;
+  retro: number;
+}
+
+export const DEFAULT_SOURCE_TYPE_WEIGHTS: SourceTypeWeights = {
+  lived: 1.0,
+  curricular: 0.5,
+  retro: 0.7,
+};
+
+export class SourceTypeWeightsBlockError extends Error {
+  public readonly cause?: unknown;
+  constructor(message: string, cause?: unknown) {
+    super(message);
+    this.name = "SourceTypeWeightsBlockError";
+    if (cause !== undefined) this.cause = cause;
+  }
+}
+
+const sourceTypeWeightsSchema = z
+  .object({
+    lived: z.number().nonnegative().optional(),
+    curricular: z.number().nonnegative().optional(),
+    retro: z.number().nonnegative().optional(),
+  })
+  .partial();
+
+// Match the first fenced block whose info string is exactly
+// `yaml source_type_weights`, optionally followed by whitespace + further
+// tokens. Body is non-greedy. Mirrors the `evolution_thresholds` fence
+// regex in `core/thresholds.ts`.
+const FENCE_RE = /^```yaml source_type_weights(?:[ \t][^\n]*)?\n([\s\S]*?)\n```/m;
+
+/**
+ * Read the optional `yaml source_type_weights` fence from
+ * `wikis/_agents/CLAUDE.md` and return the effective weights. Missing file
+ * or missing fence → returns `DEFAULT_SOURCE_TYPE_WEIGHTS`. Partial overrides
+ * merge with defaults per key. Malformed YAML or schema violation throws
+ * `SourceTypeWeightsBlockError` — callers may catch and fall back to
+ * defaults (mirrors `readThresholds`'s defensive pattern).
+ */
+export function readSourceTypeWeights(vaultPath: string): SourceTypeWeights {
+  const claudeMdPath = join(vaultPath, "wikis", "_agents", "CLAUDE.md");
+
+  let raw: string;
+  try {
+    raw = readFileSync(claudeMdPath, "utf8");
+  } catch (err: any) {
+    if (err && (err.code === "ENOENT" || err.code === "ENOTDIR")) {
+      return { ...DEFAULT_SOURCE_TYPE_WEIGHTS };
+    }
+    throw err;
+  }
+
+  const match = raw.match(FENCE_RE);
+  if (!match) return { ...DEFAULT_SOURCE_TYPE_WEIGHTS };
+
+  const body = match[1];
+
+  let parsed: unknown;
+  try {
+    // Wrap the body in frontmatter delimiters; pass `{}` to defeat
+    // gray-matter's content-keyed cache (same rationale as the
+    // `readThresholds` parser in `core/thresholds.ts`).
+    const wrapped = `---\n${body}\n---\n`;
+    const result = matter(wrapped, {});
+    parsed = result.data;
+  } catch (err) {
+    throw new SourceTypeWeightsBlockError(
+      `failed to parse YAML in 'yaml source_type_weights' fence in wikis/_agents/CLAUDE.md`,
+      err,
+    );
+  }
+
+  const validated = sourceTypeWeightsSchema.safeParse(parsed);
+  if (!validated.success) {
+    const msgs = validated.error.issues
+      .map((i) => `${i.path.join(".")}: ${i.message}`)
+      .join("; ");
+    throw new SourceTypeWeightsBlockError(
+      `'yaml source_type_weights' fence in wikis/_agents/CLAUDE.md failed schema validation: ${msgs}`,
+      validated.error,
+    );
+  }
+
+  return {
+    lived: validated.data.lived ?? DEFAULT_SOURCE_TYPE_WEIGHTS.lived,
+    curricular: validated.data.curricular ?? DEFAULT_SOURCE_TYPE_WEIGHTS.curricular,
+    retro: validated.data.retro ?? DEFAULT_SOURCE_TYPE_WEIGHTS.retro,
+  };
+}
+
+/**
+ * Resolve weights with graceful fallback to defaults on `SourceTypeWeightsBlockError`.
+ * Use this from the evolve-profile orchestrator path; lint surfaces the block error
+ * separately (mirrors the `readThresholds` / `ThresholdBlockError` pattern).
+ */
+export function resolveSourceTypeWeights(vaultPath: string): SourceTypeWeights {
+  try {
+    return readSourceTypeWeights(vaultPath);
+  } catch (err) {
+    if (err instanceof SourceTypeWeightsBlockError) {
+      return { ...DEFAULT_SOURCE_TYPE_WEIGHTS };
+    }
+    throw err;
+  }
 }
 
 export function parseConfig(

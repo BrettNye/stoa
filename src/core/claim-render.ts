@@ -142,6 +142,63 @@ export function rankClaimsForDeployingProfile(
 }
 
 /**
+ * specialist-agent-substrate spec §5.5 — render the `[<source_type> |
+ * <effective_confidence>]` tag prefix used by `vault.agent-memory` to label
+ * each surfaced claim with its provenance (lived / curricular / retro).
+ *
+ * Pure helper: takes a pre-computed `effective_confidence` (so callers using
+ * different decay configs do not need to re-derive it inside this module) and
+ * an optional `source_type`. Absent/undefined `source_type` defaults to
+ * "lived" — preserves back-compat for older indexed claims that pre-date the
+ * T1 schema bump.
+ *
+ * Format mirrors spec §5.5 examples literally:
+ *
+ *   [lived | 0.87]
+ *   [curricular | 0.62]
+ *   [retro | 0.71]
+ *
+ * Ranking is unaffected by source_type — this is purely informational output.
+ */
+export function formatSourceTypeTag(args: {
+  source_type: "lived" | "curricular" | "retro" | undefined;
+  effective_confidence: number;
+}): string {
+  const tag = args.source_type ?? "lived";
+  return `[${tag} | ${args.effective_confidence.toFixed(2)}]`;
+}
+
+/**
+ * specialist-agent-substrate spec §5.5 — render the agent-memory-facing claim
+ * line: the source_type tag prefix concatenated INLINE with the claim body so
+ * the agent reads `[<source_type> | <eff_conf>] <body>` as one string.
+ *
+ * Distinct from `formatClaimBullet` on purpose. `formatClaimBullet` powers the
+ * sync-skills/bootstrap-repo SKILL.md rollups, which have their own bullet
+ * shape (key, decay metadata, evidence wikilinks) and MUST NOT carry the
+ * source_type tag — that would mutate ~10 unrelated tests and change the
+ * deployed-skill contract. Agent-memory has its own render path, so the
+ * source_type prefix lives here, not there.
+ *
+ * Body whitespace is collapsed to a single space so the concatenated line is
+ * a single readable string in JSON output (the multi-line wrap shown in the
+ * spec §5.5 example is a presentation concern for the markdown CLI renderer,
+ * not the structured output).
+ */
+export function formatAgentMemoryBullet(args: {
+  source_type: "lived" | "curricular" | "retro" | undefined;
+  effective_confidence: number;
+  body: string;
+}): string {
+  const tag = formatSourceTypeTag({
+    source_type: args.source_type,
+    effective_confidence: args.effective_confidence,
+  });
+  const body = (args.body ?? "").trim().replace(/\s*\n\s*/g, " ");
+  return body.length > 0 ? `${tag} ${body}` : tag;
+}
+
+/**
  * §8.2 step 4 / §8.3 same-format — render a single bullet line:
  *
  *   - **`<key>`** — <body>. *(confidence <eff> as of <render-date>, validated <last_validated>, evidence: [[<first>]])*

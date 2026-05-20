@@ -3,6 +3,9 @@ import { z } from "zod";
 export const ClaimStatus = z.enum(["draft", "active", "superseded", "retracted"]);
 export type ClaimStatus = z.infer<typeof ClaimStatus>;
 
+export const ClaimSourceType = z.enum(["lived", "curricular", "retro"]);
+export type ClaimSourceType = z.infer<typeof ClaimSourceType>;
+
 const KeyPattern = /^[a-z0-9-]+(\.[a-z0-9-]+){1,3}$/;
 const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
@@ -22,6 +25,7 @@ const Base = z.object({
   tags: z.preprocess((v) => v ?? [], z.array(z.string()).default([])),
 
   evidence: z.preprocess((v) => v ?? [], z.array(z.string()).default([])),
+  source_type: ClaimSourceType.default("lived"),
   status: ClaimStatus,
 
   // supersession

@@ -27,8 +27,9 @@ A claim is a typed page at `wikis/<wiki>/claim/<id>.md`. Frontmatter includes:
 - `scope_wiki` — wikis this claim applies in. Empty `[]` = applies everywhere.
 - `tags` — open vocabulary for matching.
 - `authored_by` — `agent:<id>` | `human:<name>`.
+- `source_type` (v0.3+) — `lived | curricular | retro`, default `lived`. Provenance signal: `lived` cites real work evidence; `curricular` cites a `guide-course-*` page walked by the agent; `retro` cites older artifacts a pattern was extracted from after the fact. Absent field is treated as `lived` — no migration needed for pre-v0.3 claims.
 
-The `_index/claims.json` sidecar (built by `vault_reindex`, currently `schema_version: 2`) inverts these into buckets — `by_authored_by`, `by_profile`, `by_scope_wiki`, `by_tag`, `global`. `vault_agent-memory` reads the sidecar fast-path; if absent or stale (`schema_version: 1` predates the `by_authored_by` bucket), falls back to a disk walk.
+The `_index/claims.json` sidecar (built by `vault_reindex`, currently `schema_version: 3`) inverts these into buckets — `by_authored_by`, `by_profile`, `by_scope_wiki`, `by_tag`, `by_source_type`, `global`. `vault_agent-memory` reads the sidecar fast-path; if absent or stale (`schema_version: 1` predates `by_authored_by`; `schema_version: 2` predates `by_source_type`), falls back to a disk walk. Readers tolerate `1 | 2 | 3`; writers emit `3` going forward.
 
 ## Authoring (`vault_claim`)
 
@@ -96,13 +97,41 @@ vault agent-memory pidgey --token-budget 800
       "effective_confidence": 0.85,
       "scope_match_score": 1.2,
       "score": 1.87,
-      "authored_by": "agent:claude-code"
+      "authored_by": "agent:claude-code",
+      "source_type": "lived",
+      "source_type_tag": "[lived | 0.85]",
+      "rendered": "[lived | 0.85] When adding a new vault MCP tool, register it in src/index.ts AND add a CLI subcommand wrapper."
     }
   ],
   "total_pool_size": 1,
   "truncated": false
 }
 ```
+
+### Source-type rendering (v0.3+)
+
+Three new fields surface on every returned claim:
+
+- **`source_type`** — raw provenance value, one of `lived | curricular | retro`. Defaults to `lived` if claim frontmatter is absent (full back-compat with pre-v0.3 claims).
+- **`source_type_tag`** — formatted display token like `"[curricular | 0.62]"`. The bracketed number is `effective_confidence` rounded to two decimals. The tag is what an agent reads to calibrate trust ("this is what I was taught, not what I have done").
+- **`rendered`** — the canonical agent-facing string `"[<source_type> | <conf>] <body>"`. Pre-rendered server-side so every caller surfaces claims with consistent tag + body presentation. Use this when injecting claims directly into a system prompt — it keeps the visible tag right next to the substantive content.
+
+Worked example of the three side by side in an output stream:
+
+```
+[lived | 0.87] When adding a new vault MCP tool, register it in src/index.ts AND
+  add a CLI subcommand wrapper. (evidence: journal-2026-05-04-1959)
+
+[curricular | 0.62] In CrewTracks, integration tests use the harness at
+  apps/api/test/db-harness.ts. (evidence: guide-course-crewtracks-onboarding)
+
+[retro | 0.71] Across the last 12 PRs I authored a backfill claim about how
+  schema migrations should be staged. (evidence: synthesis-bedrock-rules-history)
+```
+
+**Ranking is unchanged.** A high-confidence curricular claim ranks alongside a high-confidence lived claim in `score` order — `source_type` does NOT enter the retrieval math. The tag is informational, not load-bearing. The substrate's reasoning: when an agent is actually doing related work, curricular context is operationally useful regardless of whether the lesson was lived or taught.
+
+**Where source-type *does* affect math: `vault.evolve-profile`.** The claim-cluster pass in `evolve-profile` weights claims by source type when summing cluster weight for specialty identification (defaults: `lived: 1.0`, `curricular: 0.5`, `retro: 0.7`; configurable in `_agents/CLAUDE.md`). This preserves the lived-XP discipline: a profile that only completed a course cannot inflate its specialty signal above what lived work would earn. The contrast is intentional — retrieval treats every claim as equally usable in the moment; evolution only credits what was actually done.
 
 ## Calibration: what scores mean
 

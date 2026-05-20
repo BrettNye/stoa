@@ -56,7 +56,7 @@ describe("reindex — claims sidecar integration", () => {
     await reindex(vault);
 
     const idx = await readSidecar(vault);
-    expect(idx.schema_version).toBe(2);
+    expect(idx.schema_version).toBe(3);
     expect(typeof idx.generated_at).toBe("string");
     expect(idx.generated_at.length).toBeGreaterThan(0);
     expect(idx.by_profile).toBeDefined();
@@ -171,7 +171,7 @@ describe("reindex — claims sidecar integration", () => {
     await reindex(vault);
 
     const idx = await readSidecar(vault);
-    expect(idx.schema_version).toBe(2);
+    expect(idx.schema_version).toBe(3);
     expect(idx.by_profile).toEqual({});
     expect(idx.by_move).toEqual({});
     expect(idx.by_scope_wiki).toEqual({});

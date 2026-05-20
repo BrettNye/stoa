@@ -203,10 +203,10 @@ describe("buildClaimsIndex — status filtering", () => {
 });
 
 describe("buildClaimsIndex — schema shape", () => {
-  it("acceptance bullet 5: returns a `schema_version: 2` shape with all required keys", async () => {
+  it("acceptance bullet 5: returns a `schema_version: 3` shape with all required keys", async () => {
     const vault = await mkTempVault();
     const idx = await buildClaimsIndex(vault);
-    expect(idx.schema_version).toBe(2);
+    expect(idx.schema_version).toBe(3);
     expect(idx).toHaveProperty("by_profile");
     expect(idx).toHaveProperty("by_move");
     expect(idx).toHaveProperty("by_scope_wiki");
@@ -227,7 +227,7 @@ describe("buildClaimsIndex — schema shape", () => {
     expect(idx.by_scope_wiki).toEqual({});
     expect(idx.by_tag).toEqual({});
     expect(idx.global).toEqual([]);
-    expect(idx.schema_version).toBe(2);
+    expect(idx.schema_version).toBe(3);
   });
 });
 
@@ -282,7 +282,7 @@ describe("buildClaimsIndex — robustness", () => {
     await fs.rm(path.join(vault, "wikis"), { recursive: true, force: true });
     const idx = await buildClaimsIndex(vault);
     expect(idx.global).toEqual([]);
-    expect(idx.schema_version).toBe(2);
+    expect(idx.schema_version).toBe(3);
   });
 });
 
@@ -302,7 +302,7 @@ describe("writeClaimsIndex — atomic persistence", () => {
     const raw = await fs.readFile(file, "utf8");
     const parsed: ClaimsIndex = JSON.parse(raw);
     expect(parsed.by_profile["a"]).toContain("claim-w");
-    expect(parsed.schema_version).toBe(2);
+    expect(parsed.schema_version).toBe(3);
     // tmp file should not survive a successful rename.
     const tmpExists = await fs
       .access(`${file}.tmp`)

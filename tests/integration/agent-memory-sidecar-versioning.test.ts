@@ -72,7 +72,7 @@ describe("sidecar versioning — authored_by predicate fallback", () => {
     const idx = await buildClaimsIndex(vault);
     await writeClaimsIndex(vault, idx);
 
-    expect(idx.schema_version).toBe(2);
+    expect(idx.schema_version).toBe(3);
     expect(idx.by_authored_by["agent:charmander"]).toContain("claim-authored-v2");
 
     const result = agentMemory(vault, { agent_id: "charmander", today: TODAY });

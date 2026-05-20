@@ -8,6 +8,7 @@
 // schema_version history:
 //   1 — original shape (by_profile, by_move, by_scope_wiki, by_tag, global)
 //   2 — adds by_authored_by bucket
+//   3 — adds by_source_type bucket
 
 export interface ClaimsIndex {
   by_profile: Record<string, string[]>;
@@ -16,9 +17,11 @@ export interface ClaimsIndex {
   by_tag: Record<string, string[]>;
   /** Inverted index by the claim's `authored_by` frontmatter field. Added in schema_version 2. */
   by_authored_by: Record<string, string[]>;
+  /** Inverted index by the claim's source_type. Added in schema_version 3. */
+  by_source_type: Record<"lived" | "curricular" | "retro", string[]>;
   global: string[];
   /** ISO timestamp of when the sidecar was assembled. */
   generated_at: string;
-  /** Readers must tolerate both versions. Writers emit 2 from this task forward. */
-  schema_version: 1 | 2;
+  /** Readers must tolerate all three versions. Writers emit 3 from this task forward. */
+  schema_version: 1 | 2 | 3;
 }

@@ -40,9 +40,10 @@ export async function buildClaimsIndex(vaultPath: string): Promise<ClaimsIndex> 
     by_scope_wiki: {},
     by_tag: {},
     by_authored_by: {},
+    by_source_type: { lived: [], curricular: [], retro: [] },
     global: [],
     generated_at: new Date().toISOString(),
-    schema_version: 2,
+    schema_version: 3,
   };
 
   const push = (m: Record<string, string[]>, k: string, v: string) => {
@@ -66,6 +67,8 @@ export async function buildClaimsIndex(vaultPath: string): Promise<ClaimsIndex> 
       for (const w of claim.scope_wiki) push(idx.by_scope_wiki, w, claim.id);
       for (const t of claim.tags) push(idx.by_tag, t, claim.id);
       if (claim.authored_by) push(idx.by_authored_by, claim.authored_by, claim.id);
+      const st = claim.source_type ?? "lived";
+      idx.by_source_type[st].push(claim.id);
       if (
         !claim.profile.length &&
         !claim.move.length &&

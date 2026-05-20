@@ -44,6 +44,7 @@ const Input = z.object({
   // Confidence + provenance
   confidence: z.number().min(0).max(1).optional(),
   evidence: z.array(z.string()).optional(),
+  source_type: z.enum(["lived", "curricular", "retro"]).optional(),
 
   // Caller identity (mirrors task-claim's `as` convention)
   as: z.string().min(1),
@@ -235,6 +236,7 @@ async function createAction(
     scope_wiki,
     tags,
     evidence: input.evidence ?? [],
+    source_type: input.source_type ?? "lived",
     status: "active",
     supersedes: [],
     superseded_by: null,
@@ -281,6 +283,7 @@ async function supersedeAction(
     scope_wiki,
     tags,
     evidence: input.evidence ?? [],
+    source_type: input.source_type ?? "lived",
     status: "active",
     supersedes: [(existing as { id: string }).id],
     superseded_by: null,

@@ -25,6 +25,11 @@ const Input = z.object({
   pokemon_type: z.array(z.string()).default([]),
   target: z.enum(["claude-code", "openclaw", "codex"]).default("claude-code"),
   mode: z.enum(["copy", "symlink"]).default("symlink"),
+  // T10 (spec §4.3): wiki context for deployment layering. When set, the
+  // underlying syncMoveset additionally walks `wikis/<wiki>/moves/` and
+  // layers wiki-local moves on top of the portable moveset. Optional for
+  // back-compat with existing callers that key purely off `pokemon`.
+  wiki: z.string().optional(),
   // T3-2 (v1.6 §6.2). When true, the tool no-ops the deploy and instead scans
   // the existing deployment registry, hashing each deployed SKILL.md against
   // its canonical vault source to detect drift. With `fix: true`, drifted
@@ -98,7 +103,7 @@ export const syncSkillsTool = {
         try {
           const sub = await deployOnePokemonSkills(
             { vaultPath: ctx.vaultPath, today: ctx.today, rawConfig: ctx.rawConfig },
-            { repo_path: input.repo_path, pokemon: pokemonId, target: input.target, mode: input.mode }
+            { repo_path: input.repo_path, pokemon: pokemonId, target: input.target, mode: input.mode, wiki: input.wiki }
           );
           results.push({
             pokemon: pokemonId,
@@ -133,6 +138,7 @@ export const syncSkillsTool = {
       pokemon: input.pokemon,
       target: input.target,
       mode: input.mode,
+      wiki: input.wiki,
     });
   }
 };
@@ -146,7 +152,7 @@ export const syncSkillsTool = {
  */
 async function deployOnePokemonSkills(
   ctx: { vaultPath: string; today?: Date; rawConfig?: unknown },
-  input: { repo_path: string; pokemon: string; target: "claude-code" | "openclaw" | "codex"; mode: "copy" | "symlink" }
+  input: { repo_path: string; pokemon: string; target: "claude-code" | "openclaw" | "codex"; mode: "copy" | "symlink"; wiki?: string }
 ): Promise<{ skills_dir: string; moves_synced: string[]; moves_skipped_unsupported: string[] }> {
   // §8.2 pre-render — for each move in the deploying profile's moveset,
   // render the vault-claims:start..end block into the vault SKILL.md so the
@@ -189,6 +195,9 @@ async function deployOnePokemonSkills(
     pokemon_id: input.pokemon,
     target: input.target,
     mode: input.mode,
+    // T10 (spec §4.3): pass the wiki so wiki-local moves at
+    // wikis/<wiki>/moves/ are layered on top of the portable moveset.
+    wiki: input.wiki,
   });
   return {
     skills_dir: result.skills_dir,

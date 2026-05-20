@@ -13,11 +13,17 @@ import {
   computeEligibility,
   suggestMoves,
   renderRationale,
+  clusterWeight,
   type EligibilityReport,
   type MovesetSuggestion,
 } from "./evolution-claims.js";
 import { effectiveConfidence } from "./decay.js";
-import { getClaimsConfig, type ClaimsConfig } from "../config.js";
+import {
+  getClaimsConfig,
+  resolveSourceTypeWeights,
+  type ClaimsConfig,
+  type SourceTypeWeights,
+} from "../config.js";
 
 export interface ProfileForProposal {
   id: string;
@@ -54,6 +60,11 @@ export interface EvolutionProposalCurrent {
 export interface SpecialtyEntry {
   tag: string;
   claim_count: number;
+  // T5 of the specialist-agent-substrate DAG (spec §5.4) — source-type-
+  // weighted sum of effective_confidence across this cluster's claims.
+  // `claim_count` is the raw membership; `cluster_weight` is what the
+  // weighting math surfaces for downstream rationale / suggestion logic.
+  cluster_weight: number;
 }
 
 export interface EvidenceSummary {
@@ -299,11 +310,26 @@ async function enrichWithClaims(
   );
   const clusters = clusterByTag(claims, config.specialty_min_cluster);
 
+  // T5 — resolve per-source-type weights from `wikis/_agents/CLAUDE.md`
+  // with graceful fallback to defaults on parse/schema error (lint surfaces
+  // the malformed-block error separately, same shape as
+  // `THRESHOLD_BLOCK_INVALID`).
+  const weights: SourceTypeWeights = resolveSourceTypeWeights(input.vaultPath);
+  const decay = {
+    half_life_days: config.half_life_days,
+    effective_floor: config.effective_floor,
+  };
+
   // Specialties: one entry per surviving cluster; preserve insertion order
   // here so downstream consumers see the same ordering as the cluster map.
   // (`evidence_summary.top_clusters` separately sorts by count desc.)
+  // `cluster_weight` is the spec §5.4 weighted aggregate (per source_type).
   const specialties: SpecialtyEntry[] = [...clusters.entries()].map(
-    ([tag, arr]) => ({ tag, claim_count: arr.length }),
+    ([tag, arr]) => ({
+      tag,
+      claim_count: arr.length,
+      cluster_weight: clusterWeight(arr, weights, today, decay),
+    }),
   );
 
   const moveset_suggestions = await suggestMoves(

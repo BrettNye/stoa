@@ -74,7 +74,12 @@ function renderMarkdown(r: AgentMemoryResult): string {
     lines.push("");
     for (const c of r.claims) {
       lines.push(`#### \`${c.id}\``);
-      lines.push(`- **Summary:** ${c.summary}`);
+      // spec §5.5 — the canonical rendered line MUST be surfaced as a single
+      // string with the source_type tag inline. Render it first so the
+      // human-readable markdown output starts each claim with the same
+      // `[<source_type> | <eff_conf>] <body>` form the structured response
+      // exposes via `claim.rendered`.
+      lines.push(c.rendered);
       lines.push(`- **Effective confidence:** ${c.effective_confidence.toFixed(3)}`);
       lines.push(`- **Score:** ${c.score.toFixed(3)}`);
       if (c.body) {
