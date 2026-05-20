@@ -65,6 +65,7 @@ Restart Claude Code. You now have `vault.recall`, `vault.inbox`, `vault.synthesi
 
 **Write — content:**
 - `vault.inbox` — capture a fleeting thought to the active wiki's `inbox/`
+- `vault.process-inbox` — walk inbox items, propose types, and promote on confirmation
 - `vault.new` — create a typed page from a template
 - `vault.new-wiki` — scaffold a new wiki: folders, `map.md`, `index.md`, wiki-local `CLAUDE.md`
 - `vault.set-active` — set the ambient active wiki
@@ -77,9 +78,25 @@ Restart Claude Code. You now have `vault.recall`, `vault.inbox`, `vault.synthesi
 **Coordination:**
 - `vault.channel-post` — post to a coordination channel (cross-instance comms)
 - `vault.task-claim` — atomically claim a pending task; race-loser sees `AlreadyClaimedError`
-- `vault.bootstrap-repo` — wire a consuming repo with `.mcp.json` and a `CLAUDE.md` fragment
-- `vault.sync-skills` — deploy an agent profile's moveset as local skills
 - `vault.task-create`, `vault.task-list`, `vault.task-update` — task lifecycle
+- `vault.bootstrap-repo` — wire a consuming repo with `.mcp.json` and a `CLAUDE.md` fragment
+
+**Agent memory:**
+- `vault.agent-memory` — pull an agent's accumulated claims: ranked, scope-filtered, decay-aware; suitable for system-prompt injection
+- `vault.claim` — author, re-validate, supersede, or retract a claim that persists across sessions
+- `vault.list-claims` — list claims filtered by agent, scope, or tag
+
+**Agent substrate:**
+- `vault.start` — cold-start brief: active pages, channel unread counts, in-flight tasks
+- `vault.sync-agents` — build a SubagentIntent from a profile + moveset and dispatch to the runtime adapter
+- `vault.sync-skills` — deploy an agent profile's moveset as local skills
+- `vault.profile-stats` — compute evolution metrics and move-mastery scores for a profile
+
+## Agent coordination
+
+Multiple AI instances — different repos, different machines — can share the same vault and coordinate without copy-paste. Agents post and tail named channels (`vault.channel-post`, `vault.channel-tail`) to pass work between sessions. Tasks are queued as typed pages and claimed atomically (`vault.task-claim`), so two racing sessions can never silently double-claim the same work. Agents also accumulate persistent memory across sessions: a non-obvious invariant discovered during debugging becomes a `vault.claim`; the next session pulls it back via `vault.agent-memory` before starting work.
+
+See [docs/agent-memory.md](docs/agent-memory.md) for the claim authoring and retrieval protocol, and [docs/task-coordination.md](docs/task-coordination.md) for the full task lifecycle and channel conventions.
 
 ## Resolution order for the `wiki:` parameter
 

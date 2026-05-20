@@ -19,10 +19,12 @@ A few conventions used below:
 5. [Use stoa from a different repo](#scenario-use-stoa-from-a-different-repo)
 6. [Hand off context between Claude Code sessions](#scenario-hand-off-context-between-claude-code-sessions)
 7. [Coordinate two Claude Code sessions on shared work](#scenario-coordinate-two-claude-code-sessions-on-shared-work)
-8. [Compile multiple notes into one synthesis page](#scenario-compile-multiple-notes-into-one-synthesis-page)
-9. [Queue work for another agent to pick up](#scenario-queue-work-for-another-agent-to-pick-up)
-10. [Audit vault health](#scenario-audit-vault-health)
-11. [Cold-start a session with full context](#scenario-cold-start-a-session-with-full-context)
+8. [Have an agent remember a decision for next time](#scenario-have-an-agent-remember-a-decision-for-next-time)
+9. [Pull an agent's accumulated knowledge at session start](#scenario-pull-an-agents-accumulated-knowledge-at-session-start)
+10. [Compile multiple notes into one synthesis page](#scenario-compile-multiple-notes-into-one-synthesis-page)
+11. [Queue work for another agent to pick up](#scenario-queue-work-for-another-agent-to-pick-up)
+12. [Audit vault health](#scenario-audit-vault-health)
+13. [Cold-start a session with full context](#scenario-cold-start-a-session-with-full-context)
 
 ---
 
@@ -175,6 +177,56 @@ Optional: pass `since: "2026-05-12T00:00:00Z"` to get only entries after a times
 **When to use this:** Whenever two sessions need to talk and you don't want a Slack channel for it. Common patterns: lib-progress / lib-requests channel pairs between a library repo and its consumers; per-feature coordination channels during a multi-session push.
 
 **See also:** [Queue work for another agent to pick up](#scenario-queue-work-for-another-agent-to-pick-up), [Use stoa from a different repo](#scenario-use-stoa-from-a-different-repo).
+
+---
+
+## Scenario: Have an agent remember a decision for next time
+
+**You'll accomplish:** Author a claim so the agent carries a hard-won belief — a non-obvious invariant, a validated pattern — into future sessions without re-deriving it.
+
+**Run:**
+
+```
+vault.claim
+  as: "agent:claude-code"
+  key: "process.dag-planning.grep-symbol-consumers"
+  title: "DAG plans: grep for symbol consumers before assigning files scope"
+  body: "When a DAG task introduces a contract change, its files: scope must include every test and consumer that asserts against the old contract. Grep for symbol consumers first; missing them causes downstream breakage that isn't visible until those tasks run."
+  scope_wiki: ["_meta"]
+  tags: ["dag-planning", "cascade-prevention"]
+  confidence: 0.85
+```
+
+After authoring, run `vault.reindex` so the new claim lands in the `_index/claims.json` sidecar and becomes visible to future `vault.agent-memory` calls.
+
+**What happened:** Stoa wrote a `claim` page to `wikis/<wiki>/claim/<id>.md` with `authored_by: agent:claude-code`, `status: active`, `last_validated: <today>`, and the stated `confidence`. The `key` plus scope hash form the claim's stable identity — a later call with the same key and scope either revalidates (with `revalidate: true`) or supersedes the existing claim if the new confidence is strictly higher. Pass `override: true` to force supersession regardless of the confidence comparison.
+
+**When to use this:** After a debugging session that surfaced a non-obvious invariant. After a code review where a pattern was validated and you'd rather not re-justify it next month. The claim is what separates "I know this" from "I once figured this out and can't remember why."
+
+**See also:** [Pull an agent's accumulated knowledge at session start](#scenario-pull-an-agents-accumulated-knowledge-at-session-start), [docs/agent-memory.md](./agent-memory.md).
+
+---
+
+## Scenario: Pull an agent's accumulated knowledge at session start
+
+**You'll accomplish:** Inject an agent's relevant claims into working context before a task, so prior learnings apply without re-deriving them.
+
+**Run:**
+
+```
+vault.agent-memory
+  agent_id: "claude-code"
+  scope_wiki: ["_meta"]
+  tags: ["dag-planning"]
+```
+
+Optional extras: omit `scope_wiki` and `tags` for a broader pull across all claims authored by or targeted at this agent. Pass `token_budget: 800` to cap output size for system-prompt injection. Pass `detail: "full"` to receive complete claim bodies (default `"truncated"` returns the first ~200 chars of each body). Pass `task: "<task-id>"` to derive scope automatically from a task page's wiki and tags.
+
+**What happened:** Stoa read `_index/claims.json` (falling back to a disk walk if the sidecar was missing or stale), applied the inclusion predicate — agent identity match, scope intersection, `status: active`, effective confidence at or above 0.4 — ranked by `effective_confidence × (1 + scope_match)`, and returned the matching claims in descending score order. Confidence decays over time with a 75-day half-life, so stale claims naturally sink in the ranking without disappearing entirely. The response includes `total_pool_size` and a `truncated` flag so you know whether the budget cut anything off.
+
+**When to use this:** At the start of any multi-step task where the agent has prior claims relevant to the domain. Suitable for injecting the result directly into a system prompt or asking Claude to summarize it before beginning work. Pairs with `vault.start` when you want both vault orientation and agent-specific memory in one cold-start sequence.
+
+**See also:** [Have an agent remember a decision for next time](#scenario-have-an-agent-remember-a-decision-for-next-time), [docs/agent-memory.md](./agent-memory.md).
 
 ---
 
