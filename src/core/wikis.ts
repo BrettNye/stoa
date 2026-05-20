@@ -70,9 +70,18 @@ export function listWikis(vaultPath: string, opts: ListWikisOptions = {}): Index
   });
 }
 
+// Bug-2026-05-15 #3 fix — was missing `questions`. `_meta` and `meetings`
+// wikis (scaffolded pre-fix) lacked questions/, so vault.process-inbox
+// errored ENOENT mid-batch when promoting a question item. Includes every
+// knowledge-type folder name returned by `typeFolder()` for non-map types
+// plus inbox/tasks/journal.
 const SUBFOLDERS = [
-  "inbox", "ideas", "concepts", "decisions", "specs",
-  "synthesis", "guides", "journal", "tasks", "sources"
+  "inbox",
+  // 8 knowledge-type folders (one per non-map note type in the schema).
+  "ideas", "questions", "concepts", "decisions", "specs",
+  "synthesis", "guides", "sources",
+  // Execution.
+  "journal", "tasks",
 ];
 
 export interface NewWikiInput {

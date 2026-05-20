@@ -1,5 +1,6 @@
 // vault-mcp/src/tools/process-inbox.ts
 import { z } from "zod";
+import { basename } from "node:path";
 import { listInbox, promoteInboxItem } from "../core/inbox.js";
 import { NoteType } from "../core/frontmatter.js";
 import { resolveWiki } from "./_resolve-wiki.js";
@@ -30,7 +31,11 @@ export const processInboxTool = {
         proposals: items.map(p => ({
           inbox_path: p,
           suggested_type: "idea" as const,
-          suggested_id: `idea-${p.split("/").pop()?.replace(/^\d{4}-\d{2}-\d{2}-\d{4}-/, "").replace(/\.md$/, "")}`,
+          // Bug-2026-05-15 #1 fix — use node:path.basename so the slug source
+          // is the *filename* regardless of OS path separator. The historical
+          // `p.split("/").pop()` left Windows backslashed paths intact and
+          // baked the full absolute path into the suggested_id.
+          suggested_id: `idea-${basename(p).replace(/^\d{4}-\d{2}-\d{2}-\d{4}-/, "").replace(/\.md$/, "")}`,
           rationale: "default heuristic: untyped capture promoted as idea"
         }))
       };

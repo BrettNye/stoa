@@ -50,6 +50,32 @@ describe("newWiki --family (Phase-2 T3-1)", () => {
     expect(claudeMd).not.toMatch(/^family:/im);
   });
 
+  // Regression: bug-2026-05-15 #3 — `SUBFOLDERS` in core/wikis.ts was
+  // missing `questions`. As a result _meta and meetings wikis (scaffolded
+  // pre-fix) lacked questions/, and vault.process-inbox errored ENOENT mid
+  // batch when promoting a question item. The fix ensures new-wiki creates
+  // every knowledge-type subdirectory upfront so the gap can't recur.
+  describe("regression bug-2026-05-15 #3: scaffolds all knowledge-type subdirs", () => {
+    it("creates questions/, ideas/, concepts/, decisions/, specs/, synthesis/, guides/, sources/ + tasks/, journal/, inbox/", () => {
+      newWiki(vault, {
+        name: "scaffold-check",
+        mode: "mixed",
+        scope: "ensure full subdir scaffold"
+      });
+      const root = join(vault, "wikis", "scaffold-check");
+      // All eight knowledge-type subdirs MUST exist.
+      const required = [
+        "ideas", "questions", "specs", "decisions",
+        "concepts", "guides", "synthesis", "sources",
+        // Execution + capture
+        "tasks", "journal", "inbox",
+      ];
+      for (const sub of required) {
+        expect(existsSync(join(root, sub)), `missing subdir: ${sub}`).toBe(true);
+      }
+    });
+  });
+
   it("scaffolded family flows through loadWikiMeta + reindex into _index/wikis.json", async () => {
     // End-to-end: the format new-wiki writes must match the regex
     // loadWikiMeta uses (T2-1) and surface on the wikis.json entry (T2-2).

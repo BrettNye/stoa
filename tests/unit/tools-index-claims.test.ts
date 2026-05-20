@@ -54,11 +54,15 @@ describe("tools/index — claims tool registration", () => {
   });
 
   it("dispatches vault.list-claims through callTool against a temp vault", async () => {
+    // NB (bug-2026-05-19): sidecar buckets are keyed by bare agent ids
+    // because vault.claim strips `profile-` / `agent:` before storing.
+    // value: filter is normalized the same way in list-claims, so a
+    // prefixed query against bare-keyed storage still matches.
     const vault = await mkTempVaultWithSidecar([
       {
         id: "claim-reg-smoke",
         key: "k.smoke",
-        profile: ["profile-charmander"],
+        profile: ["charmander"],
         confidence: 0.8,
         status: "active",
       },
