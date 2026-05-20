@@ -8,9 +8,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const VAULT_ROOT = path.resolve(__dirname, "../../..");
 
-// The spec is the only file allowed to discuss the historical name.
+// Files allowed to discuss the historical name. The spec records the rename;
+// the foundation-dag plan inlines the test source (which itself contains the
+// literal needle), so it would self-trigger.
 const ALLOWLIST = new Set<string>([
   "wikis/_meta/specs/2026-05-02-vault-mcp-claims-design.md",
+  "wikis/_meta/plans/2026-05-02-vault-mcp-claims-plan-1-foundation-dag.md",
 ]);
 
 // Roots to scan and the file extensions to consider in each.
