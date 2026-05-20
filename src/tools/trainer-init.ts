@@ -15,7 +15,7 @@ const Input = z.object({
 });
 
 export const trainerInitTool = {
-  name: 'vault.trainer-init',
+  name: 'vault_trainer-init',
   description: 'Validate the configured Stadium API key and scaffold wikis/_agents/trainers/trainer-<name>.md with the initial strategy seed.',
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {

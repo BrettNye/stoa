@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { taskUpdateTool } from "../../src/tools/task-update.js";
 import { createTask } from "../../src/core/tasks.js";
 
-describe("vault.task-update", () => {
+describe("vault_task-update", () => {
   let vaultPath: string;
 
   beforeEach(() => {

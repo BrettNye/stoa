@@ -6,7 +6,7 @@ import { startTool } from "../../src/tools/start.js";
 import { reindex } from "../../src/core/reindex.js";
 
 /**
- * Phase-2 T3-4 — `vault.start --family=<name>` assembles a multi-member brief.
+ * Phase-2 T3-4 — `vault_start --family=<name>` assembles a multi-member brief.
  *
  * Each family member's `map.md` is read end-to-end and concatenated under a
  * per-member section header `## <member-name> (mode: <mode>)`. Profile state

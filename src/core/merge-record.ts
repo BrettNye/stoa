@@ -1,5 +1,5 @@
 // Pure-functional helpers for composing the merge journal entry + computing
-// the task transition for `vault.merge-record`. The tool layer (Wave 3 Task
+// the task transition for `vault_merge-record`. The tool layer (Wave 3 Task
 // 3-2) handles file IO, the channel feed update, and alias resolution. This
 // module assumes `agent_id` is already alias-resolved by the caller.
 

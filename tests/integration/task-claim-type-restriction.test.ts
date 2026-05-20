@@ -6,7 +6,7 @@ import { taskClaimTool } from "../../src/tools/task-claim.js";
 import { createTask } from "../../src/core/tasks.js";
 import { reindex } from "../../src/core/reindex.js";
 
-describe("vault.task-claim — type restriction + defaultWiki", () => {
+describe("vault_task-claim — type restriction + defaultWiki", () => {
   let vaultPath: string;
 
   beforeEach(() => {

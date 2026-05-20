@@ -1,7 +1,7 @@
 // vault-mcp/tests/integration/synthesize-by-agent-claims.test.ts
 //
 // task-synthesize-integration-test (Plan 2 Wave 4) — end-to-end idempotency
-// test for `vault.synthesize` in the by-agent / memory scope. Verifies that
+// test for `vault_synthesize` in the by-agent / memory scope. Verifies that
 // two consecutive runs on the same date and corpus produce byte-identical
 // output (modulo render-date), that the Learnings section appears with the
 // expected shape and placement (after `## Inputs cited`, between
@@ -113,7 +113,7 @@ function stripDates(s: string): string {
     .replace(/_Compiled \d{4}-\d{2}-\d{2}/g, "_Compiled <DATE>");
 }
 
-describe("vault.synthesize --by-agent claims integration", () => {
+describe("vault_synthesize --by-agent claims integration", () => {
   // Track temp vaults for cleanup so a failing test doesn't leak temp dirs.
   const created: string[] = [];
   afterEach(() => {
@@ -153,7 +153,7 @@ describe("vault.synthesize --by-agent claims integration", () => {
     await seedSynthesizeFixture(vault, "profile-x", 5);
 
     await callTool(
-      "vault.synthesize",
+      "vault_synthesize",
       { topic: "anything", scope: "memory", by_agent: "profile-x" },
       vault,
     );
@@ -191,14 +191,14 @@ describe("vault.synthesize --by-agent claims integration", () => {
     await seedSynthesizeFixture(vault, "profile-x", 5);
 
     await callTool(
-      "vault.synthesize",
+      "vault_synthesize",
       { topic: "anything", scope: "memory", by_agent: "profile-x" },
       vault,
     );
     const a = await fs.readFile(synthPath(vault, "profile-x"), "utf8");
 
     await callTool(
-      "vault.synthesize",
+      "vault_synthesize",
       { topic: "anything", scope: "memory", by_agent: "profile-x" },
       vault,
     );
@@ -259,7 +259,7 @@ describe("vault.synthesize --by-agent claims integration", () => {
       await seedSynthesizeFixture(vault, "profile-x", 5);
 
       await callTool(
-        "vault.synthesize",
+        "vault_synthesize",
         { topic: "anything", scope: "memory", by_agent: "profile-x" },
         vault,
       );
@@ -269,7 +269,7 @@ describe("vault.synthesize --by-agent claims integration", () => {
 
       vi.setSystemTime(new Date("2026-04-15T12:00:00Z"));
       await callTool(
-        "vault.synthesize",
+        "vault_synthesize",
         { topic: "anything", scope: "memory", by_agent: "profile-x" },
         vault,
       );
@@ -299,14 +299,14 @@ describe("vault.synthesize --by-agent claims integration", () => {
     await seedSynthesizeFixture(vault, "profile-x", 5);
 
     await callTool(
-      "vault.synthesize",
+      "vault_synthesize",
       { topic: "anything", scope: "memory", by_agent: "profile-x" },
       vault,
     );
     const a = await fs.readFile(synthPath(vault, "profile-x"), "utf8");
 
     await callTool(
-      "vault.synthesize",
+      "vault_synthesize",
       { topic: "anything", scope: "memory", by_agent: "profile-x" },
       vault,
     );
@@ -329,7 +329,7 @@ describe("vault.synthesize --by-agent claims integration", () => {
     await seedSynthesizeFixture(vault, "profile-x", 5);
 
     await callTool(
-      "vault.synthesize",
+      "vault_synthesize",
       { topic: "anything", scope: "memory", by_agent: "profile-x" },
       vault,
     );
@@ -360,7 +360,7 @@ describe("vault.synthesize --by-agent claims integration", () => {
     await writeClaimsIndex(vault, await buildClaimsIndex(vault));
 
     await callTool(
-      "vault.synthesize",
+      "vault_synthesize",
       { topic: "anything", scope: "memory", by_agent: "profile-x" },
       vault,
     );

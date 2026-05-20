@@ -13,20 +13,20 @@ import { getAllGlobs } from "../../src/core/eventbus/matchers/index.js";
 describe("allTools — v1.7.1 wait-for tools registered", () => {
   const names = allTools.map((t) => t.name);
 
-  it("includes vault.wait-for", () => {
-    expect(names).toContain("vault.wait-for");
+  it("includes vault_wait-for", () => {
+    expect(names).toContain("vault_wait-for");
   });
 
-  it("includes vault.wait-for-any", () => {
-    expect(names).toContain("vault.wait-for-any");
+  it("includes vault_wait-for-any", () => {
+    expect(names).toContain("vault_wait-for-any");
   });
 
-  it("includes vault.wait-for-all", () => {
-    expect(names).toContain("vault.wait-for-all");
+  it("includes vault_wait-for-all", () => {
+    expect(names).toContain("vault_wait-for-all");
   });
 
-  it("includes vault.wait-for-many", () => {
-    expect(names).toContain("vault.wait-for-many");
+  it("includes vault_wait-for-many", () => {
+    expect(names).toContain("vault_wait-for-many");
   });
 });
 

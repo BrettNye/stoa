@@ -12,7 +12,7 @@ const Input = z.object({
 });
 
 export const taskClaimTool = {
-  name: "vault.task-claim",
+  name: "vault_task-claim",
   description: "Atomic claim on a pending task. Refuses claims on ungroomed tasks (missing files/scope/out_of_scope/verification body signals) unless force: true. Mtime-OCC concurrency control. If the task has required_pokemon_type, the claimant's profile must match.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string; defaultWiki?: string }) => {

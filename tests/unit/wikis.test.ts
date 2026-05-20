@@ -6,7 +6,7 @@ import { loadWikiMeta } from "../../src/core/wikis.js";
 
 // Phase-2 T2-1 — `loadWikiMeta` parses `family:` from a wiki's CLAUDE.md.
 // Accepts both the markdown-bold form (`**Family:** rastate`) emitted by
-// `vault.new-wiki` today and the plain key:value form (`family: rastate`)
+// `vault_new-wiki` today and the plain key:value form (`family: rastate`)
 // per spec §5.1. Empty-string family is treated as no-family. Missing
 // CLAUDE.md returns an empty meta.
 //

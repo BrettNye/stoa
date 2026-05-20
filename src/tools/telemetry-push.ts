@@ -20,7 +20,7 @@ const Input = z.object({
 });
 
 export const telemetryPushTool = {
-  name: "vault.telemetry-push",
+  name: "vault_telemetry-push",
   description:
     "Push a move-usage event to Stadium; increments server-side XP for the named real-skill.",
   inputSchema: Input,

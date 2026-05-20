@@ -60,7 +60,7 @@ async function renderProfileLearnedSection(args: {
   for (const c of top) lines.push(formatClaimBullet(c, args.today, args.config));
   lines.push("");
   lines.push(
-    `*If \`vault-claims-profile rendered:\` is more than ${args.config.staleness_warn_days} days old, run \`vault.bootstrap-repo\` again to refresh.*`,
+    `*If \`vault-claims-profile rendered:\` is more than ${args.config.staleness_warn_days} days old, run \`vault_bootstrap-repo\` again to refresh.*`,
   );
   lines.push(`<!-- vault-claims-profile:end -->`);
   return lines.join("\n");
@@ -88,8 +88,8 @@ async function buildClaudeMdFragment(args: {
   lines.push("");
   lines.push("On every session start:");
   lines.push("");
-  lines.push(`1. Call \`vault.start\` (via \`mcp__${args.serverName}__vault_start\`) — reads the wiki map, tails active channels, runs \`vault.recall\` on the repo's primary topic, returns a context brief.`);
-  lines.push(`2. Journal at end-of-task: call \`vault.agent-journal\` with \`moves_used:\` populated when applicable.`);
+  lines.push(`1. Call \`vault_start\` (via \`mcp__${args.serverName}__vault_start\`) — reads the wiki map, tails active channels, runs \`vault_recall\` on the repo's primary topic, returns a context brief.`);
+  lines.push(`2. Journal at end-of-task: call \`vault_agent-journal\` with \`moves_used:\` populated when applicable.`);
   if (args.channels && args.channels.length > 0) {
     lines.push(`3. Tail and post on these channels: ${args.channels.map(c => `\`${c}\``).join(", ")}.`);
   }
@@ -176,7 +176,7 @@ function mergeOrCreateMcpJson(repoPath: string, vaultPath: string, wiki: string,
 }
 
 export const bootstrapRepoTool = {
-  name: "vault.bootstrap-repo",
+  name: "vault_bootstrap-repo",
   description: "Wire a repo to the vault MCP: writes .mcp.json + CLAUDE.md fragment; optionally deploys a Pokemon's moveset.",
   inputSchema: Input,
   handler: async (

@@ -1,4 +1,4 @@
-// Phase-2 T3-2 — `family:` filter on vault.recall.
+// Phase-2 T3-2 — `family:` filter on vault_recall.
 //
 // Builds a fixture vault with 4 family members of `rastate` plus an unrelated
 // `_meta` wiki, each with at least one matching page for the query "auth".
@@ -127,7 +127,7 @@ afterEach(() => {
   rmSync(vault, { recursive: true, force: true });
 });
 
-describe("vault.recall — family: filter", () => {
+describe("vault_recall — family: filter", () => {
   it("family: 'rastate' (no wiki:) returns hits from all 4 members; no _meta", async () => {
     // layer:"all" so the rastate-dev task (execution layer) is included.
     const r = await recallTool.handler(

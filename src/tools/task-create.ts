@@ -14,7 +14,7 @@ const Input = z.object({
 });
 
 export const taskCreateTool = {
-  name: "vault.task-create",
+  name: "vault_task-create",
   description: "Create a new task in a wiki's task queue. Status starts as pending.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {

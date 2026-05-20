@@ -15,7 +15,7 @@ const Input = z.object({
 });
 
 export const newTool = {
-  name: "vault.new",
+  name: "vault_new",
   description: "Create a typed page from the template, with required frontmatter pre-filled.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {

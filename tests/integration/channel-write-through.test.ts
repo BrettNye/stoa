@@ -47,7 +47,7 @@ describe("channel write-through (T2-1 fix)", () => {
 // without a manual reindex. Each test below writes a page through the tool
 // then asserts the entry is visible via `loadIndex`.
 
-describe("vault.new write-through (v1.7 §5.1)", () => {
+describe("vault_new write-through (v1.7 §5.1)", () => {
   let vaultPath: string;
 
   beforeEach(async () => {
@@ -62,7 +62,7 @@ describe("vault.new write-through (v1.7 §5.1)", () => {
     rmSync(vaultPath, { recursive: true, force: true });
   });
 
-  it("vault.new makes the new page immediately visible via loadIndex — no manual reindex needed", async () => {
+  it("vault_new makes the new page immediately visible via loadIndex — no manual reindex needed", async () => {
     const result = await newTool.handler(
       { type: "concept", wiki: "alpha", title: "Write-through new test", status: "draft" },
       { vaultPath }
@@ -97,7 +97,7 @@ describe("agent-journal write-through (v1.7 §5.1)", () => {
   });
 });
 
-describe("vault.task-create write-through (v1.7 §5.1)", () => {
+describe("vault_task-create write-through (v1.7 §5.1)", () => {
   let vaultPath: string;
 
   beforeEach(async () => {
@@ -122,7 +122,7 @@ describe("vault.task-create write-through (v1.7 §5.1)", () => {
   });
 });
 
-describe("vault.task-update write-through (v1.7 §5.1)", () => {
+describe("vault_task-update write-through (v1.7 §5.1)", () => {
   let vaultPath: string;
 
   beforeEach(async () => {
@@ -166,7 +166,7 @@ describe("vault.task-update write-through (v1.7 §5.1)", () => {
   });
 });
 
-describe("vault.merge-record write-through (v1.7 §5.1)", () => {
+describe("vault_merge-record write-through (v1.7 §5.1)", () => {
   let vaultPath: string;
 
   beforeEach(async () => {

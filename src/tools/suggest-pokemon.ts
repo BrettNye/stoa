@@ -26,7 +26,7 @@ function listExistingProfileNames(vaultPath: string): Set<string> {
 }
 
 export const suggestPokemonTool = {
-  name: "vault.suggest-pokemon",
+  name: "vault_suggest-pokemon",
   description: "Suggest Pokemon names matching a type or dev specialty (e.g. 'backend' → fire). Uses PokeAPI; cached 30 days. Excludes existing profile names by default.",
   inputSchema: Input,
   handler: async (

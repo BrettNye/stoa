@@ -11,7 +11,7 @@ const Input = z.object({
 });
 
 export const trainerGetStateTool = {
-  name: 'vault.trainer-get-state',
+  name: 'vault_trainer-get-state',
   description: 'Fetch authenticated match state; supports since_turn for incremental polling.',
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>) => {

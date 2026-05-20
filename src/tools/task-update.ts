@@ -14,7 +14,7 @@ const Input = z.object({
 });
 
 export const taskUpdateTool = {
-  name: "vault.task-update",
+  name: "vault_task-update",
   description: "Update a task's status, notes, or segregation. Uses mtime OCC.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {

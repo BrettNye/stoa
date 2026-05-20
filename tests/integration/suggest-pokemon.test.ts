@@ -20,7 +20,7 @@ function makeFetcher(): typeof fetch {
   }) as typeof fetch;
 }
 
-describe("vault.suggest-pokemon", () => {
+describe("vault_suggest-pokemon", () => {
   let vaultPath: string;
 
   beforeEach(() => {

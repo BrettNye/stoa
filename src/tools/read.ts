@@ -9,7 +9,7 @@ const Input = z.object({
 });
 
 export const readTool = {
-  name: "vault.read",
+  name: "vault_read",
   description: "Read a page by id. Returns frontmatter, body, and updated handle for follow-up writes.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string; defaultWiki?: string }) => {

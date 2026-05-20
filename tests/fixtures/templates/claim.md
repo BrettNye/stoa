@@ -1,5 +1,5 @@
 ---
-# `claim` page template — instantiated by `vault.new claim <wiki> "<title>"`.
+# `claim` page template — instantiated by `vault_new claim <wiki> "<title>"`.
 #
 # Placeholders the renderer substitutes:
 #   {{slug}}   → kebab-case slug derived from the title
@@ -58,7 +58,7 @@ updated: "{{date}}"
 
 <!--
 Claim body: 1-3 sentences explaining the assertion. Keep prose under ~280
-characters when possible — this is what `vault.sync-skills` will render into
+characters when possible — this is what `vault_sync-skills` will render into
 the deployed SKILL.md, and longer prose gets truncated or wraps awkwardly in
 agent context windows.
 

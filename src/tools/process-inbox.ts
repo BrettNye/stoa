@@ -20,7 +20,7 @@ const Input = z.object({
 });
 
 export const processInboxTool = {
-  name: "vault.process-inbox",
+  name: "vault_process-inbox",
   description: "Two-phase: (1) commit:false returns proposed type+id+title for each inbox item; (2) commit:true with items[] moves and adds frontmatter.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string; defaultWiki?: string }) => {

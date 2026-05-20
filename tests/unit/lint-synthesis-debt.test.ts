@@ -200,7 +200,7 @@ describe("SYNTHESIS_DEBT registered LintCheck", () => {
     expect(filtered[0].wiki).toBe("wiki-a");
   });
 
-  it("emits diagnostic with severity warning, page_id stable, and a vault.synthesize suggestion", () => {
+  it("emits diagnostic with severity warning, page_id stable, and a vault_synthesize suggestion", () => {
     const reg = lintCheckRegistry.find(c => c.code === SYNTHESIS_DEBT_CODE)!;
     const idx = {
       wikis: [],
@@ -216,7 +216,7 @@ describe("SYNTHESIS_DEBT registered LintCheck", () => {
     expect(out[0].severity).toBe("warning");
     expect(out[0].code).toBe(SYNTHESIS_DEBT_CODE);
     expect(out[0].page_id).toBe("concept-aaa"); // alphabetically first
-    expect(out[0].suggestion).toContain("vault.synthesize");
+    expect(out[0].suggestion).toContain("vault_synthesize");
     expect(out[0].suggestion).toContain("topic");
   });
 });

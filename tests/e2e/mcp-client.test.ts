@@ -38,27 +38,27 @@ describe("MCP e2e", () => {
     const r = await client.listTools();
     expect(r.tools).toHaveLength(50);
     const names = r.tools.map(t => t.name).sort();
-    expect(names).toContain("vault.recall");
-    expect(names).toContain("vault.task-claim");
-    expect(names).toContain("vault.claim");
-    expect(names).toContain("vault.list-claims");
+    expect(names).toContain("vault_recall");
+    expect(names).toContain("vault_task-claim");
+    expect(names).toContain("vault_claim");
+    expect(names).toContain("vault_list-claims");
   });
 
-  it("vault.recall returns hits from fixture", { timeout: 30000 }, async () => {
-    const r = await client.callTool({ name: "vault.recall", arguments: { topic: "foo" } });
+  it("vault_recall returns hits from fixture", { timeout: 30000 }, async () => {
+    const r = await client.callTool({ name: "vault_recall", arguments: { topic: "foo" } });
     const data = JSON.parse((r.content as any)[0].text);
     expect(data.hits.length).toBeGreaterThan(0);
   });
 
-  it("vault.list-wikis returns fixture wikis", { timeout: 30000 }, async () => {
-    const r = await client.callTool({ name: "vault.list-wikis", arguments: {} });
+  it("vault_list-wikis returns fixture wikis", { timeout: 30000 }, async () => {
+    const r = await client.callTool({ name: "vault_list-wikis", arguments: {} });
     const data = JSON.parse((r.content as any)[0].text);
     const names = data.wikis.map((w: any) => w.name).sort();
     expect(names).toEqual(["alpha", "beta"]);
   });
 
-  it("vault.read fetches a known page", { timeout: 30000 }, async () => {
-    const r = await client.callTool({ name: "vault.read", arguments: { id: "concept-foo", wiki: "alpha" } });
+  it("vault_read fetches a known page", { timeout: 30000 }, async () => {
+    const r = await client.callTool({ name: "vault_read", arguments: { id: "concept-foo", wiki: "alpha" } });
     const data = JSON.parse((r.content as any)[0].text);
     expect(data.frontmatter.id).toBe("concept-foo");
     expect(data.body.length).toBeGreaterThan(0);

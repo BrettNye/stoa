@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { profileStatsTool } from "../../src/tools/profile-stats.js";
 import { reindex } from "../../src/core/reindex.js";
 
-describe("vault.profile-stats", () => {
+describe("vault_profile-stats", () => {
   let vaultPath: string;
 
   beforeEach(async () => {

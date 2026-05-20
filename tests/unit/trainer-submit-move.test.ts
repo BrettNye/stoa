@@ -28,7 +28,7 @@ vi.mock("../../src/core/stadium-client.js", () => {
 import { trainerSubmitMoveTool } from "../../src/tools/trainer-submit-move.js";
 import * as stadiumClientModule from "../../src/core/stadium-client.js";
 
-describe("vault.trainer-submit-move handler", () => {
+describe("vault_trainer-submit-move handler", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let submitMoveMock: ReturnType<typeof vi.fn>;
 

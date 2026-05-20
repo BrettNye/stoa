@@ -25,7 +25,7 @@ const Input = z.object({
 });
 
 export const profileRegisterTool = {
-  name: "vault.profile-register",
+  name: "vault_profile-register",
   description:
     "Register a profile with the Stadium platform; persist returned platform_profile_id + stats to the profile file.",
   inputSchema: Input,

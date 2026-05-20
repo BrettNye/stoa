@@ -8,7 +8,7 @@ const Input = z.object({
 });
 
 export const moveFuseTool = {
-  name: 'vault.move-fuse',
+  name: 'vault_move-fuse',
   description: 'Fuse a canonical PokeAPI move with a registered real-skill into a usable move_id.',
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>): Promise<{ move_id: string }> => {

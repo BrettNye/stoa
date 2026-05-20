@@ -20,7 +20,7 @@ export const trainerSubmitDraftInput = z.object({
 });
 
 export const trainerSubmitDraftTool = {
-  name: 'vault.trainer-submit-draft',
+  name: 'vault_trainer-submit-draft',
   description: "Submit 6 picks (platform_profile_ids as ULIDs) during a match's drafting phase.",
   inputSchema: trainerSubmitDraftInput,
   handler: async (input: z.infer<typeof trainerSubmitDraftInput>) => {

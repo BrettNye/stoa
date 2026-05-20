@@ -7,7 +7,7 @@ const VALID_MODES = ["idea-map", "project-doc", "learning", "mixed"] as const;
 type WikiMode = typeof VALID_MODES[number];
 
 // Phase-2 T2-1 — accept BOTH the markdown-bold form (`**Family:** rastate`)
-// emitted by `vault.new-wiki` today and the plain key:value form
+// emitted by `vault_new-wiki` today and the plain key:value form
 // (`family: rastate`) per spec §5.1. Mirrors the regex pair already
 // battle-tested in core/lint-checks/family-member-mode-drift.ts, but
 // constrains the value to horizontal whitespace (no newline span) so that

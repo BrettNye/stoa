@@ -65,7 +65,7 @@ describe("lint — SUBAGENT_DEF_INVARIANT_VIOLATION on a real corrupted artifact
       d.code === "SUBAGENT_DEF_INVARIANT_VIOLATION" && d.severity === "error"
     );
     expect(errs.length).toBeGreaterThan(0);
-    expect(errs[0].suggestion).toContain("vault.sync-agents");
+    expect(errs[0].suggestion).toContain("vault_sync-agents");
 
     // Repair via re-deploy.
     await syncAgentsTool.handler(

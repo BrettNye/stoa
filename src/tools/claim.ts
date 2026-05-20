@@ -1,6 +1,6 @@
 // vault-mcp/src/tools/claim.ts
 //
-// task-claim-tool — `vault.claim` MCP tool. Single tool covers the four
+// task-claim-tool — `vault_claim` MCP tool. Single tool covers the four
 // authoring actions: create, re-validate, supersede, retract (with reject as
 // the no-write counterpoint to supersede when confidence is too low).
 //
@@ -80,7 +80,7 @@ export interface ClaimToolResult {
 }
 
 export const claimTool = {
-  name: "vault.claim",
+  name: "vault_claim",
   description:
     "Author, re-validate, supersede, or retract a claim. Single primitive over the four authoring actions; see spec §7.1.",
   inputSchema: Input,
@@ -117,7 +117,7 @@ export const claimTool = {
     // [] → global (preserved as-is).
     //
     // Bare-name normalization: agent ids in `profile:` must be stored without
-    // `agent:` or `profile-` prefixes, because `vault.agent-memory` normalizes
+    // `agent:` or `profile-` prefixes, because `vault_agent-memory` normalizes
     // its `agent_id` query input the same way and the predicate compares with
     // exact equality (`C.profile contains <A>`). Storing prefixed values would
     // silently make profile-targeted claims invisible to the targeted agent's

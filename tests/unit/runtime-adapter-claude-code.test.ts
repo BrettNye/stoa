@@ -128,7 +128,7 @@ describe("claude-code adapter — serialize (v1.7 §6.5)", () => {
     const content = files[".claude/agents/profile-charmander.md"];
     expect(content).toContain("Backend specialist");
     expect(content).toContain("## Channel/journal protocol");
-    expect(content).toContain("vault.task-claim");
+    expect(content).toContain("vault_task-claim");
     expect(content).toContain("## Moveset");
     expect(content).toContain("### TDD cycle");
     expect(content).toContain("**When to use:**");

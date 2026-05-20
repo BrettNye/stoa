@@ -9,7 +9,7 @@ import type { Diagnostic } from "../lint.js";
  * CLAIM_KEY_COLLISION (severity:warning) — corpus-wide rule.
  *
  * Two ACTIVE claims that share the identity tuple `(key, scope_hash)` are a
- * collision. `vault.claim` prevents this on the write path; this rule catches
+ * collision. `vault_claim` prevents this on the write path; this rule catches
  * manual hand-edits and git-merge artifacts where two branches each created
  * an active claim for the same identity.
  *
@@ -83,7 +83,7 @@ export function findClaimKeyCollisions(pages: ClaimLike[]): Diagnostic[] {
       page_id: sorted[0],
       message:
         `active claims share identity tuple (${tupleKey}): ${sorted.join(", ")}. ` +
-        `Resolve via vault.claim --revalidate or supersession.`,
+        `Resolve via vault_claim --revalidate or supersession.`,
       suggestion:
         "exactly one active claim should hold each (key, scope) tuple — supersede the older claim or retract the duplicate.",
     });
@@ -123,7 +123,7 @@ registerLintCheck({
 
     // Source 2 — disk walk of `wikis/<wiki>/claim/*.md`. Mirrors
     // claim-effective-below-floor.ts / claim-tag-repo-prefix-malformed.ts so
-    // the rule fires under `vault.lint` end-to-end (the production callsite)
+    // the rule fires under `vault_lint` end-to-end (the production callsite)
     // without depending on whether reindex picks up claim files.
     const wikisDir = join(ctx.vaultPath, "wikis");
     if (existsSync(wikisDir)) {

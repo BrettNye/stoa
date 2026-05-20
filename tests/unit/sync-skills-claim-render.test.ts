@@ -1,7 +1,7 @@
 // vault-mcp/tests/unit/sync-skills-claim-render.test.ts
 //
 // task-sync-skills-claim-rendering (Claims Plan 3, Wave 2). Verifies that
-// `vault.sync-skills` renders the §8.2 claim section into each move's vault
+// `vault_sync-skills` renders the §8.2 claim section into each move's vault
 // SKILL.md *before* `syncMoveset` deploys, so the deployed copy carries the
 // freshly-rendered `## Learned` block. Reverify path is unchanged — no
 // claim rendering on reverify.
@@ -86,7 +86,7 @@ function mkTempVaultWithAgentsTree(): string {
   return dir;
 }
 
-describe("vault.sync-skills — claim rendering pre-pass", () => {
+describe("vault_sync-skills — claim rendering pre-pass", () => {
   let vaultPath: string;
   let repoPath: string;
 

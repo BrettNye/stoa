@@ -1,6 +1,6 @@
 // vault-mcp/src/tools/list-claims.ts
 //
-// task-list-claims-tool — `vault.list-claims` MCP tool.
+// task-list-claims-tool — `vault_list-claims` MCP tool.
 //
 // Plan reference:
 // `wikis/_meta/plans/2026-05-02-vault-mcp-claims-plan-1-foundation-dag.md`
@@ -8,7 +8,7 @@
 // `wikis/_meta/specs/2026-05-02-vault-mcp-claims-design.md` §7.1.
 //
 // Pure read tool. Reads the `_index/claims.json` sidecar (built by
-// `vault.reindex` via `core/claims-index.ts`) for fast bucket lookup, then
+// `vault_reindex` via `core/claims-index.ts`) for fast bucket lookup, then
 // loads each individual claim via `ClaimsStore.read` for the canonical
 // per-claim shape. Falls back to a full-disk walk through the store when
 // the sidecar is missing — agents shouldn't be blocked on a stale index.
@@ -76,7 +76,7 @@ export interface ClaimEntry {
 }
 
 export const listClaimsTool = {
-  name: "vault.list-claims",
+  name: "vault_list-claims",
   description:
     "List claims with optional dimension filter, sorted by effective confidence descending.",
   inputSchema: Input,

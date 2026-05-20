@@ -1,10 +1,10 @@
 // vault-mcp/src/tools/rewrite-links.ts
 //
-// Phase-2 T3-5 — `vault.rewrite-links` MCP tool: bulk wikilink prefix rewrite
+// Phase-2 T3-5 — `vault_rewrite-links` MCP tool: bulk wikilink prefix rewrite
 // across the entire vault. Pure rewrite logic lives in `core/rewrite-links.ts`
 // (Wave 1 T1-2); this layer wires it to disk IO + reindex orchestration.
 //
-// Behaviour locked in Plan B "vault.rewrite-links semantics":
+// Behaviour locked in Plan B "vault_rewrite-links semantics":
 //   - Loads all pages from `_index/pages.json` via `loadIndex`.
 //   - For each page, reads its body + frontmatter `related:` from disk and
 //     calls `rewritePageLinks` with `normalizeScopes(input.scopes)`.
@@ -46,7 +46,7 @@ export interface RewriteLinksOutput {
 }
 
 export const rewriteLinksTool = {
-  name: "vault.rewrite-links",
+  name: "vault_rewrite-links",
   description:
     "Bulk-rewrite wikilink prefixes across the vault (body + frontmatter related:). Used for family migrations and wiki renames. Code-fence-safe; idempotent; dry-run by default.",
   inputSchema: Input,

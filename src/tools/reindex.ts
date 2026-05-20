@@ -5,7 +5,7 @@ import { reindex } from "../core/reindex.js";
 const Input = z.object({ wiki: z.string().optional() });
 
 export const reindexTool = {
-  name: "vault.reindex",
+  name: "vault_reindex",
   description: "Regenerate _index/*.json sidecars and per-wiki index.md rollups. Map auto-sections are not regenerated (deferred indefinitely per architecture spec).",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {

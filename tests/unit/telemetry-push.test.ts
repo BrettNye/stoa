@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 beforeEach(() => { vi.resetModules(); vi.unstubAllGlobals(); });
 
-describe('vault.telemetry-push', () => {
+describe('vault_telemetry-push', () => {
   beforeEach(() => {
     process.env.STADIUM_API_KEY = 'sk';
     process.env.STADIUM_BASE_URL = 'https://api.test';
@@ -112,7 +112,7 @@ describe('vault.telemetry-push', () => {
 
   it('exposes the canonical tool name and description', async () => {
     const { telemetryPushTool } = await import('../../src/tools/telemetry-push.js');
-    expect(telemetryPushTool.name).toBe('vault.telemetry-push');
+    expect(telemetryPushTool.name).toBe('vault_telemetry-push');
     expect(typeof telemetryPushTool.description).toBe('string');
     expect(telemetryPushTool.description.length).toBeGreaterThan(0);
   });

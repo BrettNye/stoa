@@ -35,7 +35,7 @@ function expandClaimedBy(vaultPath: string, claimedBy: string): Set<string> {
 }
 
 export const taskListTool = {
-  name: "vault.task-list",
+  name: "vault_task-list",
   description: "List tasks across the vault, with optional filters.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {

@@ -35,7 +35,7 @@ afterEach(() => {
   rmSync(target, { recursive: true, force: true });
 });
 
-describe("vault.sync-agents — multi-instance concurrent dispatch (v1.7 §7.3)", () => {
+describe("vault_sync-agents — multi-instance concurrent dispatch (v1.7 §7.3)", () => {
   it("two concurrent calls on different Pokemon both land in the registry", async () => {
     seedProfile(vault, "profile-charmander");
     seedProfile(vault, "profile-squirtle");

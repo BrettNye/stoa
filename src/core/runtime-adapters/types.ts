@@ -10,7 +10,7 @@
 
 export type RuntimeName = "claude-code"; // v1.8: | "openclaw"
 
-export type ToolName = string;  // e.g. "vault.task-claim", "Bash", "WebSearch"
+export type ToolName = string;  // e.g. "vault_task-claim", "Bash", "WebSearch"
 
 // Mirror of POKEMON_TYPES from core/pokemon.ts; widened here to avoid a
 // circular import. Validated structurally at intent-build time.

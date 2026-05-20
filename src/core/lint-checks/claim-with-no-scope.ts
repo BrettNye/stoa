@@ -4,7 +4,7 @@
 //
 // Warns when an active claim has all four scope dimensions empty
 // (profile, move, scope_wiki, tags). Such a claim has no read path that
-// will surface it: `vault.list-claims --profile=…` / `--move=…` /
+// will surface it: `vault_list-claims --profile=…` / `--move=…` /
 // `--scope-wiki=…` / `--tag=…` all miss it, and the global bucket is
 // only populated when at least *something* is set elsewhere on the
 // claim (see helpers.ts:mkTempVaultWithSidecar — global is keyed off

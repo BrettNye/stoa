@@ -88,11 +88,11 @@ Add an `mcpServers.stoa` entry. Use whichever form matches your install mode:
 }
 ```
 
-Restart Claude Code. The vault MCP tools (`vault.recall`, `vault.inbox`, `vault.read`, etc.) are now callable from any project.
+Restart Claude Code. The vault MCP tools (`vault_recall`, `vault_inbox`, `vault_read`, etc.) are now callable from any project.
 
 ### Project-scoped — per-repo `.mcp.json`
 
-Drop a `.mcp.json` at the root of a repo to set a vault-aware default specifically for that repo. Useful for setting `--default-wiki` so ambient calls (e.g., `vault.inbox` without an explicit `wiki:` argument) target the right wiki for that project:
+Drop a `.mcp.json` at the root of a repo to set a vault-aware default specifically for that repo. Useful for setting `--default-wiki` so ambient calls (e.g., `vault_inbox` without an explicit `wiki:` argument) target the right wiki for that project:
 
 ```json
 {
@@ -139,7 +139,7 @@ Create the file with `{}` if it doesn't exist. Add the `mcpServers.stoa` stanza 
 
 (Substitute `npx -y @stoa-mcp/cli` for the `command`+`args` pair if you're not globally installed.)
 
-**Verify:** quit and relaunch Claude Desktop fully (taskbar/menu → Quit, then reopen — the desktop app spawns each MCP server only on launch). Inside Cowork, ask: *"List the vault tools available to you."* You should see `vault.recall`, `vault.inbox`, `vault.read`, and the rest.
+**Verify:** quit and relaunch Claude Desktop fully (taskbar/menu → Quit, then reopen — the desktop app spawns each MCP server only on launch). Inside Cowork, ask: *"List the vault tools available to you."* You should see `vault_recall`, `vault_inbox`, `vault_read`, and the rest.
 
 ### What works in Cowork
 
@@ -158,7 +158,7 @@ Create the file with `{}` if it doesn't exist. Add the `mcpServers.stoa` stanza 
 In any Claude Code session (or Cowork chat):
 
 ```
-Use vault.recall to find pages about <some topic in your vault>.
+Use vault_recall to find pages about <some topic in your vault>.
 ```
 
 You should see ranked hits with title, type, and summary. If you get "tool not found" or "no MCP server":
@@ -169,7 +169,7 @@ You should see ranked hits with title, type, and summary. If you get "tool not f
    - npx: `npx -y @stoa-mcp/cli --version` works. First run will download the package.
    - From source: the path to `dist/bin.js` in your config is correct.
 3. **Vault path** — `STOA_VAULT_PATH` (or `--vault=…`) points at an absolute directory that exists and contains a `CLAUDE.md` at its root.
-4. **Index initialized** — run `stoa --vault=<vault-path> reindex` once. This generates `_index/{pages,tokens,links,wikis}.json` so `vault.recall` has something to search.
+4. **Index initialized** — run `stoa --vault=<vault-path> reindex` once. This generates `_index/{pages,tokens,links,wikis}.json` so `vault_recall` has something to search.
 5. **Client restarted** — both Claude Code and Claude Desktop only pick up new MCP server entries on relaunch.
 
 For deeper troubleshooting (logs, manual smoke tests), see [`manual-smoke-test.md`](./manual-smoke-test.md).

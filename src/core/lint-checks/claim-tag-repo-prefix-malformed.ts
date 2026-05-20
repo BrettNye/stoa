@@ -114,7 +114,7 @@ registerLintCheck({
               page_id: pageId,
               wiki: wikiName,
               message: `claim tag "${t}" references unknown repo "${value}" (not in _index/deployments.json)`,
-              suggestion: `register the repo via vault.bootstrap-repo, or correct the tag value to a known deployment`,
+              suggestion: `register the repo via vault_bootstrap-repo, or correct the tag value to a known deployment`,
             });
           }
         }

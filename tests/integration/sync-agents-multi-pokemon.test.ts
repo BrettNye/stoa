@@ -34,7 +34,7 @@ afterEach(() => {
   rmSync(target, { recursive: true, force: true });
 });
 
-describe("vault.sync-agents — multi-Pokemon halt-on-first-error (v1.7 §7.1)", () => {
+describe("vault_sync-agents — multi-Pokemon halt-on-first-error (v1.7 §7.1)", () => {
   it("deploys [charmander, broken, squirtle]: charmander deployed, broken failed, squirtle not attempted", async () => {
     seedProfile(vault, "profile-charmander", ["claude-code"]);
     seedProfile(vault, "profile-broken", []);  // applies_to empty → invariant 3 fail

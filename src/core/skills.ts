@@ -115,7 +115,7 @@ export function syncMoveset(input: SyncInput): SyncResult {
 /**
  * Remove the deployed skills directory for a given deployment entry.
  *
- * Used by `vault.evolve-profile` (Wave 3 Task 3-1) when
+ * Used by `vault_evolve-profile` (Wave 3 Task 3-1) when
  * `cleanup_old_skills_dir: true` to remove the pre-rename directory before
  * re-deploying under the new pokemon name. Spec §6.3.
  *

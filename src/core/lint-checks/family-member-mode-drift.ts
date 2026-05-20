@@ -16,7 +16,7 @@ import type { Diagnostic } from "../lint.js";
  *
  * Family + mode are read from each wiki's `wikis/<name>/CLAUDE.md`. Two
  * declaration formats are accepted:
- *   - markdown-bold: `**Mode:** project-doc` (current `vault.new-wiki` output).
+ *   - markdown-bold: `**Mode:** project-doc` (current `vault_new-wiki` output).
  *   - plain key:value: `mode: project-doc` (per spec §5.1's example).
  * The check accepts both because Wave 2 Task 2-1 (proper `family:` parsing
  * in `core/wikis.ts`) and Task 2-2 (rollup in `_index/wikis.json`) may not
@@ -31,7 +31,7 @@ import type { Diagnostic } from "../lint.js";
 
 // Two declaration shapes are accepted:
 //   - markdown bold with the colon INSIDE the bold: `**Mode:** project-doc`
-//     (current `vault.new-wiki` output, see core/wikis.ts).
+//     (current `vault_new-wiki` output, see core/wikis.ts).
 //   - plain key:value:                              `mode: project-doc`
 //     (per spec §5.1's example).
 // Note the colon-inside-bold form is `**Mode:**`, NOT `**Mode**:`.

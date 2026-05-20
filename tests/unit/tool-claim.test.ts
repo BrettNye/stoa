@@ -1,12 +1,12 @@
 // vault-mcp/tests/unit/tool-claim.test.ts
 //
-// task-claim-tool — vault.claim MCP tool. Walks every Acceptance bullet from
+// task-claim-tool — vault_claim MCP tool. Walks every Acceptance bullet from
 // `wikis/_meta/plans/2026-05-02-vault-mcp-claims-plan-1-foundation-dag.md`
 // §task-claim-tool: create / supersede / reject / override / revalidate /
 // retract paths, mutual-exclusion guards, profile-scoping default, and the
 // always-true `reindex_recommended` field.
 //
-// `vault.claim` is NOT registered in `allTools` in this branch (that's the
+// `vault_claim` is NOT registered in `allTools` in this branch (that's the
 // downstream task-tools-index-registration job). To stay self-contained, the
 // tests exercise the tool's exported `handler` directly with a minimal
 // `{ vaultPath, rawConfig: {} }` ctx — same shape the production stdio
@@ -24,9 +24,9 @@ import { scopeHash } from "../../src/core/scope-hash.js";
 
 const ctx = (vaultPath: string) => ({ vaultPath, rawConfig: {} });
 
-describe("vault.claim tool surface", () => {
+describe("vault_claim tool surface", () => {
   it("exports the canonical tool name and a Zod input schema", () => {
-    expect(claimTool.name).toBe("vault.claim");
+    expect(claimTool.name).toBe("vault_claim");
     expect(typeof claimTool.handler).toBe("function");
     expect(claimTool.inputSchema).toBeDefined();
     // input schema should at minimum reject calls missing `as`.
@@ -35,7 +35,7 @@ describe("vault.claim tool surface", () => {
   });
 });
 
-describe("vault.claim — create path", () => {
+describe("vault_claim — create path", () => {
   it("writes a new active claim file for a novel identity tuple", async () => {
     const vault = await mkTempVault();
     const result = await claimTool.handler(
@@ -73,7 +73,7 @@ describe("vault.claim — create path", () => {
     const file = path.join(vault, "wikis", "_agents", "claim", `${result.claim_id}.md`);
     const parsed = matter(await fs.readFile(file, "utf8"));
     // Handler strips `agent:` / `profile-` prefixes so the stored profile
-    // matches what `vault.agent-memory` normalizes its query input to.
+    // matches what `vault_agent-memory` normalizes its query input to.
     expect(parsed.data.profile).toEqual(["charmander"]);
   });
 
@@ -119,7 +119,7 @@ describe("vault.claim — create path", () => {
   });
 });
 
-describe("vault.claim — supersede path", () => {
+describe("vault_claim — supersede path", () => {
   it("supersedes existing claim when new confidence > existing's effective", async () => {
     const vault = await mkTempVault();
     // Seed an existing claim at 0.5, validated today (effective ≈ 0.5).
@@ -168,7 +168,7 @@ describe("vault.claim — supersede path", () => {
   });
 });
 
-describe("vault.claim — reject path", () => {
+describe("vault_claim — reject path", () => {
   it("rejects new claim with confidence below existing's effective", async () => {
     const vault = await mkTempVault();
     await claimTool.handler(
@@ -205,7 +205,7 @@ describe("vault.claim — reject path", () => {
   });
 });
 
-describe("vault.claim — override modifier", () => {
+describe("vault_claim — override modifier", () => {
   it("forces supersession at lower confidence when override: true", async () => {
     const vault = await mkTempVault();
     const first = await claimTool.handler(
@@ -228,7 +228,7 @@ describe("vault.claim — override modifier", () => {
   });
 });
 
-describe("vault.claim — revalidate path", () => {
+describe("vault_claim — revalidate path", () => {
   it("bumps last_validated in place; no new file", async () => {
     const vault = await mkTempVault();
     // Seed a stale claim directly via writeClaimFile so last_validated < today.
@@ -290,7 +290,7 @@ describe("vault.claim — revalidate path", () => {
   });
 });
 
-describe("vault.claim — retract path", () => {
+describe("vault_claim — retract path", () => {
   it("retracts a claim authored by the calling agent", async () => {
     const vault = await mkTempVault();
     const first = await claimTool.handler(
@@ -353,7 +353,7 @@ describe("vault.claim — retract path", () => {
   });
 });
 
-describe("vault.claim — mutual exclusion of modifiers", () => {
+describe("vault_claim — mutual exclusion of modifiers", () => {
   it("throws when override and revalidate are both set", async () => {
     const vault = await mkTempVault();
     await expect(
@@ -410,7 +410,7 @@ describe("vault.claim — mutual exclusion of modifiers", () => {
   });
 });
 
-describe("vault.claim — input validation", () => {
+describe("vault_claim — input validation", () => {
   it("throws when key is missing on create / supersede / revalidate", async () => {
     const vault = await mkTempVault();
     await expect(
@@ -448,7 +448,7 @@ describe("vault.claim — input validation", () => {
   });
 });
 
-describe("vault.claim — dedup via findByIdentity", () => {
+describe("vault_claim — dedup via findByIdentity", () => {
   it("create-after-supersede recognizes the new active claim, not the old one", async () => {
     const vault = await mkTempVault();
     const first = await claimTool.handler(

@@ -1,7 +1,7 @@
 // vault-mcp/tests/integration/lint-claims-registration.test.ts
 //
 // Plan 1 §task-lint-checks-registration. Integration test asserting that
-// invoking `vault.lint` over a vault containing intentionally-broken claim
+// invoking `vault_lint` over a vault containing intentionally-broken claim
 // files emits diagnostics from all six new claim lint rules:
 //
 //   Group A (registered in their own files via registerLintCheck):
@@ -114,7 +114,7 @@ async function runLint() {
   );
 }
 
-describe("vault.lint — claim rule registration (all 6 rules fire)", () => {
+describe("vault_lint — claim rule registration (all 6 rules fire)", () => {
   it("emits CLAIM_WITHOUT_EVIDENCE for an active claim with empty evidence", async () => {
     writeClaim("_agents", {
       id: "claim-no-evidence",

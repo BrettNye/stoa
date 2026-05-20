@@ -40,7 +40,7 @@ async function setLastValidated(vaultPath: string, claimId: string, iso: string)
   await fs.writeFile(file, out, "utf8");
 }
 
-describe("vault.list-claims tool", () => {
+describe("vault_list-claims tool", () => {
   it("returns claims sorted by effective confidence descending (by=profile)", async () => {
     // NB (bug-2026-05-19): sidecar buckets are keyed by *bare* agent ids
     // because vault.claim strips `profile-` / `agent:` before storing

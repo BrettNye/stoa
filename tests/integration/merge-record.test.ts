@@ -1,4 +1,4 @@
-// Phase-3 T3-2 — `vault.merge-record` integration tests.
+// Phase-3 T3-2 — `vault_merge-record` integration tests.
 //
 // The tool wraps `core/merge-record.composeMergeJournal` + `computeTaskTransition`
 // with three IO concerns:
@@ -94,7 +94,7 @@ function seedVault(): string {
   return v;
 }
 
-describe("phase-3 T3-2 — vault.merge-record tool", () => {
+describe("phase-3 T3-2 — vault_merge-record tool", () => {
   afterEach(() => {
     __setNowFnForTests(undefined);
     if (vault) rmSync(vault, { recursive: true, force: true });

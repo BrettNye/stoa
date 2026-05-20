@@ -1,7 +1,7 @@
 // vault-mcp/tests/unit/tools-index-claims.test.ts
 //
 // task-tools-index-registration — assert that the two claims-foundation tools
-// (`vault.claim`, `vault.list-claims`) are registered in the canonical
+// (`vault_claim`, `vault_list-claims`) are registered in the canonical
 // `allTools` array exported from `src/tools/index.ts`. Until this test passes,
 // downstream tests using `callTool` would not be able to dispatch to either
 // tool through the registry — the tool modules export their handlers, but the
@@ -23,22 +23,22 @@ import { allTools } from "../../src/tools/index.js";
 import { callTool, mkTempVault, mkTempVaultWithSidecar } from "../helpers.js";
 
 describe("tools/index — claims tool registration", () => {
-  it("registers vault.claim in allTools with a handler", () => {
-    const tool = allTools.find((t) => t.name === "vault.claim");
+  it("registers vault_claim in allTools with a handler", () => {
+    const tool = allTools.find((t) => t.name === "vault_claim");
     expect(tool).toBeDefined();
     expect(typeof tool!.handler).toBe("function");
   });
 
-  it("registers vault.list-claims in allTools with a handler", () => {
-    const tool = allTools.find((t) => t.name === "vault.list-claims");
+  it("registers vault_list-claims in allTools with a handler", () => {
+    const tool = allTools.find((t) => t.name === "vault_list-claims");
     expect(tool).toBeDefined();
     expect(typeof tool!.handler).toBe("function");
   });
 
-  it("dispatches vault.claim through callTool against a temp vault", async () => {
+  it("dispatches vault_claim through callTool against a temp vault", async () => {
     const vault = await mkTempVault();
     const result = await callTool(
-      "vault.claim",
+      "vault_claim",
       {
         key: "registration.smoke",
         title: "registration smoke",
@@ -53,7 +53,7 @@ describe("tools/index — claims tool registration", () => {
     expect(result.reindex_recommended).toBe(true);
   });
 
-  it("dispatches vault.list-claims through callTool against a temp vault", async () => {
+  it("dispatches vault_list-claims through callTool against a temp vault", async () => {
     // NB (bug-2026-05-19): sidecar buckets are keyed by bare agent ids
     // because vault.claim strips `profile-` / `agent:` before storing.
     // value: filter is normalized the same way in list-claims, so a
@@ -68,7 +68,7 @@ describe("tools/index — claims tool registration", () => {
       },
     ]);
     const result = await callTool(
-      "vault.list-claims",
+      "vault_list-claims",
       { by: "profile", value: "profile-charmander", min_effective_confidence: 0, status: ["active"], limit: 50 },
       vault,
     );

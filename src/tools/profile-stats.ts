@@ -11,7 +11,7 @@ const Input = z.object({
 });
 
 export const profileStatsTool = {
-  name: "vault.profile-stats",
+  name: "vault_profile-stats",
   description: "Returns per-profile counts (tasks completed/failed/in-flight, journals, channels active, moves-used frequency) plus next-evolution threshold.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
@@ -35,7 +35,7 @@ export const profileStatsTool = {
 
     const profilesJsonPath = join(ctx.vaultPath, "_index", "profiles.json");
     if (!existsSync(profilesJsonPath)) {
-      throw new Error("PROFILE_NOT_FOUND: _index/profiles.json missing — run vault.reindex first");
+      throw new Error("PROFILE_NOT_FOUND: _index/profiles.json missing — run vault_reindex first");
     }
     const data = JSON.parse(readFileSync(profilesJsonPath, "utf8"));
     const row = data[input.pokemon_id];

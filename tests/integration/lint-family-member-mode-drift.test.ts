@@ -44,7 +44,7 @@ function writeWiki(spec: WikiSpec) {
   const root = join(vault, "wikis", spec.name);
   mkdirSync(root, { recursive: true });
   writeMap(spec.name);
-  // Emit the conventional CLAUDE.md fragment used by `vault.new-wiki`:
+  // Emit the conventional CLAUDE.md fragment used by `vault_new-wiki`:
   // `**Mode:** <mode>` plus an optional `family: <name>` line. The check
   // must accept both the markdown-bold form (today) and plain `mode: <m>`
   // (per spec §5.1) — we exercise mostly markdown-bold here since it

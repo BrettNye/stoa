@@ -65,7 +65,7 @@ describe("SUBAGENT_DEF_INVARIANT_VIOLATION (v1.7 §7.2)", () => {
       "",
       "## Channel/journal protocol",
       "",
-      "vault.task-claim and the rest are documented here.",
+      "vault_task-claim and the rest are documented here.",
     ].join("\n");
     seedDeployment(join(target, ".claude", "agents", "profile-charmander.md"), wellFormed);
     const diagnostics = check()!.run(

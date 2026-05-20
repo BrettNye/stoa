@@ -10,7 +10,7 @@ const Input = z.object({
 });
 
 export const channelTailTool = {
-  name: "vault.channel-tail",
+  name: "vault_channel-tail",
   description: "Pull recent journal/task entries on a channel since a timestamp.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {

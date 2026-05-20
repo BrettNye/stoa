@@ -10,7 +10,7 @@ const Input = z.object({
 });
 
 export const trainerAcceptMatchTool = {
-  name: 'vault.trainer-accept-match',
+  name: 'vault_trainer-accept-match',
   description: 'Accept a pending_invite match; transitions to drafting.',
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>) => {

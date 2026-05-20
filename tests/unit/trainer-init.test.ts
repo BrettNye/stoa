@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 
 beforeEach(() => { vi.resetModules(); vi.unstubAllGlobals(); });
 
-describe('vault.trainer-init', () => {
+describe('vault_trainer-init', () => {
   const vaultPath = join(tmpdir(), 'vault-trainer-init-test-' + Date.now() + '-' + Math.random());
   beforeEach(() => {
     mkdirSync(join(vaultPath, 'wikis', '_agents'), { recursive: true });

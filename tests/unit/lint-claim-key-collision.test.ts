@@ -1,7 +1,7 @@
 // Tests for the corpus-wide claim-key-collision lint rule.
 //
 // Two ACTIVE claims sharing the same identity tuple `(key, scope_hash)` are
-// a collision. The vault.claim write path prevents this; the rule catches
+// a collision. The vault_claim write path prevents this; the rule catches
 // hand-edited files and git-merge artifacts.
 //
 // Plan reference: wikis/_meta/plans/2026-05-02-vault-mcp-claims-plan-1-

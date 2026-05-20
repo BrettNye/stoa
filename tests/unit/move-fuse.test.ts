@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 beforeEach(() => { vi.resetModules(); vi.unstubAllGlobals(); });
 
-describe('vault.move-fuse', () => {
+describe('vault_move-fuse', () => {
   beforeEach(() => {
     process.env.STADIUM_API_KEY = 'sk';
     process.env.STADIUM_BASE_URL = 'https://api.test';

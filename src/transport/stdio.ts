@@ -15,7 +15,7 @@ import { matchers, getAllGlobs } from "../core/eventbus/matchers/index.js";
 
 /**
  * The shape of the dispatch context every tool handler receives. PokeAPI-touching
- * tools (vault.evolve-profile proposal phase, vault.suggest-pokemon) read
+ * tools (vault_evolve-profile proposal phase, vault_suggest-pokemon) read
  * `fetcher` and silently fall back to non-PokeAPI behaviour when it's missing —
  * so this *must* be populated for production MCP calls. See spec §4.3, §7.4.
  *

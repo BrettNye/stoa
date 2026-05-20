@@ -1,6 +1,6 @@
 // vault-mcp/src/tools/agent-memory.ts
 //
-// `vault.agent-memory` MCP tool — identity-keyed working context for an agent.
+// `vault_agent-memory` MCP tool — identity-keyed working context for an agent.
 //
 // Spec: wikis/_meta/specs/2026-05-13-agent-memory-design.md §5.1 (input schema),
 // §8.3 (error semantics). All error-semantics rows are handled by the core
@@ -23,7 +23,7 @@ const Input = z.object({
 });
 
 export const agentMemoryTool = {
-  name: "vault.agent-memory",
+  name: "vault_agent-memory",
   description:
     "Identity-keyed working context for an agent: ranked, scope-aware, decay-aware claims relevant to a task. Read-only. Falls back to disk walk when the claims sidecar is missing or stale. See spec wikis/_meta/specs/2026-05-13-agent-memory-design.md.",
   inputSchema: Input,

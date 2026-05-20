@@ -127,7 +127,7 @@ const Input = z.object({
 });
 
 export const evolveProfileTool = {
-  name: "vault.evolve-profile",
+  name: "vault_evolve-profile",
   description: "Two-phase profile evolution. commit:false returns a proposal (eligible? proposed shape, rationale). commit:true applies the proposal, optionally renaming the profile.",
   inputSchema: Input,
   handler: async (

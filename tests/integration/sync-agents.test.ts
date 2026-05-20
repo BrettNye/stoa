@@ -49,7 +49,7 @@ afterEach(() => {
   rmSync(target, { recursive: true, force: true });
 });
 
-describe("vault.sync-agents — full lifecycle (v1.7 §7.3)", () => {
+describe("vault_sync-agents — full lifecycle (v1.7 §7.3)", () => {
   it("deploys → verifies → removes → re-deploys idempotently → re-deploys on profile edit", async () => {
     seedProfile(vault, "profile-charmander", { pokemon_type: "fire" }, "Backend specialist v1.\n");
     execSync("git add . && git commit -q -m seed", { cwd: vault });

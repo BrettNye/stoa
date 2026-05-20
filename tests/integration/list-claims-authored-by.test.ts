@@ -1,6 +1,6 @@
 // vault-mcp/tests/integration/list-claims-authored-by.test.ts
 //
-// task-list-claims-authored-by — verifies that `vault.list-claims` accepts
+// task-list-claims-authored-by — verifies that `vault_list-claims` accepts
 // `by: "authored_by"` at the Zod boundary and correctly filters claims via
 // the sidecar fast-path, the disk-walk fallback, and rejects unknown `by`
 // values at parse time.
@@ -13,7 +13,7 @@ import { listClaimsTool } from "../../src/tools/list-claims.js";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
-describe("vault.list-claims — by=authored_by", () => {
+describe("vault_list-claims — by=authored_by", () => {
   it("sidecar fast-path: returns only claims with matching authored_by", async () => {
     const vault = await mkTempVault();
 
@@ -41,10 +41,10 @@ describe("vault.list-claims — by=authored_by", () => {
     });
 
     // Build sidecar (populates by_authored_by bucket via buildClaimsIndex).
-    await callTool("vault.reindex", {}, vault);
+    await callTool("vault_reindex", {}, vault);
 
     const r = await callTool(
-      "vault.list-claims",
+      "vault_list-claims",
       { by: "authored_by", value: "agent:charmander", status: ["active"] },
       vault,
     );
@@ -80,13 +80,13 @@ describe("vault.list-claims — by=authored_by", () => {
       tags: [],
     });
 
-    // Deliberately DO NOT call vault.reindex — no sidecar exists.
+    // Deliberately DO NOT call vault_reindex — no sidecar exists.
     // The disk-walk fallback path triggers matchesBucket for authored_by.
     const sidecarPath = path.join(vault, "_index", "claims.json");
     await expect(fs.stat(sidecarPath)).rejects.toThrow();
 
     const r = await callTool(
-      "vault.list-claims",
+      "vault_list-claims",
       { by: "authored_by", value: "agent:squirtle", status: ["active"] },
       vault,
     );

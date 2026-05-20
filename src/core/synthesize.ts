@@ -95,7 +95,7 @@ export function synthesize(vaultPath: string, input: SynthesizeInput): Synthesiz
   // Notes section: caller-supplied prose verbatim, or fallback stub.
   const notesBody = input.prose !== undefined
     ? input.prose
-    : "(Hand-edit this section to add the actual synthesis prose. The agent should produce this from input contents on real runs; this stub is what `vault.synthesize` writes when called without an LLM.)";
+    : "(Hand-edit this section to add the actual synthesis prose. The agent should produce this from input contents on real runs; this stub is what `vault_synthesize` writes when called without an LLM.)";
 
   // Protected manual-notes zone: extract content from the prior file (if any)
   // so re-compiles do not lose hand-edited material. First compile seeds an

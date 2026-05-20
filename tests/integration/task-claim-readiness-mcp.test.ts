@@ -47,7 +47,7 @@ function writeTaskPage(
   return updated;
 }
 
-describe("vault.task-claim — readiness gate at MCP boundary", () => {
+describe("vault_task-claim — readiness gate at MCP boundary", () => {
   let vaultPath: string;
 
   beforeEach(() => {

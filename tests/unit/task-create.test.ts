@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { taskCreateTool } from "../../src/tools/task-create.js";
 
-describe("vault.task-create", () => {
+describe("vault_task-create", () => {
   let vaultPath: string;
 
   beforeEach(() => {

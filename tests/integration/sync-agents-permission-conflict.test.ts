@@ -34,7 +34,7 @@ afterEach(() => {
   rmSync(target, { recursive: true, force: true });
 });
 
-describe("vault.sync-agents — invariant-6 permission-conflict surfacing (v1.7 §6.4 + §7.3)", () => {
+describe("vault_sync-agents — invariant-6 permission-conflict surfacing (v1.7 §6.4 + §7.3)", () => {
   it("warns naming the conflicting tool but completes deploy", async () => {
     seedProfile(vault, "profile-charmander");
     execSync("git add . && git commit -q -m seed", { cwd: vault });
