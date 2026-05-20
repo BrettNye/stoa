@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { describe, it, expect } from "vitest";
+import { mkdtempSync, mkdirSync, writeFileSync, chmodSync } from "node:fs";
+import { tmpdir, platform } from "node:os";
 import { join } from "node:path";
 import { runDiagnostics } from "../../src/core/onboard-diagnose.js";
 import { PRIMER_MARKER_START } from "../../src/core/ai-primer-template.js";
@@ -14,14 +14,6 @@ function makeClaudeDir(home: string): string {
   mkdirSync(dir, { recursive: true });
   return dir;
 }
-
-it("flags missing primer with a fix instruction", () => {
-  const home = makeTmpHome();
-  const checks = runDiagnostics({ home });
-  const primer = checks.find((c) => c.name === "AI-primer present");
-  expect(primer?.ok).toBe(false);
-  expect(primer?.fix).toMatch(/stoa onboard/);
-});
 
 describe("runDiagnostics", () => {
   describe("AI-primer check", () => {
@@ -119,7 +111,8 @@ describe("runDiagnostics", () => {
 
     it("fails when vaultPath does not exist", () => {
       const home = makeTmpHome();
-      const checks = runDiagnostics({ home, vaultPath: "/nonexistent/path/to/vault" });
+      const nonexistentPath = join(tmpdir(), "stoa-diag-nonexistent-" + Date.now());
+      const checks = runDiagnostics({ home, vaultPath: nonexistentPath });
       const check = checks.find((c) => c.name === "Vault path")!;
       expect(check.ok).toBe(false);
       expect(check.fix).toBeTruthy();
@@ -132,12 +125,31 @@ describe("runDiagnostics", () => {
       const check = checks.find((c) => c.name === "Vault path")!;
       expect(check.ok).toBe(true);
     });
+
+    it.skipIf(platform() === "win32")("fails when vaultPath exists but is not writable", () => {
+      // chmod 0o444 (read-only) does not reliably restrict writes on Windows (ACL semantics differ),
+      // so this test is skipped on win32. The write-probe implementation still protects Windows users
+      // by attempting an actual write rather than relying on accessSync W_OK.
+      const home = makeTmpHome();
+      const vaultPath = mkdtempSync(join(tmpdir(), "vault-readonly-"));
+      chmodSync(vaultPath, 0o444);
+      try {
+        const checks = runDiagnostics({ home, vaultPath });
+        const check = checks.find((c) => c.name === "Vault path")!;
+        expect(check.ok).toBe(false);
+        expect(check.fix).toBeTruthy();
+      } finally {
+        // Restore permissions so temp cleanup can proceed
+        chmodSync(vaultPath, 0o755);
+      }
+    });
   });
 
   describe("all failed checks have a non-empty fix string", () => {
     it("every ok:false check has a non-empty fix", () => {
       const home = makeTmpHome();
-      const checks = runDiagnostics({ home, vaultPath: "/nonexistent/path/to/vault" });
+      const nonexistentPath = join(tmpdir(), "stoa-diag-nonexistent-" + Date.now());
+      const checks = runDiagnostics({ home, vaultPath: nonexistentPath });
       for (const check of checks) {
         if (!check.ok) {
           expect(check.fix, `check "${check.name}" has ok:false but no fix`).toBeTruthy();

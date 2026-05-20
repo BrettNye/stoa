@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, accessSync, constants } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { PRIMER_MARKER_START } from "./ai-primer-template.js";
 
@@ -75,8 +75,10 @@ function checkVaultPath(vaultPath: string): DiagnoseCheck {
       fix: "Recreate the vault or run `stoa onboard`.",
     };
   }
+  const probePath = join(vaultPath, ".stoa-write-probe");
   try {
-    accessSync(vaultPath, constants.W_OK);
+    writeFileSync(probePath, "");
+    rmSync(probePath);
     return {
       name: "Vault path",
       ok: true,
