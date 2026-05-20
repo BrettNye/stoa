@@ -5,6 +5,7 @@ import { type SyncFolder } from "./sync-folder-detection.js";
 export type InterviewAnswers = {
   team_or_solo: "team" | "solo";
   vault_path_chosen?: string;
+  /** Raw surface keys (e.g. "code"), not wiki names. Use WIKI_FROM_SURFACE to map to wiki names (e.g. "codebase") as stored in per_wiki_descriptions. */
   work_surfaces: string[];
   role: "engineering" | "sales" | "marketing" | "leadership" | "other";
   interaction_mode: "passive" | "active";
@@ -47,13 +48,15 @@ export async function runInterview(opts: InterviewOpts): Promise<InterviewAnswer
 
   try {
     const q1 = (await ask("Q1. Joining existing vault [j] or starting fresh [s]? ")).trim().toLowerCase();
-    const team = q1.startsWith("j");
+    const team = q1.startsWith("j"); // "j" = join existing vault → team flow
 
     let vault_path_chosen: string | undefined;
     if (team) {
       vault_path_chosen = (await ask("Path to existing vault folder: ")).trim();
     }
 
+    // Q-numbers are out of sequence in the source on purpose: Q3 (role) and Q4 (mode)
+    // are asked for ALL users; Q2/Q5/Q5b are gated behind the solo branch below.
     const roleAnswer = (await ask(
       "Q3. Role — engineering [e] sales [s] marketing [m] leadership [l] other [o]? "
     )).trim().toLowerCase();
