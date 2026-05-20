@@ -1,8 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import {
   MINIMAL_COORDINATION_TOOLSET,
   CHANNEL_JOURNAL_PROTOCOL_GUIDANCE,
   mcpToolName,
+  mcpToolNamePattern,
 } from "../../src/core/subagent-protocol.js";
 
 describe("subagent-protocol — minimal coordination toolset (v1.7 §6.4 invariant 1)", () => {
@@ -68,5 +69,60 @@ describe("subagent-protocol — mcpToolName mapping", () => {
 
   it("rejects malformed input with a thrown error", () => {
     expect(() => mcpToolName("")).toThrow();
+  });
+});
+
+describe("subagent-protocol — server-name resolution", () => {
+  const originalEnv = process.env.STOA_MCP_SERVER_NAME;
+  afterEach(() => {
+    if (originalEnv === undefined) delete process.env.STOA_MCP_SERVER_NAME;
+    else process.env.STOA_MCP_SERVER_NAME = originalEnv;
+  });
+
+  it("explicit serverName arg wins over env and default", () => {
+    process.env.STOA_MCP_SERVER_NAME = "env-name";
+    expect(mcpToolName("vault_recall", "explicit-name")).toBe("mcp__explicit-name__vault_recall");
+  });
+
+  it("STOA_MCP_SERVER_NAME env var wins over the 'vault' default", () => {
+    process.env.STOA_MCP_SERVER_NAME = "stoa";
+    expect(mcpToolName("vault_recall")).toBe("mcp__stoa__vault_recall");
+  });
+
+  it("falls back to 'vault' when no explicit arg and no env var", () => {
+    delete process.env.STOA_MCP_SERVER_NAME;
+    expect(mcpToolName("vault_recall")).toBe("mcp__vault__vault_recall");
+  });
+
+  it("native tool names ignore server-name resolution entirely", () => {
+    process.env.STOA_MCP_SERVER_NAME = "stoa";
+    expect(mcpToolName("Bash", "anything")).toBe("Bash");
+    expect(mcpToolName("WebSearch")).toBe("WebSearch");
+  });
+});
+
+describe("subagent-protocol — mcpToolNamePattern (prefix-agnostic match)", () => {
+  it("matches a vault_* tool under any server-name prefix", () => {
+    const re = mcpToolNamePattern("vault_task-claim");
+    expect(re.test("- mcp__vault__vault_task-claim")).toBe(true);
+    expect(re.test("- mcp__stoa__vault_task-claim")).toBe(true);
+    expect(re.test("- mcp__stoa-dev__vault_task-claim")).toBe(true);
+    expect(re.test("- mcp__my_custom__vault_task-claim")).toBe(true);
+  });
+
+  it("does NOT match an unrelated tool name", () => {
+    const re = mcpToolNamePattern("vault_task-claim");
+    expect(re.test("- mcp__vault__vault_recall")).toBe(false);
+    expect(re.test("- mcp__stoa__vault_claim")).toBe(false);
+  });
+
+  it("treats native tool names without an mcp__ prefix", () => {
+    const re = mcpToolNamePattern("Bash");
+    expect(re.test("  - Bash")).toBe(true);
+    expect(re.test("- WebSearch")).toBe(false);
+  });
+
+  it("rejects malformed input with a thrown error", () => {
+    expect(() => mcpToolNamePattern("")).toThrow();
   });
 });

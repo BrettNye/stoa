@@ -198,6 +198,21 @@ describe("claude-code adapter — deploy + verify + remove (v1.7 §6.4 invariant
     expect(v.violations.some(x => x.invariant === 1)).toBe(true);
   });
 
+  it("verify is prefix-agnostic — accepts an agent file deployed under a non-default server name", async () => {
+    await claudeCodeAdapter.deploy(SAMPLE_INTENT, target, {
+      mode: "copy", overwrite: true, registry_path: vaultPath
+    });
+    // Simulate the file having been written under a different MCP server
+    // name (e.g. user registered stoa as "stoa" rather than "vault").
+    const path = join(target, ".claude", "agents", "profile-charmander.md");
+    const raw = readFileSync(path, "utf8");
+    const renamed = raw.replace(/mcp__vault__/g, "mcp__stoa__");
+    writeFileSync(path, renamed);
+    const v = await claudeCodeAdapter.verify(SAMPLE_INTENT, target);
+    expect(v.ok).toBe(true);
+    expect(v.violations).toHaveLength(0);
+  });
+
   it("remove deletes the agent def + clears registry entry (invariant 4)", async () => {
     const dep = await claudeCodeAdapter.deploy(SAMPLE_INTENT, target, {
       mode: "copy", overwrite: true, registry_path: vaultPath
