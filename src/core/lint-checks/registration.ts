@@ -52,6 +52,11 @@ import type { PerPageRule, PerPageRulePage, LintSeverity } from "./per-page-rule
 import "./claim-key-collision.js";
 import "./claim-effective-below-floor.js";
 import "./claim-tag-repo-prefix-malformed.js";
+import "./claim-source-type-invalid.js";
+import "./move-scope-wiki-folder-mismatch.js";
+import "./move-scope-wiki-missing.js";
+import "./move-portable-has-scope.js";
+import "./move-id-shadows-portable.js";
 
 // Group B — pull the rule objects in by name and adapt them.
 import { claimWithoutEvidence } from "./claim-without-evidence.js";

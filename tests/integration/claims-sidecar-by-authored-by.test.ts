@@ -44,7 +44,7 @@ describe("claims sidecar — by_authored_by bucket", () => {
     expect(idx.by_authored_by["agent:charmander"]).toContain("claim-a");
     expect(idx.by_authored_by["agent:pidgey"]).toContain("claim-b");
     expect(idx.by_authored_by["human:brett"]).toContain("claim-c");
-    expect(idx.schema_version).toBe(2);
+    expect(idx.schema_version).toBe(3);
   });
 
   it("omits a claim from by_authored_by when authored_by is empty or absent", async () => {

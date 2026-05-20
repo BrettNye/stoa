@@ -105,7 +105,7 @@ describe("claim flow roundtrip — Plan 1 join point", () => {
     // ── step 2: vault_reindex builds the claims sidecar ───────────────────
     await callTool("vault_reindex", {}, vault);
     const sidecar1 = await readClaimsSidecar(vault);
-    expect(sidecar1.schema_version).toBe(2);
+    expect(sidecar1.schema_version).toBe(3);
     // Default scoping (§6.6): profile defaulted to [`as`], with `agent:` /
     // `profile-` prefixes stripped to match what `vault_agent-memory`
     // normalizes its query input to. So the sidecar bucket is keyed by the
@@ -219,7 +219,7 @@ describe("claim flow roundtrip — Plan 1 join point", () => {
     expect(sidecar3.by_profile).toEqual({});
     expect(sidecar3.by_tag).toEqual({});
     expect(sidecar3.global).toEqual([]);
-    expect(sidecar3.schema_version).toBe(2);
+    expect(sidecar3.schema_version).toBe(3);
     expect(typeof sidecar3.generated_at).toBe("string");
 
     const finalList = await callTool(

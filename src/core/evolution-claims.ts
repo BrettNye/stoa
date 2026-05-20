@@ -16,6 +16,8 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
 import type { ParsedClaim } from "./claims.js";
+import type { SourceTypeWeights } from "../config.js";
+import { effectiveConfidence } from "./decay.js";
 
 // ---------- computeEligibility ----------
 
@@ -149,6 +151,57 @@ export interface RationaleInput {
   topClusters: Array<{ tag: string; count: number }>;
   uncoveredMoveHints: string[];
   topEvidenceClaimIds: string[];
+}
+
+// ---------- clusterWeight ----------
+//
+// T5 of the specialist-agent-substrate DAG (spec §5.4). Per-cluster
+// weighted aggregation:
+//
+//   cluster_weight = sum_over_claims(effective_confidence × source_type_weight)
+//
+// Where source_type_weight is `weights[claim.source_type ?? "lived"]`. The
+// back-compat default of `lived` matches the zod default in
+// `types/claim.ts:Base.source_type` so claims authored before T1 (which
+// have no source_type field on disk but parse with `lived` via zod) are
+// weighted at the lived rate.
+//
+// Decay parameters mirror `loadActiveProfileClaims`'s effective-confidence
+// call so weights are applied to the same (decayed) per-claim confidence
+// the rest of the orchestrator already uses for rendering / suggestion.
+// `computeEligibility` (the task-count eligibility gate) does NOT consult
+// this function — its inputs are unchanged. Per spec §5.4, weights affect
+// specialty-cluster identification and rationale ONLY.
+
+export interface ClusterWeightDecayConfig {
+  half_life_days: number;
+  effective_floor: number;
+}
+
+/**
+ * Compute the source-type-weighted cluster_weight for one bucket of claims.
+ * Pure (modulo the injected `today` date); never reads the clock.
+ *
+ * Each claim contributes `effective_confidence(c, today, decay) × weight`
+ * where `weight = weights[c.source_type ?? "lived"]`. Sum over the bucket.
+ */
+export function clusterWeight(
+  claims: ParsedClaim[],
+  weights: SourceTypeWeights,
+  today: Date,
+  decay: ClusterWeightDecayConfig,
+): number {
+  let total = 0;
+  for (const c of claims) {
+    const eff = effectiveConfidence(
+      { confidence: c.confidence, last_validated: c.last_validated, status: c.status },
+      today,
+      decay,
+    );
+    const w = weights[(c.source_type ?? "lived") as keyof SourceTypeWeights];
+    total += eff * w;
+  }
+  return total;
 }
 
 export function renderRationale(input: RationaleInput): string {

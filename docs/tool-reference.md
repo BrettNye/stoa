@@ -454,6 +454,7 @@ Single authoring primitive over four claim actions: create, revalidate, supersed
 - `revalidate` (boolean, optional): Bump `last_validated`.
 - `retract` (string, optional): Claim id to retract.
 - `reason` (string, optional): Required with `retract`.
+- `source_type` (`"lived" | "curricular" | "retro"`, optional, default `"lived"`): Claim provenance. `lived` cites real work evidence; `curricular` cites a `guide-course-*` page; `retro` cites older artifacts a pattern was extracted from. Written to claim frontmatter as `source_type:`. Validated against the fixed value set on write. CLI subcommand not yet exposed — call via MCP tool.
 - `wiki` (string, optional): Destination wiki; falls back to `defaultWiki` then `_agents`.
 
 **Returns:** `{ claim_id, action, superseded_id?, rejection?, reindex_recommended: true }`. `action` is one of `created | revalidated | superseded | retracted | rejected`.
@@ -463,6 +464,11 @@ Single authoring primitive over four claim actions: create, revalidate, supersed
 **Example:**
 ```json
 { "tool": "vault_claim", "args": { "key": "prefer-tdd-cycle-for-bugfixes", "title": "Prefer TDD for bugfixes", "as": "pidgey", "confidence": 0.8 } }
+```
+
+Authoring a curricular claim from a course walkthrough:
+```json
+{ "tool": "vault_claim", "args": { "key": "crewtracks.integration-test-harness", "title": "CrewTracks integration test harness location", "as": "onix", "source_type": "curricular", "evidence": ["[[wikis/crewtracks/guides/guide-course-crewtracks-onboarding]]"], "scope_wiki": ["crewtracks"], "confidence": 0.62 } }
 ```
 
 **Source:** `src/tools/claim.ts`
@@ -478,6 +484,7 @@ Read-only claim listing with bucket filter, status filter, effective-confidence 
 - `value` (string, optional): Bucket value (required for non-global).
 - `min_effective_confidence` (number 0..1, optional): Defaults to `render_min_confidence` config (0.4).
 - `status` (array of `"active" | "superseded" | "retracted"`, default `["active"]`).
+- `source_type` (`"lived" | "curricular" | "retro"`, optional): Filter claims by `source_type:` frontmatter. Reads the `by_source_type` bucket on `_index/claims.json` schema_version 3; falls back to a disk-walk filter when the bucket is absent (schema_version 1 or 2). Composes with other filters. CLI subcommand not yet exposed — call via MCP tool.
 - `limit` (positive int, optional): Defaults to `render_default_limit` config (10).
 - `wiki` (string, optional).
 
@@ -490,11 +497,48 @@ Read-only claim listing with bucket filter, status filter, effective-confidence 
 { "tool": "vault_list-claims", "args": { "by": "profile", "value": "pidgey" } }
 ```
 
+Filtering to only curricular claims for a profile:
+```json
+{ "tool": "vault_list-claims", "args": { "by": "profile", "value": "onix", "source_type": "curricular" } }
+```
+
 **Source:** `src/tools/list-claims.ts`
 
 ---
 
 ## Agent substrate
+
+### vault_agent-memory
+
+Pull an agent's accumulated claims at decision time — decay-aware, scope-filtered, ranked. Read-only and idempotent. See `docs/agent-memory.md` for the deep-dive (predicate, calibration table, detail tiers).
+
+**Params:**
+- `agent_id` (string, required): Bare profile id (`agent:` and `profile-` prefixes are stripped on input).
+- `task` (string, optional): Task id; tool derives `scope_wiki` + `tags` from the task page.
+- `tags` (array of strings, optional): Explicit tag scope.
+- `scope_wiki` (array of strings, optional): Explicit wiki scope.
+- `token_budget` (positive int, optional): Pack claims by descending score until next would exceed budget.
+- `limit` (positive int, default `10`).
+- `detail` (`"summary" | "truncated" | "full"`, default `"truncated"`).
+- `include_questions` (boolean, default `false`).
+
+**Returns:** `{ agent_id, scope_used, claims, total_pool_size, truncated }`. Each `claims[]` entry includes `id`, `key`, `summary`, `body` (sized per `detail`), `effective_confidence`, `scope_match_score`, `score`, `authored_by`, plus three v0.3 substrate fields:
+- `source_type` (`"lived" | "curricular" | "retro"`) — raw provenance value. Defaults to `"lived"` if claim frontmatter is absent.
+- `source_type_tag` (string) — formatted display token like `"[curricular | 0.62]"`. The bracketed number is `effective_confidence` rounded to two decimals.
+- `rendered` (string) — canonical agent-facing string `"[<source_type> | <conf>] <body>"`. Use this when injecting claims directly into a system prompt; pre-rendered to keep the tag + body presentation consistent across callers.
+
+Ranking is unaffected by `source_type` — the tag is informational, not load-bearing for retrieval. (Source-type weights *do* apply in `vault_evolve-profile` cluster math; see that tool's entry.)
+
+**Errors:** None routine; unknown `agent_id` returns empty result, missing `--task` falls back to non-task scope.
+
+**Example:**
+```json
+{ "tool": "vault_agent-memory", "args": { "agent_id": "onix", "task": "task-wire-feature-x", "detail": "full" } }
+```
+
+**Source:** `src/tools/agent-memory.ts`
+
+---
 
 ### vault_bootstrap-repo
 
@@ -502,7 +546,7 @@ Wire a repo to the vault MCP: writes `.mcp.json`, appends a CLAUDE.md fragment, 
 
 **Params:**
 - `repo_path` (string, required): Target repo absolute path.
-- `wiki` (string, required): Wiki this repo's work belongs to.
+- `wiki` (string, required): Wiki this repo's work belongs to. When `pokemon:` is set, every `wikis/<wiki>/moves/<id>/SKILL.md` is layered onto the portable moveset at deploy time. The generated CLAUDE.md fragment renders `### Portable moves` and `### Specialist moves (<wiki>)` as distinct subsections; on id collision, portable wins (with a `MOVE_ID_SHADOWS_PORTABLE` lint warning).
 - `pokemon` (string, optional): Profile id to deploy.
 - `channels` (array of strings, optional): Channels to tail/post on.
 - `mcp_server_name` (string, default `"vault"`): MCP server registration name.
@@ -700,6 +744,7 @@ Deploy a Pokemon's moveset into a target repo's local skills directory. With `re
 - `reverify` (boolean, default `false`): Scan deployments for drift.
 - `fix` (boolean, default `false`): Re-deploy drifted moves; requires `reverify: true`.
 - `continue_on_error` (boolean, default `false`).
+- `wiki` (string, optional): When set, layers every `wikis/<wiki>/moves/<id>/SKILL.md` onto the portable moveset at deploy time and emits a `### Specialist moves (<wiki>)` subsection in the rendered CLAUDE.md fragment alongside the portable subsection. On id collision, portable wins (with a `MOVE_ID_SHADOWS_PORTABLE` lint warning). **CLI surface gap:** the `vault sync-skills` CLI subcommand does not currently expose `--wiki=`; use `vault bootstrap-repo --wiki=` from the terminal, or invoke `vault.sync-skills` via the MCP tool directly.
 
 **Returns:** Single-pokemon flat shape `{ skills_dir, moves_synced, moves_skipped_unsupported }`; multi-profile envelope `{ results, summary }`; reverify shape `{ drift, drift_fixed }`.
 

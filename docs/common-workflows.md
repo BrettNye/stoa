@@ -25,6 +25,7 @@ A few conventions used below:
 11. [Queue work for another agent to pick up](#scenario-queue-work-for-another-agent-to-pick-up)
 12. [Audit vault health](#scenario-audit-vault-health)
 13. [Cold-start a session with full context](#scenario-cold-start-a-session-with-full-context)
+14. [Cold-start onboarding for a fresh profile](#scenario-cold-start-onboarding-for-a-fresh-profile)
 
 ---
 
@@ -325,6 +326,48 @@ Optional: pass `topics: ["recall-ranking", "claim-decay"]` to also run recall on
 **When to use this:** First call of any non-trivial session, especially when re-engaging a wiki cold. It's the answer to "where was I?" without re-reading your own notes.
 
 **See also:** [Find what you wrote about a topic last week](#scenario-find-what-you-wrote-about-a-topic-last-week), [Hand off context between Claude Code sessions](#scenario-hand-off-context-between-claude-code-sessions).
+
+---
+
+## Scenario: Cold-start onboarding for a fresh profile
+
+**You'll accomplish:** Take a brand-new profile from zero domain knowledge to "useful on its first real task" by feeding it a curated course before it ever gets dispatched. Over time, lived work converges and the curricular bootstrap fades naturally.
+
+**Run:** Five steps. Each one is independent — you can stop after step 4 and the profile is already deployable.
+
+**1. Author a course.** A course is a `guide` page with a `guide-course-` filename prefix, kept in the target wiki's `guides/` folder. Use the canonical exemplar as your template:
+
+```
+vault_recall  topic: "vault mcp onboarding course"  wiki: "_agents"
+```
+
+This surfaces [[wikis/_agents/guides/guide-course-vault-mcp-onboarding]] — copy its body shape (sections of prose, occasional exercises with verifiable outputs) and adapt the content for your domain. Save the new page to `wikis/<your-wiki>/guides/guide-course-<slug>.md`. Cross-link the authoring guide [[wikis/_agents/guides/guide-authoring-a-course]] for body-shape guidance.
+
+**2. Spawn or pick a profile.** Either suggest a fresh one (`vault_suggest-pokemon  dev_specialty: "<your-area>"`) or pick an existing profile that's never worked the domain.
+
+**3. Walk the course as the profile.** Dispatch the profile to a session and have it read the course end to end. At every concrete lesson, the agent authors a curricular claim citing the course page as evidence:
+
+```
+vault_claim  as: "<profile-id>"  key: "<your-wiki>.<lesson-slug>"  title: "<one-line lesson>"  source_type: "curricular"  scope_wiki: ["<your-wiki>"]  evidence: ["[[wikis/<your-wiki>/guides/guide-course-<slug>]]"]  confidence: 0.6
+```
+
+Curricular claims default to a lower confidence (~0.5-0.7 is typical) because they're taught, not lived. The `source_type: "curricular"` tag is the discipline-preserving marker — see [`agent-memory.md`](./agent-memory.md) for how the tag surfaces at retrieval time.
+
+**4. Deploy with wiki-local move layering.** Wire the target repo so the profile gets both its portable moveset AND any specialist moves the wiki defines:
+
+```
+vault_bootstrap-repo  repo_path: "/abs/path/to/repo"  wiki: "<your-wiki>"  pokemon: "<profile-id>"
+```
+
+The deployed CLAUDE.md fragment now renders `### Portable moves` and `### Specialist moves (<your-wiki>)` as distinct subsections. See [[wikis/_agents/guides/guide-using-wiki-local-moves]] for the full authoring-and-deployment loop.
+
+**5. Real-work loop.** The profile starts a session, calls `vault_agent-memory  agent_id: "<profile-id>"  task: "<task-id>"`, and gets ranked claims with `source_type` tags inline (`[lived | 0.87]`, `[curricular | 0.62]`, etc.). The agent does the task, authors new claims at moments of learning — these default to `source_type: "lived"` and cite real journal/PR evidence.
+
+**What happens over time:** Lived claims accumulate and outweigh the curricular bootstrap (lived claims contribute `1.0×` cluster weight in `evolve-profile`; curricular only `0.5×`). Both decay at the standard 75-day half-life, so a stale course fades naturally without manual cleanup. The course gave the profile cold-start usefulness; lived work qualifies it for evolution.
+
+**When to use this:** Any time you onboard a new profile into a domain with a steep learning curve — house style conventions, internal tool layout, repo-specific test harnesses, codebase folklore. Also a good fit when an existing profile pivots to a new wiki and you want to seed its memory rather than wait for it to re-derive everything from scratch.
+
+**See also:** [Hand off context between Claude Code sessions](#scenario-hand-off-context-between-claude-code-sessions), [Cold-start a session with full context](#scenario-cold-start-a-session-with-full-context), and the agent-memory [deep-dive doc](./agent-memory.md).
 
 ---
 
