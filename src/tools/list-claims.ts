@@ -103,9 +103,9 @@ export const listClaimsTool = {
       const activeOnly = arrayEquals(input.status.slice().sort(), ["active"]);
       if (activeOnly) {
         // Bug-2026-05-19 fix — normalize the bucket value the same way
-        // vault.claim (src/tools/claim.ts:127) and vault.agent-memory
+        // vault_claim (src/tools/claim.ts:127) and vault_agent-memory
         // (src/tools/agent-memory.ts:35-37) do, so a sidecar populated by
-        // vault.claim (which strips `agent:` / `profile-` before storing)
+        // vault_claim (which strips `agent:` / `profile-` before storing)
         // is hit by callers who pass the prefixed form.
         const normalizedValue = normalizeBucketValue(input.by, input.value);
         const ids = selectBucket(sidecar, input.by, normalizedValue);
@@ -175,7 +175,7 @@ async function readSidecar(file: string): Promise<ClaimsIndex | null> {
  *
  * Dimensions whose bucket keys are raw (e.g. `tag`, `move`, `scope_wiki`,
  * `authored_by`) pass through unchanged. `authored_by` in particular is
- * intentionally NOT stripped because `vault.claim` writes the raw `as:`
+ * intentionally NOT stripped because `vault_claim` writes the raw `as:`
  * value (which may legitimately include `human:` / `agent:` prefixes —
  * see `claim.ts:247`).
  */

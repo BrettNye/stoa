@@ -112,7 +112,7 @@ Project-scoped config overrides user-scoped config when both define `stoa`. Comm
 
 ## Configuring Claude Desktop (Cowork)
 
-Claude Desktop is the host for Anthropic's Cowork product. Connection is **config-only — no adapter needed**: the same `stoa` binary exposes every `vault.*` MCP tool to Cowork chat sessions.
+Claude Desktop is the host for Anthropic's Cowork product. Connection is **config-only — no adapter needed**: the same `stoa` binary exposes every `vault_*` MCP tool to Cowork chat sessions.
 
 **Config file path:**
 
@@ -143,7 +143,7 @@ Create the file with `{}` if it doesn't exist. Add the `mcpServers.stoa` stanza 
 
 ### What works in Cowork
 
-- All `vault.*` MCP tools — identical surface to Claude Code, same indexes, same filter syntax.
+- All `vault_*` MCP tools — identical surface to Claude Code, same indexes, same filter syntax.
 - Shared filesystem state with Claude Code (both clients read/write the same vault directory).
 - Concurrent sessions — Claude Code and Cowork can both be connected to the same vault path; stoa's `withSerializedIndexWrite` lock keeps `_index/*.json` writes consistent.
 

@@ -1,6 +1,6 @@
 # agent-memory: identity-keyed working context
 
-Pull an agent's accumulated claims at decision time — decay-aware, scope-filtered, ranked. One MCP tool (`vault.agent-memory`) plus a complementary write surface (`vault.claim`). Together they close the feedback loop where an agent learns from its work and applies those learnings on subsequent dispatches.
+Pull an agent's accumulated claims at decision time — decay-aware, scope-filtered, ranked. One MCP tool (`vault_agent-memory`) plus a complementary write surface (`vault_claim`). Together they close the feedback loop where an agent learns from its work and applies those learnings on subsequent dispatches.
 
 This doc is for developers integrating with `@stoa-mcp/cli` who want to bake the agent-memory feedback loop into their workflow. It assumes stoa is installed and an MCP client is attached.
 
@@ -10,11 +10,11 @@ The vault has three retrieval surfaces with distinct access patterns:
 
 | Surface | Reader | Asks for |
 |---|---|---|
-| `vault.recall <topic>` | User in working session | "What does the vault know about X?" |
-| `vault.agent-memory <agent_id>` | The agent itself, at decision time | "What have I LEARNED that's relevant to what I'm doing?" |
+| `vault_recall <topic>` | User in working session | "What does the vault know about X?" |
+| `vault_agent-memory <agent_id>` | The agent itself, at decision time | "What have I LEARNED that's relevant to what I'm doing?" |
 | `synthesis-{agent}-memory.md` | User asking about an agent | "What has this agent become?" (narrative, periodic refresh) |
 
-`vault.agent-memory` is the **operational** retrieval: cheap to call, always fresh, structured output suitable for system-prompt injection.
+`vault_agent-memory` is the **operational** retrieval: cheap to call, always fresh, structured output suitable for system-prompt injection.
 
 ## The data shape
 
@@ -28,9 +28,9 @@ A claim is a typed page at `wikis/<wiki>/claim/<id>.md`. Frontmatter includes:
 - `tags` — open vocabulary for matching.
 - `authored_by` — `agent:<id>` | `human:<name>`.
 
-The `_index/claims.json` sidecar (built by `vault.reindex`, currently `schema_version: 2`) inverts these into buckets — `by_authored_by`, `by_profile`, `by_scope_wiki`, `by_tag`, `global`. `vault.agent-memory` reads the sidecar fast-path; if absent or stale (`schema_version: 1` predates the `by_authored_by` bucket), falls back to a disk walk.
+The `_index/claims.json` sidecar (built by `vault_reindex`, currently `schema_version: 2`) inverts these into buckets — `by_authored_by`, `by_profile`, `by_scope_wiki`, `by_tag`, `global`. `vault_agent-memory` reads the sidecar fast-path; if absent or stale (`schema_version: 1` predates the `by_authored_by` bucket), falls back to a disk walk.
 
-## Authoring (`vault.claim`)
+## Authoring (`vault_claim`)
 
 ```bash
 vault claim --as agent:claude-code \
@@ -44,16 +44,16 @@ vault claim --as agent:claude-code \
     --evidence '["[[wikis/_meta/journal/journal-2026-05-13-1545-agent-memory-dag-shipped]]"]'
 ```
 
-After authoring, run `vault.reindex` to populate the new claim into the sidecar buckets.
+After authoring, run `vault_reindex` to populate the new claim into the sidecar buckets.
 
 **Modifier flags:**
 - `--revalidate` — bumps `last_validated` on an existing claim (resets decay).
 - `--override true` — forces supersession on a same-identity-tuple conflict (otherwise the new claim is rejected if it's not at higher confidence than the existing).
 - `--retract <id> --reason "..."` — marks an existing claim as `status: retracted`; excluded from all read paths.
 
-**Prefix normalization (since 2026-05-13).** Profile values are stored bare — `agent:` and `profile-` prefixes are stripped on write so they match the bare-name convention `vault.agent-memory` uses for queries. Non-agent prefixes (e.g., `human:brett`) are preserved as-is.
+**Prefix normalization (since 2026-05-13).** Profile values are stored bare — `agent:` and `profile-` prefixes are stripped on write so they match the bare-name convention `vault_agent-memory` uses for queries. Non-agent prefixes (e.g., `human:brett`) are preserved as-is.
 
-## Retrieval (`vault.agent-memory`)
+## Retrieval (`vault_agent-memory`)
 
 ```bash
 # Generic identity context — no specific task in mind.
@@ -130,7 +130,7 @@ Token budget enforcement uses a `chars/4` approximation per spec §3.3.7 — app
 |---|---|
 | `agent_id` has no matching profile page | NOT an error. Returns empty result; `total_pool_size: 0`. |
 | `--task <id>` doesn't exist | Soft warning, falls back to non-task scope. |
-| `_index/claims.json` missing or stale | Disk-walk fallback (same as `vault.list-claims`). |
+| `_index/claims.json` missing or stale | Disk-walk fallback (same as `vault_list-claims`). |
 
 The tool is read-only and idempotent.
 
@@ -138,9 +138,9 @@ The tool is read-only and idempotent.
 
 The substrate's value is compounding. The minimum pattern:
 
-1. Agent claims a task → calls `vault.agent-memory --task <id>` → applies relevant claims during work.
-2. On completion, if a non-obvious lesson surfaced → `vault.claim` it with appropriate `profile:` / `scope_wiki:` / `tags:`.
-3. `vault.reindex` (manual or scheduled).
+1. Agent claims a task → calls `vault_agent-memory --task <id>` → applies relevant claims during work.
+2. On completion, if a non-obvious lesson surfaced → `vault_claim` it with appropriate `profile:` / `scope_wiki:` / `tags:`.
+3. `vault_reindex` (manual or scheduled).
 4. Next dispatch sees the new claim through its memory pull.
 
 The cycle pays compound interest the longer it runs. Specialist agents aren't trained — they're *grown* through accumulated profile-targeted claims.

@@ -2,7 +2,7 @@
 
 Stoa lets you grow AI agents over time instead of starting them from scratch every session. A fresh profile has no context, makes no-op recalls, and works only as well as the system prompt you hand it. A trained profile has accumulated claims — scored, decay-aware beliefs about how work gets done in your wikis — that surface automatically at task-start. The training program is the set of mechanics that takes a profile from zero to useful, and from useful to specialized.
 
-This doc covers profiles, moves, courses, trainers, and evolution. For the claims data model and the retrieval tool (`vault.agent-memory`) that makes claims available at task time, see [agent-memory.md](./agent-memory.md).
+This doc covers profiles, moves, courses, trainers, and evolution. For the claims data model and the retrieval tool (`vault_agent-memory`) that makes claims available at task time, see [agent-memory.md](./agent-memory.md).
 
 ---
 
@@ -10,15 +10,15 @@ This doc covers profiles, moves, courses, trainers, and evolution. For the claim
 
 **Profile.** A `profile-<pokemon>.md` page in `wikis/_agents/profiles/`. It declares the agent's name, evolution stage, moveset, and autonomy level. The profile is the stable identity — the same Pokemon everywhere, even when deployed to different repos.
 
-**Move.** A skill or procedure described in a `SKILL.md` file under `wikis/_agents/moves/<id>/` (portable) or `wikis/<wiki>/moves/<id>/` (specialist). Moves tell the agent *how* to do specific things — TDD cycles, PR creation, channel coordination. `vault.sync-agents` assembles a profile's moveset into a `CLAUDE.md` fragment baked into the target repo.
+**Move.** A skill or procedure described in a `SKILL.md` file under `wikis/_agents/moves/<id>/` (portable) or `wikis/<wiki>/moves/<id>/` (specialist). Moves tell the agent *how* to do specific things — TDD cycles, PR creation, channel coordination. `vault_sync-agents` assembles a profile's moveset into a `CLAUDE.md` fragment baked into the target repo.
 
 **Course.** A `guide` page (`guide-course-<slug>.md`) with a structured lesson format: Read / Do / Claim to author on completion. Courses bootstrap fresh profiles past the cold-start problem by producing a set of curricular claims before the agent touches a real task.
 
 **Claim.** A scored, decay-aware belief authored by an agent and stored in the vault. The building block of persistent memory. See [agent-memory.md](./agent-memory.md) for depth.
 
-**Trainer.** A configuration entry (in `~/.vault/stadium.toml`) that controls which profiles a trainer owns, their accept policy, and the match/battle surface. Each trainer has a companion `trainer-<slug>.md` page in `wikis/_agents/trainers/`. The `vault.trainer-*` tools manage this surface.
+**Trainer.** A configuration entry (in `~/.vault/stadium.toml`) that controls which profiles a trainer owns, their accept policy, and the match/battle surface. Each trainer has a companion `trainer-<slug>.md` page in `wikis/_agents/trainers/`. The `vault_trainer-*` tools manage this surface.
 
-**Evolution.** When a profile accumulates enough lived claims in a specialty cluster, `vault.evolve-profile` proposes a stage transition (`basic` → `stage1` → `stage2`), a rename to the next-stage Pokemon name, and moveset additions. The operator reviews and commits.
+**Evolution.** When a profile accumulates enough lived claims in a specialty cluster, `vault_evolve-profile` proposes a stage transition (`basic` → `stage1` → `stage2`), a rename to the next-stage Pokemon name, and moveset additions. The operator reviews and commits.
 
 ---
 
@@ -33,7 +33,7 @@ Create `wikis/_agents/profiles/profile-<pokemon>.md` with the required frontmatt
 Courses are discovery-indexed by their `guide-course-` filename prefix:
 
 ```
-vault.recall  topic: "course"  wiki: "_agents"
+vault_recall  topic: "course"  wiki: "_agents"
 ```
 
 If a suitable course exists, note its id. If not, author one — see [guide-authoring-a-course.md](../wikis/_agents/guides/guide-authoring-a-course.md) for the five-section body format and the `vault_claim` invocation shape each lesson uses. The canonical example is `guide-course-vault-mcp-onboarding`, a five-lesson course that seeds cold-start context for any profile entering the vault-mcp substrate.
@@ -43,7 +43,7 @@ If a suitable course exists, note its id. If not, author one — see [guide-auth
 Open a Claude Code session as (or for) the profile. Point it at the course page. The agent reads each lesson, does the exercise, and authors a curricular claim:
 
 ```
-vault.claim
+vault_claim
   as: "charmander"
   content: "Claims filter by scope_wiki at retrieval time..."
   scope_wiki: ["_agents"]
@@ -52,22 +52,22 @@ vault.claim
   evidence: ["[[guide-course-vault-mcp-onboarding]]"]
 ```
 
-After each lesson the agent calls `vault.reindex` so the claim is indexed before the next lesson's retrieval check. By the end of the course the profile has 4-6 curricular claims in `_index/claims.json`.
+After each lesson the agent calls `vault_reindex` so the claim is indexed before the next lesson's retrieval check. By the end of the course the profile has 4-6 curricular claims in `_index/claims.json`.
 
 ### 4. Review the claims
 
 ```
-vault.list-claims  profile: "charmander"  source_type: "curricular"
+vault_list-claims  profile: "charmander"  source_type: "curricular"
 ```
 
-Confirm the expected claims landed and their content is coherent. Promote the profile's course claims from `draft` to `active` if they read correctly — this makes them available to `vault.agent-memory` at task time.
+Confirm the expected claims landed and their content is coherent. Promote the profile's course claims from `draft` to `active` if they read correctly — this makes them available to `vault_agent-memory` at task time.
 
-### 5. Deploy with vault.sync-agents
+### 5. Deploy with vault_sync-agents
 
 Once the profile is ready to work in a repo, deploy it:
 
 ```
-vault.sync-agents
+vault_sync-agents
   target: "/path/to/your/repo"
   pokemon: "charmander"
 ```
@@ -103,12 +103,12 @@ For authoring specialist moves and the four lint codes that catch frontmatter dr
 
 ## Evolution
 
-Profiles start at `basic` stage. As an agent completes real tasks and authors lived claims, `vault.evolve-profile` watches for specialty clusters — tags that have accumulated enough high-confidence claim weight to indicate a genuine specialty.
+Profiles start at `basic` stage. As an agent completes real tasks and authors lived claims, `vault_evolve-profile` watches for specialty clusters — tags that have accumulated enough high-confidence claim weight to indicate a genuine specialty.
 
 Run it in proposal mode first (no changes written):
 
 ```
-vault.evolve-profile
+vault_evolve-profile
   pokemon_id: "charmander"
   commit: false
 ```
@@ -116,7 +116,7 @@ vault.evolve-profile
 The response tells you whether the profile is eligible, what the proposed next stage is, which specialties were detected, and which moves to add or remove. If it looks right, commit:
 
 ```
-vault.evolve-profile
+vault_evolve-profile
   pokemon_id: "charmander"
   commit: true
   expected_updated: "<updated-value-from-proposal-call>"
@@ -131,9 +131,9 @@ Curricular claims contribute to specialty clusters at half weight (`0.5×`). A p
 
 ## Trainers
 
-Trainers configure the dispatch and match surface: which profiles they own, acceptance criteria, and autonomy grants. Each trainer is a `[trainer.<slug>]` block in `~/.vault/stadium.toml` with a companion `trainer-<slug>.md` page in `wikis/_agents/trainers/`. The `vault.trainer-*` family of tools manages creation, listing, and matching.
+Trainers configure the dispatch and match surface: which profiles they own, acceptance criteria, and autonomy grants. Each trainer is a `[trainer.<slug>]` block in `~/.vault/stadium.toml` with a companion `trainer-<slug>.md` page in `wikis/_agents/trainers/`. The `vault_trainer-*` family of tools manages creation, listing, and matching.
 
-If the trainer page and the toml block fall out of sync, `vault.lint --wiki=_agents` surfaces the mismatch via `TRAINER_FILE_MISSING`, `TRAINER_TOML_MISSING`, or `TRAINER_ID_MISMATCH` codes.
+If the trainer page and the toml block fall out of sync, `vault_lint --wiki=_agents` surfaces the mismatch via `TRAINER_FILE_MISSING`, `TRAINER_TOML_MISSING`, or `TRAINER_ID_MISMATCH` codes.
 
 ---
 
@@ -146,7 +146,7 @@ The fastest way to bootstrap a profile on a new domain is to write the documenta
 Use a documentation profile (e.g. profile-pidgey) to write user-facing docs covering the domain the target agent needs to understand. These become the reading material for the course:
 
 ```
-vault.sync-agents
+vault_sync-agents
   target: "/path/to/your/repo"
   pokemon: "pidgey"
 ```
@@ -161,17 +161,17 @@ Create a `guide-course-<slug>.md` whose lessons reference the docs you just wrot
 ### Lesson 1: The claims lifecycle
 
 - **Read:** `docs/claims.md` sections "What a claim is" through "Lifecycle".
-- **Do:** Author one test claim with `vault.claim`, then retract it with `retract: true`.
+- **Do:** Author one test claim with `vault_claim`, then retract it with `retract: true`.
 - **Claim to author on completion:**
-  vault.claim  as: "<agent-id>"  content: "Claims decay at a 75-day half-life..."
+  vault_claim  as: "<agent-id>"  content: "Claims decay at a 75-day half-life..."
   scope_wiki: ["_agents"]  tags: ["claims", "decay"]  source_type: "curricular"
 ```
 
 **Step 3 — Dispatch the target agent through the course.**
 
-Open a session as the target profile, point it at the course page, and let it walk each lesson. After all lessons are complete, run `vault.reindex` and review the authored claims with `vault.list-claims`.
+Open a session as the target profile, point it at the course page, and let it walk each lesson. After all lessons are complete, run `vault_reindex` and review the authored claims with `vault_list-claims`.
 
-**Why this works.** The documentation agent (pidgey) writes accurate, codebase-grounded material. The course translates that material into concrete exercises with verifiable claim outputs. The target agent ends the course with scored beliefs it will retrieve at task time via `vault.agent-memory`. No claims are invented — every belief traces back to a lesson exercise and the doc it references.
+**Why this works.** The documentation agent (pidgey) writes accurate, codebase-grounded material. The course translates that material into concrete exercises with verifiable claim outputs. The target agent ends the course with scored beliefs it will retrieve at task time via `vault_agent-memory`. No claims are invented — every belief traces back to a lesson exercise and the doc it references.
 
 ---
 
@@ -179,9 +179,9 @@ Open a session as the target profile, point it at the course page, and let it wa
 
 | Tool | What it does |
 |---|---|
-| `vault.sync-agents` | Deploy a profile's moveset (portable + specialist) to a target repo. |
-| `vault.evolve-profile` | Propose or commit a profile stage transition based on claim clusters. |
-| `vault.profile-stats` | Return current claim counts, task counts, and specialty cluster summary for a profile. |
-| `vault.suggest-pokemon` | Recommend a Pokemon name fitting a given specialty tag set. |
-| `vault.real-skill-register` | Register a lived claim from a completed real task (writes + reindexes). |
-| `vault.real-skill-refresh` | Revalidate an existing lived claim, resetting its decay clock. |
+| `vault_sync-agents` | Deploy a profile's moveset (portable + specialist) to a target repo. |
+| `vault_evolve-profile` | Propose or commit a profile stage transition based on claim clusters. |
+| `vault_profile-stats` | Return current claim counts, task counts, and specialty cluster summary for a profile. |
+| `vault_suggest-pokemon` | Recommend a Pokemon name fitting a given specialty tag set. |
+| `vault_real-skill-register` | Register a lived claim from a completed real task (writes + reindexes). |
+| `vault_real-skill-refresh` | Revalidate an existing lived claim, resetting its decay clock. |

@@ -1,6 +1,6 @@
 # Claims
 
-A claim is the vault's unit of durable belief. Where a journal entry records what happened and a concept page defines a term, a claim says "I believe X" — with a confidence score, a scope, and a timestamp that decay audits against. Claims are the write surface for `vault.agent-memory`: when an agent calls that tool at decision time, it pulls its relevant active claims to use as working context.
+A claim is the vault's unit of durable belief. Where a journal entry records what happened and a concept page defines a term, a claim says "I believe X" — with a confidence score, a scope, and a timestamp that decay audits against. Claims are the write surface for `vault_agent-memory`: when an agent calls that tool at decision time, it pulls its relevant active claims to use as working context.
 
 This doc covers authoring, querying, decay, and lifecycle. For how claims are retrieved and ranked at dispatch time, see [`agent-memory.md`](./agent-memory.md).
 
@@ -20,17 +20,17 @@ A claim is scoped along two dimensions simultaneously: `profile` names which age
 | `profile` | Agent names this claim targets. Stored bare (no `agent:` prefix). Empty `[]` = universal. |
 | `scope_wiki` | Wikis this claim applies in. Empty `[]` = global. |
 | `authored_by` | `agent:<id>` or `human:<name>`. Only the original author may retract. |
-| `tags` | Open vocabulary; used for scope matching and `vault.list-claims` filters. |
+| `tags` | Open vocabulary; used for scope matching and `vault_list-claims` filters. |
 | `evidence` | Wikilinks to source pages — journal entries, task pages, course guides, PRs. |
 
 ## Authoring
 
-The single tool `vault.claim` covers all four authoring actions: create, revalidate, supersede, and retract. The `--as` flag is required on every call — it sets both `authored_by` and the default for `profile` when no `--profile` is passed.
+The single tool `vault_claim` covers all four authoring actions: create, revalidate, supersede, and retract. The `--as` flag is required on every call — it sets both `authored_by` and the default for `profile` when no `--profile` is passed.
 
 **Create a new claim:**
 
 ```
-vault.claim
+vault_claim
   as: "agent:claude-code"
   key: "process.dag-planning.grep-consumers"
   title: "DAG plans: grep for symbol consumers before assigning files scope"
@@ -42,7 +42,7 @@ vault.claim
   evidence: ["[[wikis/_meta/journal/journal-2026-05-13-1545-dag-shipped]]"]
 ```
 
-After authoring, run `vault.reindex` to populate the new claim into the sidecar buckets (`_index/claims.json`). Until you do, `vault.list-claims` falls back to a disk walk — correct but slower.
+After authoring, run `vault_reindex` to populate the new claim into the sidecar buckets (`_index/claims.json`). Until you do, `vault_list-claims` falls back to a disk walk — correct but slower.
 
 **Three modifier flags**, mutually exclusive:
 
@@ -54,12 +54,12 @@ When no modifier is passed and the same `key` + scope already has an active clai
 
 ## Querying
 
-`vault.list-claims` returns claims sorted by effective confidence descending. The default minimum effective confidence is 0.4 (the decay floor). The default limit is 10. All filters are optional and combinable.
+`vault_list-claims` returns claims sorted by effective confidence descending. The default minimum effective confidence is 0.4 (the decay floor). The default limit is 10. All filters are optional and combinable.
 
 **Filter by profile** — claims targeted at a specific agent:
 
 ```
-vault.list-claims
+vault_list-claims
   by: "profile"
   value: "charmander"
 ```
@@ -67,7 +67,7 @@ vault.list-claims
 **Filter by tag:**
 
 ```
-vault.list-claims
+vault_list-claims
   by: "tag"
   value: "dag-planning"
 ```
@@ -75,7 +75,7 @@ vault.list-claims
 **Filter by scope_wiki** — claims that apply in a specific wiki:
 
 ```
-vault.list-claims
+vault_list-claims
   by: "scope_wiki"
   value: "_meta"
 ```
@@ -83,7 +83,7 @@ vault.list-claims
 **Filter by authored_by** — claims written by a specific author (pass the full `authored_by` value including prefix, e.g. `agent:claude-code`):
 
 ```
-vault.list-claims
+vault_list-claims
   by: "authored_by"
   value: "agent:claude-code"
 ```
@@ -91,7 +91,7 @@ vault.list-claims
 **Global claims only** — claims with no profile, no move, and no scope_wiki:
 
 ```
-vault.list-claims
+vault_list-claims
   by: "global"
 ```
 
@@ -109,7 +109,7 @@ A claim authored at confidence 0.85 that has not been revalidated in 75 days has
 
 This is intentional. Claims that nobody has checked on decay out of the agent's working context. The floor is not a bug — it is the vault's way of distinguishing actively-held beliefs from sediment.
 
-The maintenance habit: weekly, run `vault.list-claims` with `min_effective_confidence: 0.5` and scan the results. Claims you still believe get `revalidate: true`. Claims that no longer hold get superseded or retracted. The revalidation call is cheap; a single touch resets the 75-day clock.
+The maintenance habit: weekly, run `vault_list-claims` with `min_effective_confidence: 0.5` and scan the results. Claims you still believe get `revalidate: true`. Claims that no longer hold get superseded or retracted. The revalidation call is cheap; a single touch resets the 75-day clock.
 
 ## Lifecycle
 
@@ -123,7 +123,7 @@ Claims follow a four-status path: `active` on creation, then one of three termin
 
 The practical rule: supersede when your view evolved (the new claim says something different); revalidate when nothing changed (you just want to reset the clock); retract when the belief was wrong or no longer relevant and you do not want to replace it.
 
-Draft claims (status `draft`) are created by `vault.process-inbox` promotion but are not authored via `vault.claim` directly — the tool sets `status: active` on creation. If you want a claim visible to retrieval immediately, author via `vault.claim`.
+Draft claims (status `draft`) are created by `vault_process-inbox` promotion but are not authored via `vault_claim` directly — the tool sets `status: active` on creation. If you want a claim visible to retrieval immediately, author via `vault_claim`.
 
 ## See also
 
