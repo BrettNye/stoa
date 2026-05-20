@@ -94,6 +94,74 @@ describe("orient — recall trigger", () => {
   });
 });
 
+describe("orient — stale synthesis", () => {
+  it("suggests /synthesize when a synthesis page has last_compiled > 60 days ago", () => {
+    const v = tempVault();
+    writeOnboardingState(v, SAMPLE_STATE);
+    // Create a synthesis page with last_compiled 90 days ago
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    const staleDateStr = ninetyDaysAgo.toISOString().slice(0, 10);
+    const synthesisDir = join(v, "wikis", "wiki-a", "synthesis");
+    mkdirSync(synthesisDir, { recursive: true });
+    writeFileSync(
+      join(synthesisDir, "synthesis-old-topic.md"),
+      `---\nid: synthesis-old-topic\ntitle: Old Topic\ntype: synthesis\ncreated: 2025-01-01\nlast_compiled: ${staleDateStr}\n---\n\n# Old Topic\n`,
+    );
+    const r = orient({ vaultPath: v });
+    expect(r.next_best_action).toContain("/synthesize");
+    expect(r.reasoning).toMatch(/1/);
+    expect(r.tool_to_call).toBe("vault_synthesize");
+    expect(r.suggestion_to_user).toBeTruthy();
+  });
+
+  it("does NOT suggest /synthesize when synthesis last_compiled is within 60 days", () => {
+    const v = tempVault();
+    writeOnboardingState(v, SAMPLE_STATE);
+    const recentDate = new Date();
+    recentDate.setDate(recentDate.getDate() - 30);
+    const recentDateStr = recentDate.toISOString().slice(0, 10);
+    const synthesisDir = join(v, "wikis", "wiki-a", "synthesis");
+    mkdirSync(synthesisDir, { recursive: true });
+    writeFileSync(
+      join(synthesisDir, "synthesis-fresh-topic.md"),
+      `---\nid: synthesis-fresh-topic\ntitle: Fresh Topic\ntype: synthesis\ncreated: 2025-01-01\nlast_compiled: ${recentDateStr}\n---\n\n# Fresh Topic\n`,
+    );
+    const r = orient({ vaultPath: v });
+    expect(r.next_best_action).not.toContain("/synthesize");
+  });
+
+  it("does not throw on malformed synthesis files — treats them as not stale", () => {
+    const v = tempVault();
+    writeOnboardingState(v, SAMPLE_STATE);
+    const synthesisDir = join(v, "wikis", "wiki-a", "synthesis");
+    mkdirSync(synthesisDir, { recursive: true });
+    writeFileSync(
+      join(synthesisDir, "synthesis-broken.md"),
+      `this is not valid frontmatter at all`,
+    );
+    expect(() => orient({ vaultPath: v })).not.toThrow();
+    const r = orient({ vaultPath: v });
+    expect(r.next_best_action).not.toContain("/synthesize");
+  });
+
+  it("stale synthesis takes priority over recall trigger", () => {
+    const v = tempVault();
+    writeOnboardingState(v, SAMPLE_STATE);
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    const staleDateStr = ninetyDaysAgo.toISOString().slice(0, 10);
+    const synthesisDir = join(v, "wikis", "wiki-a", "synthesis");
+    mkdirSync(synthesisDir, { recursive: true });
+    writeFileSync(
+      join(synthesisDir, "synthesis-old.md"),
+      `---\nid: synthesis-old\ntitle: Old\ntype: synthesis\ncreated: 2025-01-01\nlast_compiled: ${staleDateStr}\n---\n\n# Old\n`,
+    );
+    const r = orient({ vaultPath: v, recentUserMessage: "What did we figure out about auth?" });
+    expect(r.tool_to_call).toBe("vault_synthesize");
+  });
+});
+
 describe("orient — steady state", () => {
   it("returns no-action when vault is in good shape", () => {
     const v = tempVault();
