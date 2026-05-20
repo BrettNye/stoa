@@ -16,6 +16,7 @@ import {
   CHANNEL_JOURNAL_PROTOCOL_GUIDANCE,
   MINIMAL_COORDINATION_TOOLSET,
   mcpToolName,
+  mcpToolNamePattern,
 } from "../subagent-protocol.js";
 import {
   recordDeployment, getDeployment, type DeploymentEntry,
@@ -124,7 +125,7 @@ export const claudeCodeAdapter: RuntimeAdapter = {
     const fmObj = {
       name: intent.id,
       description: intent.routing_description,
-      tools: intent.tools_allowlist.map(mcpToolName),
+      tools: intent.tools_allowlist.map((t) => mcpToolName(t)),
       model: intent.model_tier,
     };
     const fmYaml = yaml.dump(fmObj, { lineWidth: 1000, noRefs: true }).trimEnd();
@@ -205,13 +206,16 @@ export const claudeCodeAdapter: RuntimeAdapter = {
     const raw = readFileSync(abs, "utf8");
 
     // §6.4 invariant 1 — every coordination tool present in tools: list.
+    // Prefix-agnostic: the file was written with whatever `mcp__<server>__`
+    // prefix was active at deploy time (env-var, explicit, or "vault" default).
+    // We verify the bare vault_* name appears under SOME valid mcp__*__ prefix.
     for (const t of MINIMAL_COORDINATION_TOOLSET) {
-      const wire = mcpToolName(t);
-      if (!raw.includes(`- ${wire}`)) {
+      const pattern = mcpToolNamePattern(t);
+      if (!pattern.test(raw)) {
         violations.push({
           invariant: 1,
-          message: `on-disk agent def missing coordination tool ${wire}`,
-          context: { agent_def_path: abs, missing_tool: wire },
+          message: `on-disk agent def missing coordination tool ${t}`,
+          context: { agent_def_path: abs, missing_tool: t },
         });
       }
     }
