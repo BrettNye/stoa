@@ -26,6 +26,8 @@
   ],
   "files": [
     "dist",
+    "docs",
+    "seed",
     "README.md"
   ],
   "scripts": {
