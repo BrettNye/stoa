@@ -332,12 +332,15 @@ export function mountReadRoutes(app: Hono, ctx: ReadRoutesCtx): void {
           ? Object.values(w.page_counts).reduce((sum, n) => sum + n, 0)
           : 0;
 
-        // activeTasks: count tasks in this wiki with status=pending or claimed
+        // activeTasks: count tasks in this wiki with status=pending, claimed, or in_progress
+        // Mirrors the dashboard's `activeTaskCount` and `filteredTasks` "active" definition
+        // (see static/app.js:141 and :373) — same word, same math.
         let activeTasks = 0;
         try {
           const pending = listTasks(vaultPath, { wiki: w.name, status: "pending" });
           const claimed = listTasks(vaultPath, { wiki: w.name, status: "claimed" });
-          activeTasks = pending.length + claimed.length;
+          const inProgress = listTasks(vaultPath, { wiki: w.name, status: "in_progress" });
+          activeTasks = pending.length + claimed.length + inProgress.length;
         } catch {
           // leave as 0
         }
