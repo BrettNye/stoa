@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { startTool } from "../../src/tools/start.js";
 
-describe("vault.start", () => {
+describe("vault_start", () => {
   let vaultPath: string;
 
   beforeEach(() => {

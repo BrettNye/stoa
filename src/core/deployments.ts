@@ -20,7 +20,7 @@ export type DeployMode = "copy" | "symlink";
  *    defaults to the existing `target` value (the legacy union coincides
  *    with the v1.7 RuntimeName for the single shipped runtime).
  *  - `source_revision` records the git rev (or content hash) of the
- *    profile/moveset that produced this deployment. `vault.sync-agents`
+ *    profile/moveset that produced this deployment. `vault_sync-agents`
  *    uses it to short-circuit idempotent re-deploys.
  *  - `subagent_def_path` is the absolute path of the runtime-specific
  *    artifact written on disk (e.g. `<repo>/.claude/agents/<id>.md`).
@@ -91,7 +91,7 @@ export function migrateDeploymentKey(vaultPath: string, oldId: string, newId: st
 
 /**
  * v1.7 §6.4 invariant 5 — O(1)-ish lookup of a deployment by
- * (profileId, repoPath). Used by `vault.sync-agents` to short-circuit
+ * (profileId, repoPath). Used by `vault_sync-agents` to short-circuit
  * idempotent re-deploys: when the existing entry's `source_revision`
  * matches the freshly-built intent's revision, no work is performed.
  */

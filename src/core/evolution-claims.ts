@@ -73,7 +73,7 @@ export interface MovesetSuggestion {
  * (so a cluster whose only "covering" move has a broken skill file still
  * produces a suggestion). The path inspected is
  * `<vault>/wikis/_agents/moves/<moveId>/SKILL.md` — that is the canonical
- * location per the v1.5 substrate (`vault.sync-skills`).
+ * location per the v1.5 substrate (`vault_sync-skills`).
  *
  * `example_claim_ids` is sorted by the claim's *stored* `confidence`
  * (descending), capped at 3. The orchestrator's contract uses *effective*

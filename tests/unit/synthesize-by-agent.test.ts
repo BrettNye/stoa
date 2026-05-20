@@ -1,7 +1,7 @@
 // vault-mcp/tests/unit/synthesize-by-agent.test.ts
 //
 // task-synthesize-by-agent-extension (Plan 2 Wave 2). Verifies that
-// `vault.synthesize` with `by_agent` injects a marker-bounded `## Learnings`
+// `vault_synthesize` with `by_agent` injects a marker-bounded `## Learnings`
 // section after the existing `## Inputs cited` section. Section is populated
 // by clustering the profile's active claims by tag (per spec §8.5). Re-runs
 // must be byte-identical (same date) and identical-modulo-`rendered:` (different
@@ -58,12 +58,12 @@ async function writeClaimWithSummary(
   await fs.writeFile(file, patched, "utf8");
 }
 
-describe("vault.synthesize --by-agent — Learnings section", () => {
+describe("vault_synthesize --by-agent — Learnings section", () => {
   it("emits a Learnings section between markers, after Inputs cited", async () => {
     const vault = await mkTempVaultWithSidecar(fiveActiveWindowsClaims());
 
     await callTool(
-      "vault.synthesize",
+      "vault_synthesize",
       {
         topic: "anything",
         scope: "memory",
@@ -94,14 +94,14 @@ describe("vault.synthesize --by-agent — Learnings section", () => {
     const vault = await mkTempVaultWithSidecar(fiveActiveWindowsClaims());
 
     await callTool(
-      "vault.synthesize",
+      "vault_synthesize",
       { topic: "anything", scope: "memory", by_agent: "profile-pikachu" },
       vault,
     );
     const file1 = await fs.readFile(synthPath(vault, "profile-pikachu"), "utf8");
 
     await callTool(
-      "vault.synthesize",
+      "vault_synthesize",
       { topic: "anything", scope: "memory", by_agent: "profile-pikachu" },
       vault,
     );
@@ -157,7 +157,7 @@ describe("vault.synthesize --by-agent — Learnings section", () => {
     const vault = await mkTempVaultWithSidecar(fixtures);
 
     await callTool(
-      "vault.synthesize",
+      "vault_synthesize",
       { topic: "anything", scope: "memory", by_agent: "profile-pikachu" },
       vault,
     );
@@ -177,7 +177,7 @@ describe("vault.synthesize --by-agent — Learnings section", () => {
     // First run: write a file with markers from a 5-claim corpus.
     const vault = await mkTempVaultWithSidecar(fiveActiveWindowsClaims());
     await callTool(
-      "vault.synthesize",
+      "vault_synthesize",
       { topic: "anything", scope: "memory", by_agent: "profile-pikachu" },
       vault,
     );
@@ -192,7 +192,7 @@ describe("vault.synthesize --by-agent — Learnings section", () => {
     );
 
     await callTool(
-      "vault.synthesize",
+      "vault_synthesize",
       { topic: "anything", scope: "memory", by_agent: "profile-pikachu" },
       vault,
     );
@@ -247,7 +247,7 @@ describe("vault.synthesize --by-agent — Learnings section", () => {
     );
 
     await callTool(
-      "vault.synthesize",
+      "vault_synthesize",
       { topic: "anything", scope: "memory", by_agent: "profile-pikachu" },
       vault,
     );
@@ -263,7 +263,7 @@ describe("vault.synthesize --by-agent — Learnings section", () => {
 
     // First run lays down both Inputs cited and Learnings.
     await callTool(
-      "vault.synthesize",
+      "vault_synthesize",
       { topic: "anything", scope: "memory", by_agent: "profile-pikachu" },
       vault,
     );
@@ -271,7 +271,7 @@ describe("vault.synthesize --by-agent — Learnings section", () => {
 
     // Second run should not perturb anything except (potentially) the rendered: date.
     await callTool(
-      "vault.synthesize",
+      "vault_synthesize",
       { topic: "anything", scope: "memory", by_agent: "profile-pikachu" },
       vault,
     );

@@ -12,7 +12,7 @@ const Input = z.object({
 });
 
 export const trainerSubmitMoveTool = {
-  name: 'vault.trainer-submit-move',
+  name: 'vault_trainer-submit-move',
   description: 'Submit a move for the current turn; server resolves once both trainers submit.',
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>) => {

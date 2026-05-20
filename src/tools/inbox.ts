@@ -9,7 +9,7 @@ const Input = z.object({
 });
 
 export const inboxTool = {
-  name: "vault.inbox",
+  name: "vault_inbox",
   description: "Drop a fleeting thought into the active wiki's inbox/. Datestamped filename, no frontmatter required.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string; defaultWiki?: string }) => {

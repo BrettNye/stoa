@@ -1,4 +1,4 @@
-// v1.7 §7.1 — vault.sync-agents MCP tool.
+// v1.7 §7.1 — vault_sync-agents MCP tool.
 //
 // Per-Pokemon flow:
 //   1. resolve profile id (alias-aware via readProfile inside buildIntent)
@@ -161,7 +161,7 @@ async function deploySingle(
 }
 
 export const syncAgentsTool = {
-  name: "vault.sync-agents",
+  name: "vault_sync-agents",
   description: "Deploy a Pokemon (or list of Pokemon, or all profiles via `all: true`) as runtime subagent definitions in a target repo. Builds a SubagentIntent per profile, hands to the per-runtime adapter (currently claude-code), and writes <target>/.claude/agents/<pokemon-id>.md plus optional moveset SKILL.md files. Idempotent on source_revision. Halt-on-first-error by default; pass `continue_on_error: true` for best-effort batches.",
   inputSchema: Input,
   handler: async (

@@ -68,7 +68,7 @@ export function clusterByTag(
  *
  * If the sidecar exists but has no entry for `profileId`, the sidecar's
  * silence is honored (return empty). This matches the spec's "prefer
- * sidecar" semantics; rebuilding the sidecar with `vault.reindex` is the
+ * sidecar" semantics; rebuilding the sidecar with `vault_reindex` is the
  * documented path for stale indexes.
  */
 export async function loadActiveProfileClaims(

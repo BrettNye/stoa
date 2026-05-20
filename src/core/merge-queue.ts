@@ -1,6 +1,6 @@
 // core/merge-queue.ts — pure logic for ready-signal parsing + task→PR mapping + topo sort.
 // No IO. The caller (tool layer) loads channel entries + tasks and passes them in.
-// See plans/v1.6-phase-3 §"vault.merge-queue semantics" for the contract.
+// See plans/v1.6-phase-3 §"vault_merge-queue semantics" for the contract.
 
 export interface ReadyEntry {
   journal_id: string;

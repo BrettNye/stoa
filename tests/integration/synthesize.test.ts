@@ -59,7 +59,7 @@ describe("synthesize — prose input + protected manual-notes zone", () => {
     expect(content).toContain(prose);
     // The stub language must not appear when prose is provided.
     expect(content).not.toContain("Hand-edit this section");
-    expect(content).not.toContain("this stub is what `vault.synthesize` writes");
+    expect(content).not.toContain("this stub is what `vault_synthesize` writes");
   });
 
   it("without `prose`, falls back to the existing stub paragraph (backwards-compatible)", () => {

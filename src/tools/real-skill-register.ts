@@ -20,7 +20,7 @@ const Input = z.object({
 });
 
 export const realSkillRegisterTool = {
-  name: "vault.real-skill-register",
+  name: "vault_real-skill-register",
   description:
     "Register a real-skill (move-*/SKILL.md) with Stadium; persist returned real_skill_id + advisory combat block.",
   inputSchema: Input,

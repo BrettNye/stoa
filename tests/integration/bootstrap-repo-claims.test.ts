@@ -2,7 +2,7 @@
 //
 // task-bootstrap-repo-integration-test (Claims Plan 3, Wave 3) — end-to-end
 // coverage of the §8.3 "Learned (this profile)" section that
-// `vault.bootstrap-repo` embeds inside the v1.5 bootstrap fragment in the
+// `vault_bootstrap-repo` embeds inside the v1.5 bootstrap fragment in the
 // target repo's CLAUDE.md when a `pokemon` is being deployed.
 //
 // Five acceptance criteria, mapped to the five `it()` blocks below:
@@ -16,10 +16,10 @@
 //      rule in `bootstrap-repo.renderProfileLearnedSection`.
 //   3. Re-running with the same corpus and the same injected `today` produces
 //      byte-identical CLAUDE.md content (idempotency).
-//   4. Calling `vault.bootstrap-repo` WITHOUT `pokemon` writes a CLAUDE.md
+//   4. Calling `vault_bootstrap-repo` WITHOUT `pokemon` writes a CLAUDE.md
 //      whose v1.5 bootstrap block contains NO `vault-claims-profile` marker
 //      (the §8.3 section only exists when a profile is being deployed).
-//   5. Calling `vault.bootstrap-repo` for a profile that has zero
+//   5. Calling `vault_bootstrap-repo` for a profile that has zero
 //      profile-only claims (only move-specific or none at all) writes a
 //      CLAUDE.md whose v1.5 bootstrap block contains NO
 //      `vault-claims-profile` marker (the renderer returns null when no
@@ -88,7 +88,7 @@ async function mkRepoUnder(vault: string, name: string): Promise<string> {
   return repo;
 }
 
-describe("vault.bootstrap-repo §8.3 profile-claims rendering integration", () => {
+describe("vault_bootstrap-repo §8.3 profile-claims rendering integration", () => {
   // Track every temp vault we create so a failing test doesn't leak
   // gigabyte-sized tmpdirs across CI runs.
   const created: string[] = [];

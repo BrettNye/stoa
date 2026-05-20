@@ -24,7 +24,7 @@ import type { IndexedPage } from "../index.js";
  *     so re-runs are stable.
  *   - `message` lists the cluster size, the tag, and a suggested synthesis
  *     title slug derived from the tag.
- *   - `suggestion` proposes the `vault.synthesize` command to address it.
+ *   - `suggestion` proposes the `vault_synthesize` command to address it.
  *
  * Pure-helper extraction (`findSynthesisDebt`) lets unit tests exercise the
  * rule against a synthetic IndexedPage[] without touching the filesystem.
@@ -155,7 +155,7 @@ registerLintCheck({
           `Contributing ids: ${c.contributingIds.slice(0, 5).join(", ")}` +
           (c.contributingIds.length > 5 ? `, ... (+${c.contributingIds.length - 5} more)` : ""),
         suggestion:
-          `run \`vault.synthesize ${c.tag} --wiki=${c.wiki}\` to compile a synthesis page (suggested id: ${slug})`,
+          `run \`vault_synthesize ${c.tag} --wiki=${c.wiki}\` to compile a synthesis page (suggested id: ${slug})`,
       });
     }
     return diagnostics;

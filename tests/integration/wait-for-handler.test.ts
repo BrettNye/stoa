@@ -4,7 +4,7 @@ import { z } from "zod";
 describe("wait-for tool exports", () => {
   it("waitForTool has correct name and Zod inputSchema", async () => {
     const { waitForTool } = await import("../../src/tools/wait-for.js");
-    expect(waitForTool.name).toBe("vault.wait-for");
+    expect(waitForTool.name).toBe("vault_wait-for");
     expect(typeof waitForTool.description).toBe("string");
     expect(waitForTool.inputSchema).toBeDefined();
     // Zod schemas have a parse method
@@ -24,7 +24,7 @@ describe("wait-for tool exports", () => {
 
   it("waitForAnyTool has correct name and accepts filters array", async () => {
     const { waitForAnyTool } = await import("../../src/tools/wait-for-any.js");
-    expect(waitForAnyTool.name).toBe("vault.wait-for-any");
+    expect(waitForAnyTool.name).toBe("vault_wait-for-any");
     expect(typeof waitForAnyTool.description).toBe("string");
     expect(typeof waitForAnyTool.inputSchema.parse).toBe("function");
     const parsed = waitForAnyTool.inputSchema.parse({
@@ -44,7 +44,7 @@ describe("wait-for tool exports", () => {
 
   it("waitForAllTool has correct name and accepts filters array", async () => {
     const { waitForAllTool } = await import("../../src/tools/wait-for-all.js");
-    expect(waitForAllTool.name).toBe("vault.wait-for-all");
+    expect(waitForAllTool.name).toBe("vault_wait-for-all");
     expect(typeof waitForAllTool.description).toBe("string");
     expect(typeof waitForAllTool.inputSchema.parse).toBe("function");
     const parsed = waitForAllTool.inputSchema.parse({
@@ -57,7 +57,7 @@ describe("wait-for tool exports", () => {
 
   it("waitForManyTool has correct name and accepts filter + max", async () => {
     const { waitForManyTool } = await import("../../src/tools/wait-for-many.js");
-    expect(waitForManyTool.name).toBe("vault.wait-for-many");
+    expect(waitForManyTool.name).toBe("vault_wait-for-many");
     expect(typeof waitForManyTool.description).toBe("string");
     expect(typeof waitForManyTool.inputSchema.parse).toBe("function");
     const parsed = waitForManyTool.inputSchema.parse({

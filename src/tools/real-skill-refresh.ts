@@ -13,7 +13,7 @@ const Input = z.object({
 });
 
 export const realSkillRefreshTool = {
-  name: 'vault.real-skill-refresh',
+  name: 'vault_real-skill-refresh',
   description:
     "Re-derive a registered real-skill's modifier function from the current SKILL.md content.",
   inputSchema: Input,
@@ -36,7 +36,7 @@ export const realSkillRefreshTool = {
     const real_skill_id = (frontmatter as Record<string, unknown>).real_skill_id;
     if (!real_skill_id) {
       throw new Error(
-        `${parsed.skill_id} has no real_skill_id — register first via vault.real-skill-register`
+        `${parsed.skill_id} has no real_skill_id — register first via vault_real-skill-register`
       );
     }
 

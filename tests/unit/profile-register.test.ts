@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 
 beforeEach(() => { vi.resetModules(); vi.unstubAllGlobals(); });
 
-describe('vault.profile-register', () => {
+describe('vault_profile-register', () => {
   const vaultPath = join(tmpdir(), 'vault-profile-register-' + Date.now() + '-' + Math.random());
 
   beforeEach(() => {

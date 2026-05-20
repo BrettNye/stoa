@@ -15,8 +15,8 @@ function bareName(agentId: string): string {
 }
 
 export const refreshProfileMemoryTool = {
-  name: "vault.refresh-profile-memory",
-  description: "Compile a per-agent memory synthesis at wikis/_agents/synthesis/synthesis-<bare-name>-memory.md from the agent's journals + claimed tasks. Idempotent (overwrites). Convenience wrapper around vault.synthesize with by_agent + scope=memory.",
+  name: "vault_refresh-profile-memory",
+  description: "Compile a per-agent memory synthesis at wikis/_agents/synthesis/synthesis-<bare-name>-memory.md from the agent's journals + claimed tasks. Idempotent (overwrites). Convenience wrapper around vault_synthesize with by_agent + scope=memory.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
     const parsed = Input.parse(input);

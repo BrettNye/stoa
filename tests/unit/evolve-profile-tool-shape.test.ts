@@ -1,7 +1,7 @@
 // vault-mcp/tests/unit/evolve-profile-tool-shape.test.ts
 //
 // task-evolve-profile-tool-fields (Claims Plan 2 Wave 3): the
-// `vault.evolve-profile` tool's `ProposalShape` Zod schema must accept the
+// `vault_evolve-profile` tool's `ProposalShape` Zod schema must accept the
 // new additive Plan 2 fields (`moveset_suggestions`, `specialties`,
 // `eligibility`, `evidence_summary`) without rejection, while remaining
 // compatible with v1.5-shape callers that omit them (additive defaults).

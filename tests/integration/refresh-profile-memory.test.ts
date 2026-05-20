@@ -6,7 +6,7 @@ import { refreshProfileMemoryTool } from "../../src/tools/refresh-profile-memory
 import { reindex } from "../../src/core/reindex.js";
 import { parseFrontmatter } from "../../src/core/frontmatter.js";
 
-describe("vault.refresh-profile-memory", () => {
+describe("vault_refresh-profile-memory", () => {
   let vaultPath: string;
 
   beforeEach(async () => {

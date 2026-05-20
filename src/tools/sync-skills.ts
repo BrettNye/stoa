@@ -47,7 +47,7 @@ function bareName(pokemonId: string): string {
 }
 
 export const syncSkillsTool = {
-  name: "vault.sync-skills",
+  name: "vault_sync-skills",
   description: "Deploy a Pokemon's moveset into a target repo's local skills directory. With reverify=true, scans existing deployments for drift instead of deploying.",
   inputSchema: Input,
   handler: async (

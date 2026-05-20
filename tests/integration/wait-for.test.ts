@@ -172,7 +172,7 @@ afterEach(async () => {
 // 1. E2E push
 // ──────────────────────────────────────────────────────────────────────────────
 
-describe("E2E push — journal write resolves vault.wait-for", () => {
+describe("E2E push — journal write resolves vault_wait-for", () => {
   it("writing a journal with matching channel resolves the wait", async () => {
     const ctx = makeCtx(stack);
 
@@ -397,10 +397,10 @@ describe("Idempotency — two identical wait-for calls return same payload shape
 });
 
 // ──────────────────────────────────────────────────────────────────────────────
-// 5. vault.wait-for-any
+// 5. vault_wait-for-any
 // ──────────────────────────────────────────────────────────────────────────────
 
-describe("vault.wait-for-any — correct matched_filter_index", () => {
+describe("vault_wait-for-any — correct matched_filter_index", () => {
   it("returns matched_filter_index 1 when second filter matches", async () => {
     const ctx = makeCtx(stack);
     const waitPromise = waitForAnyTool.handler(
@@ -466,10 +466,10 @@ describe("vault.wait-for-any — correct matched_filter_index", () => {
 });
 
 // ──────────────────────────────────────────────────────────────────────────────
-// 6. vault.wait-for-all
+// 6. vault_wait-for-all
 // ──────────────────────────────────────────────────────────────────────────────
 
-describe("vault.wait-for-all — fan-in behavior", () => {
+describe("vault_wait-for-all — fan-in behavior", () => {
   it("delivers all events when all filters are satisfied", async () => {
     const ctx = makeCtx(stack);
 
@@ -546,10 +546,10 @@ describe("vault.wait-for-all — fan-in behavior", () => {
 });
 
 // ──────────────────────────────────────────────────────────────────────────────
-// 7. vault.wait-for-many
+// 7. vault_wait-for-many
 // ──────────────────────────────────────────────────────────────────────────────
 
-describe("vault.wait-for-many — bounded batch behavior", () => {
+describe("vault_wait-for-many — bounded batch behavior", () => {
   it("K < max: returns K events with timed_out true", async () => {
     const ctx = makeCtx(stack);
 
@@ -630,7 +630,7 @@ describe("vault.wait-for-many — bounded batch behavior", () => {
 // ──────────────────────────────────────────────────────────────────────────────
 
 describe("Timeout — no events returns timed_out true with cursor", () => {
-  it("vault.wait-for times out when no matching event arrives", async () => {
+  it("vault_wait-for times out when no matching event arrives", async () => {
     const result = await waitForTool.handler(
       waitForTool.inputSchema.parse({
         filter: { source: "journal", channel: "timeout-chan" },
@@ -644,7 +644,7 @@ describe("Timeout — no events returns timed_out true with cursor", () => {
     expect(result.cursor.length).toBeGreaterThan(0);
   });
 
-  it("vault.wait-for-any times out when no filters match", async () => {
+  it("vault_wait-for-any times out when no filters match", async () => {
     const result = await waitForAnyTool.handler(
       waitForAnyTool.inputSchema.parse({
         filters: [{ source: "journal", channel: "timeout-any" }],
@@ -657,7 +657,7 @@ describe("Timeout — no events returns timed_out true with cursor", () => {
     expect(typeof result.cursor).toBe("string");
   });
 
-  it("vault.wait-for-many times out returning empty events array", async () => {
+  it("vault_wait-for-many times out returning empty events array", async () => {
     const result = await waitForManyTool.handler(
       waitForManyTool.inputSchema.parse({
         filter: { source: "journal", channel: "timeout-many" },

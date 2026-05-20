@@ -12,7 +12,7 @@ const Input = z.object({
 });
 
 export const channelPostTool = {
-  name: "vault.channel-post",
+  name: "vault_channel-post",
   description: "Post a message to a coordination channel. Writes a journal entry with channel field set.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string; defaultWiki?: string }) => {

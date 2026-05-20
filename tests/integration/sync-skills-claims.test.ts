@@ -1,7 +1,7 @@
 // vault-mcp/tests/integration/sync-skills-claims.test.ts
 //
 // task-sync-skills-integration-test (Claims Plan 3, Wave 3) — end-to-end
-// test for §8.2 SKILL.md claim rendering during `vault.sync-skills`. Sibling
+// test for §8.2 SKILL.md claim rendering during `vault_sync-skills`. Sibling
 // to tests/unit/sync-skills-claim-render.test.ts (Wave 2) — the unit test
 // covers the pre-render loop in isolation; this integration test exercises
 // the full handler-deploy-render cycle through a temp vault with a profile,
@@ -128,7 +128,7 @@ function skillPath(vault: string, moveId: string): string {
   );
 }
 
-describe("vault.sync-skills claims integration (§8.2)", () => {
+describe("vault_sync-skills claims integration (§8.2)", () => {
   // Track temp vaults for cleanup so a failing test doesn't leak temp dirs.
   const created: string[] = [];
   afterEach(() => {

@@ -1,6 +1,6 @@
 // vault-mcp/src/tools/merge-queue.ts
 //
-// Phase-3 T3-1 — `vault.merge-queue` MCP tool: surface the bulk merge queue
+// Phase-3 T3-1 — `vault_merge-queue` MCP tool: surface the bulk merge queue
 // for a coordination channel. Pure logic (ready-signal parsing, task→PR
 // mapping, topo sort) lives in `core/merge-queue.ts` (Wave 1 T1-1); this
 // layer does the IO + family resolution wiring:
@@ -189,7 +189,7 @@ function toTaskRefs(tasks: TaskSummary[]): TaskRef[] {
 }
 
 export const mergeQueueTool = {
-  name: "vault.merge-queue",
+  name: "vault_merge-queue",
   description:
     "Surface the bulk merge queue for a coordination channel: ready PRs (parsed from `ready: branch=...` journal signals), unready tasks, and a topo-sorted dependency order keyed by task.blocking. Pure read; ci_status is always 'unknown'.",
   inputSchema: Input,

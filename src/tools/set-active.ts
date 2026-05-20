@@ -6,7 +6,7 @@ import { join } from "node:path";
 const Input = z.object({ wiki: z.string() });
 
 export const setActiveTool = {
-  name: "vault.set-active",
+  name: "vault_set-active",
   description: "Set the .active-wiki pointer at vault root.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {

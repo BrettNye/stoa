@@ -131,18 +131,18 @@ describe("trainer-submit-draft schema — A1 regression (always runs)", () => {
 //   STADIUM_PLATFORM_URL=http://localhost:3000
 //
 // How the test works:
-//   0. Calls vault.profile-register 12 times (6 per trainer) to register all
+//   0. Calls vault_profile-register 12 times (6 per trainer) to register all
 //      profiles and capture the returned platform_profile_id values.
-//   1. Calls vault.trainer-queue-match as trainer1 against trainer2.
-//   2. Calls vault.trainer-accept-match as trainer2.
-//   3. During drafting phase, calls vault.trainer-get-state as trainer1 and
+//   1. Calls vault_trainer-queue-match as trainer1 against trainer2.
+//   2. Calls vault_trainer-accept-match as trainer2.
+//   3. During drafting phase, calls vault_trainer-get-state as trainer1 and
 //      verifies: status === "drafting", available_profiles present,
 //      caller_trainer_id === trainer1.trainerId, caller_side set.
 //   4. Both trainers submit 6 picks (the registered platform_profile_ids) via
-//      vault.trainer-submit-draft.
-//   5. Calls vault.trainer-get-state as trainer1; expects status !== "drafting"
+//      vault_trainer-submit-draft.
+//   5. Calls vault_trainer-get-state as trainer1; expects status !== "drafting"
 //      and available_profiles absent.
-//   6. Calls vault.trainer-get-state as trainer2; validates caller_side.
+//   6. Calls vault_trainer-get-state as trainer2; validates caller_side.
 
 // Pokemon sets for each trainer (must resolve via the existing pokeapi helpers).
 const TRAINER1_POKEMON = [
@@ -458,7 +458,7 @@ function writeStadiumToml(
 /**
  * Write a profile page that has NOT yet been registered with the platform
  * (no platform_profile_id). Used in the gated e2e test before calling
- * vault.profile-register.
+ * vault_profile-register.
  */
 function writeUnregisteredProfilePage(
   vaultPath: string,

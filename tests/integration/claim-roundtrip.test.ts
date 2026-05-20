@@ -21,7 +21,7 @@
 //
 // Diagnostic-shape note: the plan template (1817-1902) referenced
 // `lint.findings.filter(f => f.ruleId.startsWith("claim-"))`. The
-// implemented vault.lint surface returns `diagnostics: Diagnostic[]` with
+// implemented vault_lint surface returns `diagnostics: Diagnostic[]` with
 // `code: string` in UPPER_SNAKE form — see src/core/lint.ts §LintResult
 // and src/core/lint-checks/registration.ts §ruleIdToCode. This test is
 // written against the implemented shape.
@@ -79,9 +79,9 @@ describe("claim flow roundtrip — Plan 1 join point", () => {
   });
 
   it("creates → reindexes → lists → supersedes → revalidates → retracts → asserts clean lint", async () => {
-    // ── step 1: empty vault → vault.claim creates a draft ─────────────────
+    // ── step 1: empty vault → vault_claim creates a draft ─────────────────
     const created = await callTool(
-      "vault.claim",
+      "vault_claim",
       {
         key: "test.preflight",
         title: "preflight required",
@@ -102,25 +102,25 @@ describe("claim flow roundtrip — Plan 1 join point", () => {
     const stat = await fs.stat(createdPath);
     expect(stat.isFile()).toBe(true);
 
-    // ── step 2: vault.reindex builds the claims sidecar ───────────────────
-    await callTool("vault.reindex", {}, vault);
+    // ── step 2: vault_reindex builds the claims sidecar ───────────────────
+    await callTool("vault_reindex", {}, vault);
     const sidecar1 = await readClaimsSidecar(vault);
     expect(sidecar1.schema_version).toBe(2);
     // Default scoping (§6.6): profile defaulted to [`as`], with `agent:` /
-    // `profile-` prefixes stripped to match what `vault.agent-memory`
+    // `profile-` prefixes stripped to match what `vault_agent-memory`
     // normalizes its query input to. So the sidecar bucket is keyed by the
     // bare name "test", not "agent:test".
     expect(sidecar1.by_profile["test"]).toEqual([created.claim_id]);
     expect(sidecar1.by_tag["windows"]).toEqual([created.claim_id]);
     expect(sidecar1.global).toEqual([]);
 
-    // ── step 3: vault.list-claims returns the new claim by profile ────────
+    // ── step 3: vault_list-claims returns the new claim by profile ────────
     // `value` matches the stored bare-name profile (see prefix-strip note above).
     // `status: ["active"]` is the schema default; the test helper invokes the
     // handler directly without re-parsing through Zod, so the default is not
     // applied for us — pass it explicitly here and below.
     const listed = await callTool(
-      "vault.list-claims",
+      "vault_list-claims",
       { by: "profile", value: "test", status: ["active"] },
       vault,
     );
@@ -130,7 +130,7 @@ describe("claim flow roundtrip — Plan 1 join point", () => {
 
     // ── step 4: supersede with higher confidence ──────────────────────────
     const superseded = await callTool(
-      "vault.claim",
+      "vault_claim",
       {
         key: "test.preflight",
         title: "preflight required (revised)",
@@ -147,13 +147,13 @@ describe("claim flow roundtrip — Plan 1 join point", () => {
     expect(superseded.claim_id).not.toBe(created.claim_id);
 
     // ── step 5: reindex; old claim no longer in active buckets ────────────
-    await callTool("vault.reindex", {}, vault);
+    await callTool("vault_reindex", {}, vault);
     const sidecar2 = await readClaimsSidecar(vault);
     expect(sidecar2.by_profile["test"]).toEqual([superseded.claim_id]);
     expect(sidecar2.by_tag["windows"]).toEqual([superseded.claim_id]);
 
     const activeNow = await callTool(
-      "vault.list-claims",
+      "vault_list-claims",
       { by: "profile", value: "test", status: ["active"] },
       vault,
     );
@@ -166,7 +166,7 @@ describe("claim flow roundtrip — Plan 1 join point", () => {
     // and the default render_min_confidence is 0.4 — so listing superseded
     // claims requires explicitly opting under the floor.
     const supList = await callTool(
-      "vault.list-claims",
+      "vault_list-claims",
       {
         by: "profile",
         value: "test",
@@ -182,7 +182,7 @@ describe("claim flow roundtrip — Plan 1 join point", () => {
 
     // ── step 7: revalidate the active claim ───────────────────────────────
     const revalidated = await callTool(
-      "vault.claim",
+      "vault_claim",
       {
         key: "test.preflight",
         title: "preflight required (revised)",
@@ -200,7 +200,7 @@ describe("claim flow roundtrip — Plan 1 join point", () => {
 
     // ── step 8: retract ───────────────────────────────────────────────────
     const retracted = await callTool(
-      "vault.claim",
+      "vault_claim",
       {
         retract: revalidated.claim_id,
         reason:
@@ -213,7 +213,7 @@ describe("claim flow roundtrip — Plan 1 join point", () => {
     expect(retracted.claim_id).toBe(revalidated.claim_id);
 
     // ── step 9: default list now empty (retracted excluded by default) ────
-    await callTool("vault.reindex", {}, vault);
+    await callTool("vault_reindex", {}, vault);
     const sidecar3 = await readClaimsSidecar(vault);
     // Sidecar only buckets active claims; after retraction nothing remains.
     expect(sidecar3.by_profile).toEqual({});
@@ -223,7 +223,7 @@ describe("claim flow roundtrip — Plan 1 join point", () => {
     expect(typeof sidecar3.generated_at).toBe("string");
 
     const finalList = await callTool(
-      "vault.list-claims",
+      "vault_list-claims",
       { by: "profile", value: "test", status: ["active"] },
       vault,
     );
@@ -232,7 +232,7 @@ describe("claim flow roundtrip — Plan 1 join point", () => {
     // The retracted claim is still on disk and still findable when status
     // filter explicitly opts in (with min_effective_confidence: 0 — see step 6).
     const retractedList = await callTool(
-      "vault.list-claims",
+      "vault_list-claims",
       {
         by: "profile",
         value: "test",
@@ -247,7 +247,7 @@ describe("claim flow roundtrip — Plan 1 join point", () => {
 
     // ── step 10: lint a clean corpus surfaces no claim-rule diagnostics ───
     const lint = await callTool(
-      "vault.lint",
+      "vault_lint",
       { wiki: "_agents", level: "info" },
       vault,
     );
@@ -329,7 +329,7 @@ describe("claim flow — lint corpus exercises all 6 rules", () => {
     if (vault) rmSync(vault, { recursive: true, force: true });
   });
 
-  it("a single corpus surfaces all six CLAIM_* codes in one vault.lint run", async () => {
+  it("a single corpus surfaces all six CLAIM_* codes in one vault_lint run", async () => {
     // CLAIM_WITHOUT_EVIDENCE — active, empty evidence
     writeClaim("_agents", {
       id: "claim-no-evi",
@@ -374,9 +374,9 @@ describe("claim flow — lint corpus exercises all 6 rules", () => {
       tags: ["repo:"],
     });
 
-    await callTool("vault.reindex", {}, vault);
+    await callTool("vault_reindex", {}, vault);
     const result = await callTool(
-      "vault.lint",
+      "vault_lint",
       { wiki: "_agents", level: "info" },
       vault,
     );

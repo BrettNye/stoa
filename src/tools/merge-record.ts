@@ -1,13 +1,13 @@
 // vault-mcp/src/tools/merge-record.ts
 //
-// Phase-3 T3-2 — `vault.merge-record` MCP tool: write a merge journal entry
+// Phase-3 T3-2 — `vault_merge-record` MCP tool: write a merge journal entry
 // for a PR (merged | failed | halted-conflict | halted-red-ci) and, when the
 // status is `merged` AND a `task_id` is provided, transition the source task
 // to `status: completed`. Pure logic (id format, frontmatter+body composition,
 // task-transition rule) lives in `core/merge-record.ts` (Wave 1 T1-2); this
 // layer wires alias resolution + file IO + index upsert + task lookup/update.
 //
-// Behaviour (locked, spec §6.1 + Plan C "vault.merge-record semantics"):
+// Behaviour (locked, spec §6.1 + Plan C "vault_merge-record semantics"):
 //   1. Resolve `agent_id` via the alias overlay (core/profiles.readProfile,
 //      which already chains profile-<bare> → resolveCurrent under the hood).
 //      If no profile exists and no alias entry resolves, throw
@@ -161,12 +161,12 @@ function findReadySignal(
  *
  * Two-phase lookup:
  *   1. Fast path — `_index/pages.json` lookup. Hits whenever the task has been
- *      seen by `vault.reindex` since it was created or last updated.
+ *      seen by `vault_reindex` since it was created or last updated.
  *   2. Slow path — disk-scan fallback (`findTaskOnDisk`). Catches tasks that
  *      were authored directly on disk between reindexes, the case that surfaced
  *      live in Phase-3 Wave 5 T5-3 (conflict-fixture verification: tasks
  *      created via direct file authoring, immediately followed by a
- *      `vault.merge-record` call that silently missed the transition).
+ *      `vault_merge-record` call that silently missed the transition).
  */
 function findTask(
   vaultPath: string,
@@ -187,7 +187,7 @@ function findTask(
 }
 
 export const mergeRecordTool = {
-  name: "vault.merge-record",
+  name: "vault_merge-record",
   description:
     "Record a merge outcome for a PR: write a journal entry under wikis/_agents/journal/, and when status === 'merged' with a task_id, transition the task to status=completed. Halt/fail statuses write the journal but do NOT touch the task. agent_id is alias-resolved.",
   inputSchema: Input,

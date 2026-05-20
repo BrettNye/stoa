@@ -240,8 +240,8 @@ export const claudeCodeAdapter: RuntimeAdapter = {
       unlinkSync(abs);
       removed.push(abs);
     }
-    // Note: registry entry removal is handled by the caller (vault.sync-agents
-    // or a future vault.remove-agent tool) — adapter.remove() is filesystem-only.
+    // Note: registry entry removal is handled by the caller (vault_sync-agents
+    // or a future vault_remove-agent tool) — adapter.remove() is filesystem-only.
     return { files_removed: removed };
   },
 };

@@ -51,7 +51,7 @@ claimed_by: agent:charmander
   await reindex(vaultPath);
 }
 
-describe("vault.evolve-profile", () => {
+describe("vault_evolve-profile", () => {
   let vaultPath: string;
 
   beforeEach(() => {

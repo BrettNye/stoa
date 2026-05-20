@@ -173,7 +173,7 @@ function upsertTokenize(text: string): string[] {
  *
  * Used by `core/channel.postToChannel` and the agent-journal tool/CLI handlers
  * so newly-written entries become immediately visible to `tailChannel` and
- * `recall` without requiring callers to run `vault.reindex` first.
+ * `recall` without requiring callers to run `vault_reindex` first.
  */
 export async function upsertPage(vaultPath: string, pagePath: string): Promise<void> {
   // v1.7 §5.2 — wrap the entire RMW across pages.json + tokens.json + wikis.json

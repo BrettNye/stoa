@@ -1,6 +1,6 @@
 # Tool reference
 
-Alphabetical reference for every MCP tool exposed by stoa. All tools are registered under the `vault.*` namespace and dispatched via the stdio transport (or, in tests, the shared `callTool` harness). Tools requiring a wiki accept an optional `wiki:` field; resolution order is **explicit arg → `--default-wiki` MCP flag → `.active-wiki` file → error** (see `src/tools/_resolve-wiki.ts`). Stadium tools instead use `resolveTrainerContext` (see `src/core/resolve-trainer-context.ts`): **explicit trainer arg → `STADIUM_TRAINER` env → `~/.vault/stadium.toml` `active=` → error**.
+Alphabetical reference for every MCP tool exposed by stoa. All tools are registered under the `vault_*` namespace and dispatched via the stdio transport (or, in tests, the shared `callTool` harness). Tools requiring a wiki accept an optional `wiki:` field; resolution order is **explicit arg → `--default-wiki` MCP flag → `.active-wiki` file → error** (see `src/tools/_resolve-wiki.ts`). Stadium tools instead use `resolveTrainerContext` (see `src/core/resolve-trainer-context.ts`): **explicit trainer arg → `STADIUM_TRAINER` env → `~/.vault/stadium.toml` `active=` → error**.
 
 Groups: [Core](#core) · [Coordination](#coordination) · [Tasks](#tasks) · [Claims](#claims) · [Agent substrate](#agent-substrate) · [Sync primitives](#sync-primitives) · [Stadium](#stadium) · [Misc](#misc).
 
@@ -8,7 +8,7 @@ Groups: [Core](#core) · [Coordination](#coordination) · [Tasks](#tasks) · [Cl
 
 ## Core
 
-### vault.inbox
+### vault_inbox
 
 Drop a fleeting thought into the resolved wiki's `inbox/` as a datestamped untyped file.
 
@@ -22,14 +22,14 @@ Drop a fleeting thought into the resolved wiki's `inbox/` as a datestamped untyp
 
 **Example:**
 ```json
-{ "tool": "vault.inbox", "args": { "thought": "consider replacing token index with sqlite FTS5" } }
+{ "tool": "vault_inbox", "args": { "thought": "consider replacing token index with sqlite FTS5" } }
 ```
 
 **Source:** `src/tools/inbox.ts`
 
 ---
 
-### vault.lint
+### vault_lint
 
 Read-only health check; emits diagnostics for the resolved wiki (or vault-wide when omitted) at or above the requested severity.
 
@@ -43,14 +43,14 @@ Read-only health check; emits diagnostics for the resolved wiki (or vault-wide w
 
 **Example:**
 ```json
-{ "tool": "vault.lint", "args": { "wiki": "_meta", "level": "warning" } }
+{ "tool": "vault_lint", "args": { "wiki": "_meta", "level": "warning" } }
 ```
 
 **Source:** `src/tools/lint.ts`
 
 ---
 
-### vault.list-wikis
+### vault_list-wikis
 
 List visible wikis with per-wiki page counts, optionally grouped by family.
 
@@ -65,14 +65,14 @@ List visible wikis with per-wiki page counts, optionally grouped by family.
 
 **Example:**
 ```json
-{ "tool": "vault.list-wikis", "args": { "group_by_family": true } }
+{ "tool": "vault_list-wikis", "args": { "group_by_family": true } }
 ```
 
 **Source:** `src/tools/list-wikis.ts`
 
 ---
 
-### vault.new
+### vault_new
 
 Create a typed page from the template; auto-generates `id`, writes frontmatter, and write-through-upserts the page into `_index/pages.json`.
 
@@ -90,14 +90,14 @@ Create a typed page from the template; auto-generates `id`, writes frontmatter, 
 
 **Example:**
 ```json
-{ "tool": "vault.new", "args": { "type": "guide", "wiki": "_meta", "title": "Onboarding ritual" } }
+{ "tool": "vault_new", "args": { "type": "guide", "wiki": "_meta", "title": "Onboarding ritual" } }
 ```
 
 **Source:** `src/tools/new.ts`
 
 ---
 
-### vault.new-wiki
+### vault_new-wiki
 
 Scaffold a new wiki: directory tree, starter `map.md` / `log.md` / `CLAUDE.md`, REGISTRY entry.
 
@@ -113,14 +113,14 @@ Scaffold a new wiki: directory tree, starter `map.md` / `log.md` / `CLAUDE.md`, 
 
 **Example:**
 ```json
-{ "tool": "vault.new-wiki", "args": { "name": "cooking", "mode": "learning", "scope": "Recipes and technique notes." } }
+{ "tool": "vault_new-wiki", "args": { "name": "cooking", "mode": "learning", "scope": "Recipes and technique notes." } }
 ```
 
 **Source:** `src/tools/new-wiki.ts`
 
 ---
 
-### vault.process-inbox
+### vault_process-inbox
 
 Two-phase promotion of `inbox/` items. Phase 1 (`commit: false`) returns proposals; phase 2 (`commit: true`) moves files and writes frontmatter.
 
@@ -136,14 +136,14 @@ Two-phase promotion of `inbox/` items. Phase 1 (`commit: false`) returns proposa
 
 **Example:**
 ```json
-{ "tool": "vault.process-inbox", "args": { "wiki": "_meta", "commit": false } }
+{ "tool": "vault_process-inbox", "args": { "wiki": "_meta", "commit": false } }
 ```
 
 **Source:** `src/tools/process-inbox.ts`
 
 ---
 
-### vault.read
+### vault_read
 
 Read a page by id; returns frontmatter, body, and the `updated` handle for follow-up OCC writes.
 
@@ -157,14 +157,14 @@ Read a page by id; returns frontmatter, body, and the `updated` handle for follo
 
 **Example:**
 ```json
-{ "tool": "vault.read", "args": { "id": "guide-vault-rituals", "wiki": "_meta" } }
+{ "tool": "vault_read", "args": { "id": "guide-vault-rituals", "wiki": "_meta" } }
 ```
 
 **Source:** `src/tools/read.ts`
 
 ---
 
-### vault.recall
+### vault_recall
 
 Token-index ranked search; either `topic` or `filter` must be provided. Supports family-scope expansion and a disk-fallback for exact id matches.
 
@@ -184,14 +184,14 @@ Token-index ranked search; either `topic` or `filter` must be provided. Supports
 
 **Example:**
 ```json
-{ "tool": "vault.recall", "args": { "topic": "synthesis ritual", "limit": 10 } }
+{ "tool": "vault_recall", "args": { "topic": "synthesis ritual", "limit": 10 } }
 ```
 
 **Source:** `src/tools/recall.ts`
 
 ---
 
-### vault.reindex
+### vault_reindex
 
 Regenerate `_index/*.json` sidecars and per-wiki `index.md` rollups.
 
@@ -204,14 +204,14 @@ Regenerate `_index/*.json` sidecars and per-wiki `index.md` rollups.
 
 **Example:**
 ```json
-{ "tool": "vault.reindex", "args": {} }
+{ "tool": "vault_reindex", "args": {} }
 ```
 
 **Source:** `src/tools/reindex.ts`
 
 ---
 
-### vault.set-active
+### vault_set-active
 
 Write `<vault>/.active-wiki` so subsequent tool calls without `wiki:` resolve to this wiki.
 
@@ -224,14 +224,14 @@ Write `<vault>/.active-wiki` so subsequent tool calls without `wiki:` resolve to
 
 **Example:**
 ```json
-{ "tool": "vault.set-active", "args": { "wiki": "_meta" } }
+{ "tool": "vault_set-active", "args": { "wiki": "_meta" } }
 ```
 
 **Source:** `src/tools/set-active.ts`
 
 ---
 
-### vault.synthesize
+### vault_synthesize
 
 Compile or refresh a synthesis page. With `by_agent` + `scope=memory`, writes a per-agent memory synthesis under `_agents/synthesis/` and injects a marker-bounded `## Learnings` block clustered by tag.
 
@@ -249,7 +249,7 @@ Compile or refresh a synthesis page. With `by_agent` + `scope=memory`, writes a 
 
 **Example:**
 ```json
-{ "tool": "vault.synthesize", "args": { "topic": "claims design", "wiki": "_meta" } }
+{ "tool": "vault_synthesize", "args": { "topic": "claims design", "wiki": "_meta" } }
 ```
 
 **Source:** `src/tools/synthesize.ts`
@@ -258,7 +258,7 @@ Compile or refresh a synthesis page. With `by_agent` + `scope=memory`, writes a 
 
 ## Coordination
 
-### vault.agent-journal
+### vault_agent-journal
 
 Append a first-person agent journal entry under `wikis/<wiki>/journal/`. Auto-fills `id`, `created`, `author`, write-through-upserts the page into the index.
 
@@ -276,14 +276,14 @@ Append a first-person agent journal entry under `wikis/<wiki>/journal/`. Auto-fi
 
 **Example:**
 ```json
-{ "tool": "vault.agent-journal", "args": { "entry": "promoted draft synthesis-onboarding to active", "agent_id": "pidgey" } }
+{ "tool": "vault_agent-journal", "args": { "entry": "promoted draft synthesis-onboarding to active", "agent_id": "pidgey" } }
 ```
 
 **Source:** `src/tools/agent-journal.ts`
 
 ---
 
-### vault.channel-post
+### vault_channel-post
 
 Post a message to a coordination channel. Writes a journal entry with `channel:` set so `channel-tail` can pick it up.
 
@@ -300,14 +300,14 @@ Post a message to a coordination channel. Writes a journal entry with `channel:`
 
 **Example:**
 ```json
-{ "tool": "vault.channel-post", "args": { "channel": "stoa-progress", "content": "shipped 1.7.1 push primitives" } }
+{ "tool": "vault_channel-post", "args": { "channel": "stoa-progress", "content": "shipped 1.7.1 push primitives" } }
 ```
 
 **Source:** `src/tools/channel-post.ts`
 
 ---
 
-### vault.channel-tail
+### vault_channel-tail
 
 Pull recent journal entries on a channel since a timestamp.
 
@@ -323,7 +323,7 @@ Pull recent journal entries on a channel since a timestamp.
 
 **Example:**
 ```json
-{ "tool": "vault.channel-tail", "args": { "channel": "stoa-progress", "limit": 20 } }
+{ "tool": "vault_channel-tail", "args": { "channel": "stoa-progress", "limit": 20 } }
 ```
 
 **Source:** `src/tools/channel-tail.ts`
@@ -332,7 +332,7 @@ Pull recent journal entries on a channel since a timestamp.
 
 ## Tasks
 
-### vault.task-claim
+### vault_task-claim
 
 Atomic claim on a `pending` task via mtime optimistic concurrency. If the task has `required_pokemon_type`, the claimant's profile must match.
 
@@ -348,14 +348,14 @@ Atomic claim on a `pending` task via mtime optimistic concurrency. If the task h
 
 **Example:**
 ```json
-{ "tool": "vault.task-claim", "args": { "task_id": "task-refresh-syntheses", "agent_id": "pidgey", "expected_updated": "2026-05-12" } }
+{ "tool": "vault_task-claim", "args": { "task_id": "task-refresh-syntheses", "agent_id": "pidgey", "expected_updated": "2026-05-12" } }
 ```
 
 **Source:** `src/tools/task-claim.ts`
 
 ---
 
-### vault.task-create
+### vault_task-create
 
 Create a new task in a wiki's task queue. Status starts as `pending` and the page is write-through-upserted into the index.
 
@@ -375,14 +375,14 @@ Create a new task in a wiki's task queue. Status starts as `pending` and the pag
 
 **Example:**
 ```json
-{ "tool": "vault.task-create", "args": { "title": "Refresh stale syntheses", "wiki": "_meta" } }
+{ "tool": "vault_task-create", "args": { "title": "Refresh stale syntheses", "wiki": "_meta" } }
 ```
 
 **Source:** `src/tools/task-create.ts`
 
 ---
 
-### vault.task-list
+### vault_task-list
 
 List tasks vault-wide or filtered. Alias-aware on `claimed_by` — historical agent ids surface tasks claimed under their current id.
 
@@ -400,14 +400,14 @@ List tasks vault-wide or filtered. Alias-aware on `claimed_by` — historical ag
 
 **Example:**
 ```json
-{ "tool": "vault.task-list", "args": { "status": "pending", "wiki": "_meta" } }
+{ "tool": "vault_task-list", "args": { "status": "pending", "wiki": "_meta" } }
 ```
 
 **Source:** `src/tools/task-list.ts`
 
 ---
 
-### vault.task-update
+### vault_task-update
 
 Update a task's status, notes, or segregation. Uses mtime OCC and write-through-upserts the index.
 
@@ -426,7 +426,7 @@ Update a task's status, notes, or segregation. Uses mtime OCC and write-through-
 
 **Example:**
 ```json
-{ "tool": "vault.task-update", "args": { "task_id": "task-refresh-syntheses", "wiki": "_meta", "expected_updated": "2026-05-12", "status": "completed" } }
+{ "tool": "vault_task-update", "args": { "task_id": "task-refresh-syntheses", "wiki": "_meta", "expected_updated": "2026-05-12", "status": "completed" } }
 ```
 
 **Source:** `src/tools/task-update.ts`
@@ -435,7 +435,7 @@ Update a task's status, notes, or segregation. Uses mtime OCC and write-through-
 
 ## Claims
 
-### vault.claim
+### vault_claim
 
 Single authoring primitive over four claim actions: create, revalidate, supersede (optionally with `override`), retract. Identity is `(key, scope_hash)`; supersession compares effective confidence.
 
@@ -462,14 +462,14 @@ Single authoring primitive over four claim actions: create, revalidate, supersed
 
 **Example:**
 ```json
-{ "tool": "vault.claim", "args": { "key": "prefer-tdd-cycle-for-bugfixes", "title": "Prefer TDD for bugfixes", "as": "pidgey", "confidence": 0.8 } }
+{ "tool": "vault_claim", "args": { "key": "prefer-tdd-cycle-for-bugfixes", "title": "Prefer TDD for bugfixes", "as": "pidgey", "confidence": 0.8 } }
 ```
 
 **Source:** `src/tools/claim.ts`
 
 ---
 
-### vault.list-claims
+### vault_list-claims
 
 Read-only claim listing with bucket filter, status filter, effective-confidence floor, sort by effective confidence desc. Falls back to a disk walk when `_index/claims.json` is missing.
 
@@ -487,7 +487,7 @@ Read-only claim listing with bucket filter, status filter, effective-confidence 
 
 **Example:**
 ```json
-{ "tool": "vault.list-claims", "args": { "by": "profile", "value": "pidgey" } }
+{ "tool": "vault_list-claims", "args": { "by": "profile", "value": "pidgey" } }
 ```
 
 **Source:** `src/tools/list-claims.ts`
@@ -496,7 +496,7 @@ Read-only claim listing with bucket filter, status filter, effective-confidence 
 
 ## Agent substrate
 
-### vault.bootstrap-repo
+### vault_bootstrap-repo
 
 Wire a repo to the vault MCP: writes `.mcp.json`, appends a CLAUDE.md fragment, optionally deploys a Pokemon's moveset.
 
@@ -513,14 +513,14 @@ Wire a repo to the vault MCP: writes `.mcp.json`, appends a CLAUDE.md fragment, 
 
 **Example:**
 ```json
-{ "tool": "vault.bootstrap-repo", "args": { "repo_path": "/abs/path/to/repo", "wiki": "_meta", "pokemon": "pidgey" } }
+{ "tool": "vault_bootstrap-repo", "args": { "repo_path": "/abs/path/to/repo", "wiki": "_meta", "pokemon": "pidgey" } }
 ```
 
 **Source:** `src/tools/bootstrap-repo.ts`
 
 ---
 
-### vault.evolve-profile
+### vault_evolve-profile
 
 Two-phase profile evolution. `commit: false` returns a proposal (eligibility, proposed stage/autonomy/moveset, claim-driven specialties + moveset suggestions, rationale). `commit: true` applies it; renames are recorded via the alias overlay.
 
@@ -538,14 +538,14 @@ Two-phase profile evolution. `commit: false` returns a proposal (eligibility, pr
 
 **Example:**
 ```json
-{ "tool": "vault.evolve-profile", "args": { "pokemon_id": "profile-charmander", "commit": false } }
+{ "tool": "vault_evolve-profile", "args": { "pokemon_id": "profile-charmander", "commit": false } }
 ```
 
 **Source:** `src/tools/evolve-profile.ts`
 
 ---
 
-### vault.list-platform-profiles
+### vault_list-platform-profiles
 
 List Stadium-registered profiles in the resolved wiki — the draft pool. Hydrates `real_skill_levels` from each move's SKILL.md.
 
@@ -559,14 +559,14 @@ List Stadium-registered profiles in the resolved wiki — the draft pool. Hydrat
 
 **Example:**
 ```json
-{ "tool": "vault.list-platform-profiles", "args": {} }
+{ "tool": "vault_list-platform-profiles", "args": {} }
 ```
 
 **Source:** `src/tools/list-platform-profiles.ts`
 
 ---
 
-### vault.profile-stats
+### vault_profile-stats
 
 Per-profile counts (tasks done/failed/in-flight, journals, channels, moves-used) plus next-evolution threshold. Reads `_index/profiles.json`.
 
@@ -576,20 +576,20 @@ Per-profile counts (tasks done/failed/in-flight, journals, channels, moves-used)
 
 **Returns:** `{ profile_id, pokemon_type, evolution_stage, days_since_creation, tasks_completed, tasks_failed, tasks_in_flight, success_rate, journals_count, channels_active, moves_used_freq, next_evolution_threshold?, caller_trainer_id }`.
 
-**Errors:** `PROFILE_NOT_FOUND: _index/profiles.json missing — run vault.reindex first` when the sidecar is absent.
+**Errors:** `PROFILE_NOT_FOUND: _index/profiles.json missing — run vault_reindex first` when the sidecar is absent.
 
 **Example:**
 ```json
-{ "tool": "vault.profile-stats", "args": { "pokemon_id": "profile-pidgey" } }
+{ "tool": "vault_profile-stats", "args": { "pokemon_id": "profile-pidgey" } }
 ```
 
 **Source:** `src/tools/profile-stats.ts`
 
 ---
 
-### vault.refresh-profile-memory
+### vault_refresh-profile-memory
 
-Convenience wrapper around `vault.synthesize` with `by_agent` + `scope=memory`. Writes `wikis/_agents/synthesis/synthesis-<bare-name>-memory.md`. Idempotent.
+Convenience wrapper around `vault_synthesize` with `by_agent` + `scope=memory`. Writes `wikis/_agents/synthesis/synthesis-<bare-name>-memory.md`. Idempotent.
 
 **Params:**
 - `pokemon_id` (string, required).
@@ -601,14 +601,14 @@ Convenience wrapper around `vault.synthesize` with `by_agent` + `scope=memory`. 
 
 **Example:**
 ```json
-{ "tool": "vault.refresh-profile-memory", "args": { "pokemon_id": "profile-pidgey" } }
+{ "tool": "vault_refresh-profile-memory", "args": { "pokemon_id": "profile-pidgey" } }
 ```
 
 **Source:** `src/tools/refresh-profile-memory.ts`
 
 ---
 
-### vault.start
+### vault_start
 
 Cold-session bootstrap: reads wiki map (or family map if scoped), lists active pages, computes channel activity, optionally hydrates Pokemon state and renders an ASCII sprite header. Writes `_index/statusline.json` when a Pokemon is given.
 
@@ -625,14 +625,14 @@ Cold-session bootstrap: reads wiki map (or family map if scoped), lists active p
 
 **Example:**
 ```json
-{ "tool": "vault.start", "args": { "wiki": "_meta", "pokemon": "pidgey" } }
+{ "tool": "vault_start", "args": { "wiki": "_meta", "pokemon": "pidgey" } }
 ```
 
 **Source:** `src/tools/start.ts`
 
 ---
 
-### vault.suggest-pokemon
+### vault_suggest-pokemon
 
 Suggest Pokemon names matching a type or dev specialty (e.g. `"backend"` → fire). PokeAPI-backed, 30-day cache. Excludes existing profile names by default.
 
@@ -649,14 +649,14 @@ Suggest Pokemon names matching a type or dev specialty (e.g. `"backend"` → fir
 
 **Example:**
 ```json
-{ "tool": "vault.suggest-pokemon", "args": { "dev_specialty": "backend", "limit": 3 } }
+{ "tool": "vault_suggest-pokemon", "args": { "dev_specialty": "backend", "limit": 3 } }
 ```
 
 **Source:** `src/tools/suggest-pokemon.ts`
 
 ---
 
-### vault.sync-agents
+### vault_sync-agents
 
 Deploy a Pokemon (or list, or `all: true`) as runtime subagent definitions in the target repo. Builds a `SubagentIntent` per profile, hands to the per-runtime adapter, writes `<target>/.claude/agents/<pokemon-id>.md` plus optional moveset SKILL.md files. Idempotent on `source_revision`.
 
@@ -678,14 +678,14 @@ Deploy a Pokemon (or list, or `all: true`) as runtime subagent definitions in th
 
 **Example:**
 ```json
-{ "tool": "vault.sync-agents", "args": { "target": "/abs/path/repo", "pokemon": "pidgey" } }
+{ "tool": "vault_sync-agents", "args": { "target": "/abs/path/repo", "pokemon": "pidgey" } }
 ```
 
 **Source:** `src/tools/sync-agents.ts`
 
 ---
 
-### vault.sync-skills
+### vault_sync-skills
 
 Deploy a Pokemon's moveset into a target repo's local skills directory. With `reverify: true`, scans existing deployments for drift instead of deploying.
 
@@ -707,7 +707,7 @@ Deploy a Pokemon's moveset into a target repo's local skills directory. With `re
 
 **Example:**
 ```json
-{ "tool": "vault.sync-skills", "args": { "repo_path": "/abs/path/repo", "pokemon": "pidgey" } }
+{ "tool": "vault_sync-skills", "args": { "repo_path": "/abs/path/repo", "pokemon": "pidgey" } }
 ```
 
 **Source:** `src/tools/sync-skills.ts`
@@ -716,7 +716,7 @@ Deploy a Pokemon's moveset into a target repo's local skills directory. With `re
 
 ## Sync primitives
 
-### vault.wait-for
+### vault_wait-for
 
 Wait for the next event matching `filter`. Returns immediately if `since` cursor reveals a matching event.
 
@@ -731,14 +731,14 @@ Wait for the next event matching `filter`. Returns immediately if `since` cursor
 
 **Example:**
 ```json
-{ "tool": "vault.wait-for", "args": { "filter": { "source": "vault.channel-post", "channel": "stoa-progress" } } }
+{ "tool": "vault_wait-for", "args": { "filter": { "source": "vault_channel-post", "channel": "stoa-progress" } } }
 ```
 
 **Source:** `src/tools/wait-for.ts`
 
 ---
 
-### vault.wait-for-all
+### vault_wait-for-all
 
 Wait until every filter has been satisfied (fan-in).
 
@@ -753,14 +753,14 @@ Wait until every filter has been satisfied (fan-in).
 
 **Example:**
 ```json
-{ "tool": "vault.wait-for-all", "args": { "filters": [{ "source": "vault.task-update", "id": "task-a" }, { "source": "vault.task-update", "id": "task-b" }] } }
+{ "tool": "vault_wait-for-all", "args": { "filters": [{ "source": "vault_task-update", "id": "task-a" }, { "source": "vault_task-update", "id": "task-b" }] } }
 ```
 
 **Source:** `src/tools/wait-for-all.ts`
 
 ---
 
-### vault.wait-for-any
+### vault_wait-for-any
 
 Wait for the first event matching any filter (first-of-N).
 
@@ -772,14 +772,14 @@ Wait for the first event matching any filter (first-of-N).
 
 **Example:**
 ```json
-{ "tool": "vault.wait-for-any", "args": { "filters": [{ "source": "vault.match-watch" }, { "source": "vault.channel-post", "channel": "stadium-alerts" }] } }
+{ "tool": "vault_wait-for-any", "args": { "filters": [{ "source": "vault_match-watch" }, { "source": "vault_channel-post", "channel": "stadium-alerts" }] } }
 ```
 
 **Source:** `src/tools/wait-for-any.ts`
 
 ---
 
-### vault.wait-for-many
+### vault_wait-for-many
 
 Collect up to `max` events matching `filter` (bounded batch).
 
@@ -795,7 +795,7 @@ Collect up to `max` events matching `filter` (bounded batch).
 
 **Example:**
 ```json
-{ "tool": "vault.wait-for-many", "args": { "filter": { "source": "vault.agent-journal" }, "max": 50 } }
+{ "tool": "vault_wait-for-many", "args": { "filter": { "source": "vault_agent-journal" }, "max": 50 } }
 ```
 
 **Source:** `src/tools/wait-for-many.ts`
@@ -806,7 +806,7 @@ Collect up to `max` events matching `filter` (bounded batch).
 
 All Stadium tools authenticate via `resolveStadiumConfig` and require an active trainer context (see top of file). Server errors propagate as `StadiumApiError`; callers see the platform's `error_code` directly.
 
-### vault.list-invites
+### vault_list-invites
 
 List pending match invites for the calling trainer.
 
@@ -818,14 +818,14 @@ List pending match invites for the calling trainer.
 
 **Example:**
 ```json
-{ "tool": "vault.list-invites", "args": {} }
+{ "tool": "vault_list-invites", "args": {} }
 ```
 
 **Source:** `src/tools/list-invites.ts`
 
 ---
 
-### vault.match-watch
+### vault_match-watch
 
 Poll a match until terminal status (`completed`, `forfeit_a`, `forfeit_b`, `draw`), then write a result journal under `wikis/<wiki>/journal/`.
 
@@ -841,14 +841,14 @@ Poll a match until terminal status (`completed`, `forfeit_a`, `forfeit_b`, `draw
 
 **Example:**
 ```json
-{ "tool": "vault.match-watch", "args": { "match_id": "01H..." } }
+{ "tool": "vault_match-watch", "args": { "match_id": "01H..." } }
 ```
 
 **Source:** `src/tools/match-watch.ts`
 
 ---
 
-### vault.move-fuse
+### vault_move-fuse
 
 Fuse a canonical PokeAPI move with a registered real-skill into a usable `move_id`.
 
@@ -862,14 +862,14 @@ Fuse a canonical PokeAPI move with a registered real-skill into a usable `move_i
 
 **Example:**
 ```json
-{ "tool": "vault.move-fuse", "args": { "canonical_move_name": "ember", "real_skill_id": "rs_..." } }
+{ "tool": "vault_move-fuse", "args": { "canonical_move_name": "ember", "real_skill_id": "rs_..." } }
 ```
 
 **Source:** `src/tools/move-fuse.ts`
 
 ---
 
-### vault.profile-register
+### vault_profile-register
 
 Register a profile with the Stadium platform; persist `platform_profile_id` + `platform_stats` back to the file.
 
@@ -883,14 +883,14 @@ Register a profile with the Stadium platform; persist `platform_profile_id` + `p
 
 **Example:**
 ```json
-{ "tool": "vault.profile-register", "args": { "profile_id": "profile-pidgey" } }
+{ "tool": "vault_profile-register", "args": { "profile_id": "profile-pidgey" } }
 ```
 
 **Source:** `src/tools/profile-register.ts`
 
 ---
 
-### vault.real-skill-refresh
+### vault_real-skill-refresh
 
 Re-derive a registered real-skill's modifier function from the current SKILL.md content.
 
@@ -900,18 +900,18 @@ Re-derive a registered real-skill's modifier function from the current SKILL.md 
 
 **Returns:** `{ real_skill_id, modifier_function }`.
 
-**Errors:** `<id> has no real_skill_id — register first via vault.real-skill-register`; `StadiumApiError`.
+**Errors:** `<id> has no real_skill_id — register first via vault_real-skill-register`; `StadiumApiError`.
 
 **Example:**
 ```json
-{ "tool": "vault.real-skill-refresh", "args": { "skill_id": "move-tdd-cycle" } }
+{ "tool": "vault_real-skill-refresh", "args": { "skill_id": "move-tdd-cycle" } }
 ```
 
 **Source:** `src/tools/real-skill-refresh.ts`
 
 ---
 
-### vault.real-skill-register
+### vault_real-skill-register
 
 Register a real-skill (`move-*/SKILL.md`) with Stadium; persist returned `real_skill_id` + advisory `combat:` block.
 
@@ -925,14 +925,14 @@ Register a real-skill (`move-*/SKILL.md`) with Stadium; persist returned `real_s
 
 **Example:**
 ```json
-{ "tool": "vault.real-skill-register", "args": { "skill_id": "move-tdd-cycle" } }
+{ "tool": "vault_real-skill-register", "args": { "skill_id": "move-tdd-cycle" } }
 ```
 
 **Source:** `src/tools/real-skill-register.ts`
 
 ---
 
-### vault.telemetry-push
+### vault_telemetry-push
 
 Push a move-usage event to Stadium; increments server-side XP for the named real-skill.
 
@@ -947,14 +947,14 @@ Push a move-usage event to Stadium; increments server-side XP for the named real
 
 **Example:**
 ```json
-{ "tool": "vault.telemetry-push", "args": { "real_skill_id": "rs_...", "source": "journal-...", "reference_link": "https://..." } }
+{ "tool": "vault_telemetry-push", "args": { "real_skill_id": "rs_...", "source": "journal-...", "reference_link": "https://..." } }
 ```
 
 **Source:** `src/tools/telemetry-push.ts`
 
 ---
 
-### vault.trainer-accept-match
+### vault_trainer-accept-match
 
 Accept a `pending_invite` match; transitions to drafting.
 
@@ -968,14 +968,14 @@ Accept a `pending_invite` match; transitions to drafting.
 
 **Example:**
 ```json
-{ "tool": "vault.trainer-accept-match", "args": { "match_id": "01H..." } }
+{ "tool": "vault_trainer-accept-match", "args": { "match_id": "01H..." } }
 ```
 
 **Source:** `src/tools/trainer-accept-match.ts`
 
 ---
 
-### vault.trainer-get-state
+### vault_trainer-get-state
 
 Fetch authenticated match state; supports `since_turn` for incremental polling. During the drafting phase, also returns `available_profiles` (the caller's draft pool).
 
@@ -989,14 +989,14 @@ Fetch authenticated match state; supports `since_turn` for incremental polling. 
 
 **Example:**
 ```json
-{ "tool": "vault.trainer-get-state", "args": { "match_id": "01H..." } }
+{ "tool": "vault_trainer-get-state", "args": { "match_id": "01H..." } }
 ```
 
 **Source:** `src/tools/trainer-get-state.ts`
 
 ---
 
-### vault.trainer-init
+### vault_trainer-init
 
 Validate the configured Stadium API key and scaffold `wikis/_agents/trainers/trainer-<slug>.md` with the initial strategy seed.
 
@@ -1010,14 +1010,14 @@ Validate the configured Stadium API key and scaffold `wikis/_agents/trainers/tra
 
 **Example:**
 ```json
-{ "tool": "vault.trainer-init", "args": { "name": "Brett" } }
+{ "tool": "vault_trainer-init", "args": { "name": "Brett" } }
 ```
 
 **Source:** `src/tools/trainer-init.ts`
 
 ---
 
-### vault.trainer-queue-match
+### vault_trainer-queue-match
 
 Create a match invite against an opponent trainer; returns `match_id` in `pending_invite` state.
 
@@ -1032,14 +1032,14 @@ Create a match invite against an opponent trainer; returns `match_id` in `pendin
 
 **Example:**
 ```json
-{ "tool": "vault.trainer-queue-match", "args": { "opponent_trainer_id": "trainer-foo" } }
+{ "tool": "vault_trainer-queue-match", "args": { "opponent_trainer_id": "trainer-foo" } }
 ```
 
 **Source:** `src/tools/trainer-queue-match.ts`
 
 ---
 
-### vault.trainer-submit-draft
+### vault_trainer-submit-draft
 
 Submit 6 picks (platform_profile_ids as ULIDs) during a match's drafting phase.
 
@@ -1053,14 +1053,14 @@ Submit 6 picks (platform_profile_ids as ULIDs) during a match's drafting phase.
 
 **Example:**
 ```json
-{ "tool": "vault.trainer-submit-draft", "args": { "match_id": "01H...", "picks": ["01H...","01H...","01H...","01H...","01H...","01H..."] } }
+{ "tool": "vault_trainer-submit-draft", "args": { "match_id": "01H...", "picks": ["01H...","01H...","01H...","01H...","01H...","01H..."] } }
 ```
 
 **Source:** `src/tools/trainer-submit-draft.ts`
 
 ---
 
-### vault.trainer-submit-move
+### vault_trainer-submit-move
 
 Submit a move for the current turn; the server resolves the turn once both trainers submit.
 
@@ -1076,7 +1076,7 @@ Submit a move for the current turn; the server resolves the turn once both train
 
 **Example:**
 ```json
-{ "tool": "vault.trainer-submit-move", "args": { "match_id": "01H...", "turn": 3, "move_id": "ember-rs_..." } }
+{ "tool": "vault_trainer-submit-move", "args": { "match_id": "01H...", "turn": 3, "move_id": "ember-rs_..." } }
 ```
 
 **Source:** `src/tools/trainer-submit-move.ts`
@@ -1085,7 +1085,7 @@ Submit a move for the current turn; the server resolves the turn once both train
 
 ## Misc
 
-### vault.merge-queue
+### vault_merge-queue
 
 Surface the bulk merge queue for a coordination channel: ready PRs parsed from `ready: branch=...` journal signals, unready tasks, and a topo-sorted dependency order keyed by `task.blocking`. Pure read; `ci_status` is always `"unknown"`.
 
@@ -1101,14 +1101,14 @@ Surface the bulk merge queue for a coordination channel: ready PRs parsed from `
 
 **Example:**
 ```json
-{ "tool": "vault.merge-queue", "args": { "channel": "stoa-progress" } }
+{ "tool": "vault_merge-queue", "args": { "channel": "stoa-progress" } }
 ```
 
 **Source:** `src/tools/merge-queue.ts`
 
 ---
 
-### vault.merge-record
+### vault_merge-record
 
 Record a merge outcome for a PR: write a journal entry under `wikis/_agents/journal/`, and when `status === "merged"` with a `task_id`, transition the source task to `completed`. Halt/fail statuses write the journal but do NOT touch the task. `agent_id` is alias-resolved.
 
@@ -1127,14 +1127,14 @@ Record a merge outcome for a PR: write a journal entry under `wikis/_agents/jour
 
 **Example:**
 ```json
-{ "tool": "vault.merge-record", "args": { "pr_number": 42, "channel": "stoa-progress", "agent_id": "pidgey", "status": "merged", "task_id": "task-ship-doc" } }
+{ "tool": "vault_merge-record", "args": { "pr_number": 42, "channel": "stoa-progress", "agent_id": "pidgey", "status": "merged", "task_id": "task-ship-doc" } }
 ```
 
 **Source:** `src/tools/merge-record.ts`
 
 ---
 
-### vault.rewrite-links
+### vault_rewrite-links
 
 Bulk-rewrite wikilink prefixes across the vault (body + frontmatter `related:`). Code-fence-safe; idempotent; dry-run by default. Used for family migrations and wiki renames.
 
@@ -1150,7 +1150,7 @@ Bulk-rewrite wikilink prefixes across the vault (body + frontmatter `related:`).
 
 **Example:**
 ```json
-{ "tool": "vault.rewrite-links", "args": { "from_prefix": "wikis/old-name/", "to_prefix": "wikis/new-name/", "dry_run": true } }
+{ "tool": "vault_rewrite-links", "args": { "from_prefix": "wikis/old-name/", "to_prefix": "wikis/new-name/", "dry_run": true } }
 ```
 
 **Source:** `src/tools/rewrite-links.ts`

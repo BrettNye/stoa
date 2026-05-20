@@ -5,9 +5,9 @@ or sessions. This page is the substrate contract: how task pages are shaped,
 how the state machine works, and how concurrent claims are arbitrated. It does
 not prescribe how any particular consumer should orchestrate work on top of it.
 
-If you are looking for the unrelated **knowledge-claim** system (`vault.claim`
-/ `vault.list-claims`), see the short distinction in
-[`vault.claim` vs `vault.task-claim`](#vaultclaim-vs-vaulttask-claim) before
+If you are looking for the unrelated **knowledge-claim** system (`vault_claim`
+/ `vault_list-claims`), see the short distinction in
+[`vault_claim` vs `vault_task-claim`](#vaultclaim-vs-vaulttask-claim) before
 reading further.
 
 ## What a task is
@@ -61,10 +61,10 @@ pending → claimed → in_progress → completed
 
 | From | To | Performed by |
 |---|---|---|
-| (none) | `pending` | `vault.task-create` |
-| `pending` | `claimed` | `vault.task-claim` |
-| `claimed` | `in_progress` / `completed` / `failed` / `blocked` | `vault.task-update` |
-| any | any (above set) | `vault.task-update` |
+| (none) | `pending` | `vault_task-create` |
+| `pending` | `claimed` | `vault_task-claim` |
+| `claimed` | `in_progress` / `completed` / `failed` / `blocked` | `vault_task-update` |
+| any | any (above set) | `vault_task-update` |
 
 The core layer does **not** enforce direction. `updateTask`
 (`src/core/tasks.ts:298-325`) accepts any status from the enum and writes it.
@@ -72,13 +72,13 @@ Consumers that need stricter transitions (e.g. forbidding `completed →
 pending`) layer that on top.
 
 There is no `abandoned` state. To release a claim, a consumer either
-`vault.task-update` back to `pending` (clearing `claimed_by` is not exposed
+`vault_task-update` back to `pending` (clearing `claimed_by` is not exposed
 through the tool — you would need to write the page directly), or sets
 `status: failed` / `blocked`.
 
 ## Atomic claiming
 
-`vault.task-claim` (`src/tools/task-claim.ts`, `src/core/tasks.ts:45-107`)
+`vault_task-claim` (`src/tools/task-claim.ts`, `src/core/tasks.ts:45-107`)
 takes ownership of a pending task. Input shape:
 
 ```ts
@@ -115,7 +115,7 @@ not `fs.stat().mtime`. See `writePage` in `src/core/pages.ts:102-116`:
 
 To claim safely:
 
-1. Read the task (e.g. via `vault.task-list` or by reading the file).
+1. Read the task (e.g. via `vault_task-list` or by reading the file).
 2. Capture `frontmatter.updated`.
 3. Pass that value as `expected_updated`.
 
@@ -186,7 +186,7 @@ All tools are wired in `src/tools/`; the CLI shims live in
 `src/cli/commands/`. The CLI is largely 1:1 with the MCP tools, with one
 exception called out below.
 
-### `vault.task-create`
+### `vault_task-create`
 
 Source: `src/tools/task-create.ts`, core `createTask`
 (`src/core/tasks.ts:130-170`).
@@ -208,7 +208,7 @@ deliberately enough to satisfy the readiness gate's `scope` / `out_of_scope` /
 `verification` signals but not `files`. A newly created task with no
 description is **not** claimable without grooming or `force: true`.
 
-### `vault.task-list`
+### `vault_task-list`
 
 Source: `src/tools/task-list.ts`, core `listTasks`
 (`src/core/tasks.ts:198-239`).
@@ -225,7 +225,7 @@ Output shape per task is `TaskSummary` (`src/core/tasks.ts:181-196`):
 `{ id, title, status, claimed_by?, pokemon_type?, segregation?, blocking?,
 channel?, wiki, branch_suffix? }`.
 
-### `vault.task-claim`
+### `vault_task-claim`
 
 Source: `src/tools/task-claim.ts`, core `claimTask`
 (`src/core/tasks.ts:45-107`). See [Atomic claiming](#atomic-claiming) above
@@ -237,7 +237,7 @@ caller to pass it explicitly. **There is no `task-claim` subcommand on the
 CLI; the command is `claim-task`** (note the dash order). This is the one
 CLI/MCP naming asymmetry in the surface.
 
-### `vault.task-update`
+### `vault_task-update`
 
 Source: `src/tools/task-update.ts`, core `updateTask`
 (`src/core/tasks.ts:298-325`).
@@ -250,11 +250,11 @@ or you will get `ConflictError`.
 Does not touch `claimed_by` or `assigned_at`. To re-assign a task, write the
 page directly.
 
-## `vault.claim` vs `vault.task-claim`
+## `vault_claim` vs `vault_task-claim`
 
 These are different systems with deceptively similar names.
 
-| | `vault.task-claim` | `vault.claim` |
+| | `vault_task-claim` | `vault_claim` |
 |---|---|---|
 | About | Taking ownership of a unit of work | Recording an evidence-backed assertion |
 | Operates on | A `type: task` page | A `type: claim` page |
@@ -262,16 +262,16 @@ These are different systems with deceptively similar names.
 | Core module | `src/core/tasks.ts` | `src/core/claims.ts` |
 | Concurrency | `expected_updated` (frontmatter date) | `expectedMtime` (real `fs.stat().mtime`, ISO) |
 | Race-loss error | `AlreadyClaimedError` | `MtimeConflictError` |
-| Sibling tools | `vault.task-create`, `vault.task-list`, `vault.task-update` | `vault.list-claims` |
+| Sibling tools | `vault_task-create`, `vault_task-list`, `vault_task-update` | `vault_list-claims` |
 
-The `vault.claim` tool (`src/tools/claim.ts`) is a single primitive over four
+The `vault_claim` tool (`src/tools/claim.ts`) is a single primitive over four
 authoring actions on the knowledge-claim store: create, revalidate, supersede,
 retract — plus a `rejected` no-write response when override confidence is too
 low. It also has a `retract` path with author-only authorization
 (`src/tools/claim.ts:331-363`) — only the original `authored_by` may retract.
 
-Nothing in `vault.claim` operates on task pages and nothing in
-`vault.task-claim` operates on claim pages. If a function call mentions one,
+Nothing in `vault_claim` operates on task pages and nothing in
+`vault_task-claim` operates on claim pages. If a function call mentions one,
 the other is not involved.
 
 ## Failure modes consumers should handle
@@ -305,8 +305,8 @@ There is no rename atomicity story at the substrate level; consumers that
 rename task files should treat in-flight claims as invalidated.
 
 **Disk-fallback for fresh tasks.** Some downstream tools (e.g.
-`vault.merge-record`) read `_index/pages.json` first and fall back to a
+`vault_merge-record`) read `_index/pages.json` first and fall back to a
 targeted disk scan via `findTaskOnDisk` (`src/core/tasks.ts:270-280`). Both
 `task-create` and `task-update` do write-through index updates, so the
 fallback is rarely needed — but if you bypass the tools and edit task files
-directly, run `vault.reindex` before tools that read from the index.
+directly, run `vault_reindex` before tools that read from the index.

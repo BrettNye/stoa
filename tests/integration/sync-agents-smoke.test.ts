@@ -46,7 +46,7 @@ afterEach(() => {
   rmSync(target, { recursive: true, force: true });
 });
 
-describe("vault.sync-agents — single-Pokemon path (v1.7 §7.1)", () => {
+describe("vault_sync-agents — single-Pokemon path (v1.7 §7.1)", () => {
   it("deploys the agent def and records the registry entry", async () => {
     seedProfile(vault, "profile-charmander", { pokemon_type: "fire" }, "Backend specialist.\n");
     execSync("git add . && git commit -q -m seed", { cwd: vault });

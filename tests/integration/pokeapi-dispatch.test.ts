@@ -1,6 +1,6 @@
 // Regression test for v1.6 Phase 1 T0-1: the MCP dispatch layer must thread
-// a `fetcher` into ctx so PokeAPI-touching tools (vault.evolve-profile proposal
-// phase, vault.suggest-pokemon) actually call PokeAPI in production. Before the
+// a `fetcher` into ctx so PokeAPI-touching tools (vault_evolve-profile proposal
+// phase, vault_suggest-pokemon) actually call PokeAPI in production. Before the
 // fix, stdio.ts constructed ctx as `{ vaultPath, defaultWiki }` (no fetcher),
 // and PokeAPI-touching tools silently fell back to non-PokeAPI behaviour.
 //
@@ -105,7 +105,7 @@ describe("MCP dispatch — fetcher threading (T0-1)", () => {
     expect(ctx.defaultFamily).toBe("rastate");
   });
 
-  it("vault.evolve-profile proposal phase, dispatched through the production ctx, sets proposed.name from PokeAPI", async () => {
+  it("vault_evolve-profile proposal phase, dispatched through the production ctx, sets proposed.name from PokeAPI", async () => {
     await seedEvolutionEligibleProfile(vaultPath);
 
     // Mock fetch to simulate a PokeAPI evolution chain. Restore on completion.

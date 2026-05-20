@@ -42,13 +42,13 @@ import { mergeQueueTool } from "./merge-queue.js";
 // task_id, transitions the task to completed. Pure logic in core/merge-record.
 import { mergeRecordTool } from "./merge-record.js";
 
-// v1.7 Phase 3 — vault.sync-agents. Builds a SubagentIntent from
+// v1.7 Phase 3 — vault_sync-agents. Builds a SubagentIntent from
 // profile + moveset and dispatches to the per-runtime adapter
 // (currently claude-code). Replaces sync-skills as the recommended
 // primary surface; sync-skills stays for moveset-only deploys.
 import { syncAgentsTool } from "./sync-agents.js";
 
-// Claims foundation (Plan 1) — vault.claim and vault.list-claims. Authoring +
+// Claims foundation (Plan 1) — vault_claim and vault_list-claims. Authoring +
 // read primitives over the claim type. Tool modules export their objects;
 // registration here is the wiring that lets the stdio dispatcher and the
 // shared callTool test helper reach them by name. See
@@ -57,7 +57,7 @@ import { syncAgentsTool } from "./sync-agents.js";
 import { claimTool } from "./claim.js";
 import { listClaimsTool } from "./list-claims.js";
 
-// agent-memory — vault.agent-memory. Identity-keyed working context for an
+// agent-memory — vault_agent-memory. Identity-keyed working context for an
 // agent: ranked, scope-aware, decay-aware claims. Read-only. See spec
 // wikis/_meta/specs/2026-05-13-agent-memory-design.md.
 import { agentMemoryTool } from "./agent-memory.js";

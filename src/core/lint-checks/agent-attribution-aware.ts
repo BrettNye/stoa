@@ -77,7 +77,7 @@ registerLintCheck({
             page_id: String(fm.id ?? file.replace(/\.md$/, "")),
             wiki: wikiName,
             message: `journal authored as ${author} but no profile-${bare} exists and no alias entry maps it to a current profile`,
-            suggestion: `verify the agent id; create profile-${bare}, or record the rename via vault.evolve-profile`
+            suggestion: `verify the agent id; create profile-${bare}, or record the rename via vault_evolve-profile`
           });
         } catch {
           // skip malformed

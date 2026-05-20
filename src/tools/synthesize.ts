@@ -42,7 +42,7 @@ export interface SynthesizeCtx {
 }
 
 export const synthesizeTool = {
-  name: "vault.synthesize",
+  name: "vault_synthesize",
   description: "Compile or refresh a synthesis page from current matching pages. With by_agent + scope=memory, writes a per-agent memory synthesis at wikis/_agents/synthesis/synthesis-<by_agent>-memory.md, including a marker-bounded `## Learnings` section clustered by tag from the profile's active claims (spec §8.5).",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: SynthesizeCtx) => {

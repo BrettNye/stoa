@@ -1,7 +1,7 @@
 // vault-mcp/tests/unit/bootstrap-repo-claim-render.test.ts
 //
 // task-bootstrap-repo-claim-rendering (Claims Plan 3, Wave 2) — wires §8.3 of
-// the claims spec into vault.bootstrap-repo. The deploying profile's
+// the claims spec into vault_bootstrap-repo. The deploying profile's
 // `## Learned (this profile)` section is rendered between
 // `<!-- vault-claims-profile:start ... -->` and `<!-- vault-claims-profile:end -->`
 // markers, co-located inside the existing `vault-mcp v1.5 bootstrap` block.
@@ -42,7 +42,7 @@ async function seedProfile(vaultPath: string, profileId: string): Promise<void> 
   writeFileSync(join(profilesDir, `${profileId}.md`), `---\n${yaml}\n---\n\n# Test\n`);
 }
 
-describe("vault.bootstrap-repo §8.3 vault-claims-profile rendering", () => {
+describe("vault_bootstrap-repo §8.3 vault-claims-profile rendering", () => {
   let vaultPath: string;
   let repoPath: string;
 

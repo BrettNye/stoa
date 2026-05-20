@@ -27,7 +27,7 @@ const Input = z.object({
 });
 
 export const recallTool = {
-  name: "vault.recall",
+  name: "vault_recall",
   description: "Search the vault for prior thinking on a topic. Returns ranked hits with synthesis content inline.",
   inputSchema: Input,
   handler: async (
@@ -84,7 +84,7 @@ export const recallTool = {
     // v1.7 §5.4 — exact-id topic disk-fallback. When the index-based candidate
     // search returns zero hits AND `topic` matches an on-disk page id verbatim,
     // surface that page as a single fallback hit. Recovers pages authored on
-    // disk but not yet seen by `vault.reindex`. Index-first semantics
+    // disk but not yet seen by `vault_reindex`. Index-first semantics
     // preserved — the disk scan only fires on miss.
     if (result.hits.length === 0 && input.topic) {
       const onDisk = findOnDisk(ctx.vaultPath, input.topic);

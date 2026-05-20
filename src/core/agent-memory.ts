@@ -1,6 +1,6 @@
 // vault-mcp/src/core/agent-memory.ts
 //
-// Pure ranking + filtering + scope-derivation engine for `vault.agent-memory`.
+// Pure ranking + filtering + scope-derivation engine for `vault_agent-memory`.
 // Spec: wikis/_meta/specs/2026-05-13-agent-memory-design.md §5-§8.
 //
 // Exports:

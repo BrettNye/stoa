@@ -44,42 +44,59 @@ Then add to `~/.claude/settings.json`:
 }
 ```
 
-Restart Claude Code. You now have `vault.recall`, `vault.inbox`, `vault.synthesize`, and ~30 other tools available in every session.
+Restart Claude Code. You now have `vault_recall`, `vault_inbox`, `vault_synthesize`, and ~30 other tools available in every session.
 
 > Snippet shown for Claude Code. The same `stoa mcp` command runs as a stdio MCP server, so any MCP-compatible client should work — check your client's docs for its config schema and file location.
 
 ## Tools (quick reference)
 
 **Read:**
-- `vault.recall` — search vault, segmented by layer; reads matching synthesis content inline
-- `vault.read` — fetch a page by id or path
-- `vault.list-wikis` — list wikis with mode, scope, and summary stats
-- `vault.lint` — read-only health check (orphans, schema violations, channel format, claim invariants, synthesis debt, missing curation priority)
-- `vault.channel-tail` — pull recent entries on a coordination channel
+- `vault_recall` — search vault, segmented by layer; reads matching synthesis content inline
+- `vault_read` — fetch a page by id or path
+- `vault_list-wikis` — list wikis with mode, scope, and summary stats
+- `vault_lint` — read-only health check (orphans, schema violations, channel format, claim invariants, synthesis debt, missing curation priority)
+- `vault_channel-tail` — pull recent entries on a coordination channel
 
 **Wait (push primitives):** block until vault events occur instead of polling
-- `vault.wait-for` — block until one matching event lands; cursor-based catch-up
-- `vault.wait-for-any` — wake on first match across N filters (race semantics)
-- `vault.wait-for-all` — wake when all N filters have matched at least once
-- `vault.wait-for-many` — bounded batch over a window
+- `vault_wait-for` — block until one matching event lands; cursor-based catch-up
+- `vault_wait-for-any` — wake on first match across N filters (race semantics)
+- `vault_wait-for-all` — wake when all N filters have matched at least once
+- `vault_wait-for-many` — bounded batch over a window
 
 **Write — content:**
-- `vault.inbox` — capture a fleeting thought to the active wiki's `inbox/`
-- `vault.new` — create a typed page from a template
-- `vault.new-wiki` — scaffold a new wiki: folders, `map.md`, `index.md`, wiki-local `CLAUDE.md`
-- `vault.set-active` — set the ambient active wiki
-- `vault.synthesize` — compile or refresh a synthesis page from matching pages
-- `vault.agent-journal` — append a first-person agent reflection at end-of-task
+- `vault_inbox` — capture a fleeting thought to the active wiki's `inbox/`
+- `vault_process-inbox` — walk inbox items, propose types, and promote on confirmation
+- `vault_new` — create a typed page from a template
+- `vault_new-wiki` — scaffold a new wiki: folders, `map.md`, `index.md`, wiki-local `CLAUDE.md`
+- `vault_set-active` — set the ambient active wiki
+- `vault_synthesize` — compile or refresh a synthesis page from matching pages
+- `vault_agent-journal` — append a first-person agent reflection at end-of-task
 
 **Write — system:**
-- `vault.reindex` — regenerate `_index/` files and per-wiki `index.md`
+- `vault_reindex` — regenerate `_index/` files and per-wiki `index.md`
 
 **Coordination:**
-- `vault.channel-post` — post to a coordination channel (cross-instance comms)
-- `vault.task-claim` — atomically claim a pending task; race-loser sees `AlreadyClaimedError`
-- `vault.bootstrap-repo` — wire a consuming repo with `.mcp.json` and a `CLAUDE.md` fragment
-- `vault.sync-skills` — deploy an agent profile's moveset as local skills
-- `vault.task-create`, `vault.task-list`, `vault.task-update` — task lifecycle
+- `vault_channel-post` — post to a coordination channel (cross-instance comms)
+- `vault_task-claim` — atomically claim a pending task; race-loser sees `AlreadyClaimedError`
+- `vault_task-create`, `vault_task-list`, `vault_task-update` — task lifecycle
+- `vault_bootstrap-repo` — wire a consuming repo with `.mcp.json` and a `CLAUDE.md` fragment
+
+**Agent memory:**
+- `vault_agent-memory` — pull an agent's accumulated claims: ranked, scope-filtered, decay-aware; suitable for system-prompt injection
+- `vault_claim` — author, re-validate, supersede, or retract a claim that persists across sessions
+- `vault_list-claims` — list claims filtered by agent, scope, or tag
+
+**Agent substrate:**
+- `vault_start` — cold-start brief: active pages, channel unread counts, in-flight tasks
+- `vault_sync-agents` — build a SubagentIntent from a profile + moveset and dispatch to the runtime adapter
+- `vault_sync-skills` — deploy an agent profile's moveset as local skills
+- `vault_profile-stats` — compute evolution metrics and move-mastery scores for a profile
+
+## Agent coordination
+
+Multiple AI instances — different repos, different machines — can share the same vault and coordinate without copy-paste. Agents post and tail named channels (`vault_channel-post`, `vault_channel-tail`) to pass work between sessions. Tasks are queued as typed pages and claimed atomically (`vault_task-claim`), so two racing sessions can never silently double-claim the same work. Agents also accumulate persistent memory across sessions: a non-obvious invariant discovered during debugging becomes a `vault_claim`; the next session pulls it back via `vault_agent-memory` before starting work.
+
+See [docs/agent-memory.md](docs/agent-memory.md) for the claim authoring and retrieval protocol, and [docs/task-coordination.md](docs/task-coordination.md) for the full task lifecycle and channel conventions.
 
 ## Resolution order for the `wiki:` parameter
 
@@ -138,9 +155,9 @@ Set `STOA_VAULT_PATH` to skip `--vault=` on every call.
 - [Installation](docs/installation.md) — full install + configuration walkthrough
 - [Quickstart](docs/quickstart.md) — your first useful `recall` in 5 minutes
 - [Common workflows](docs/common-workflows.md) — task-driven recipes for the things you'll actually do
-- [Tool reference](docs/tool-reference.md) — alphabetical reference for every `vault.*` MCP tool
+- [Tool reference](docs/tool-reference.md) — alphabetical reference for every `vault_*` MCP tool
 - [Manual smoke test](docs/manual-smoke-test.md) — verify your setup
-- [wait-for: push primitives](docs/wait-for.md) — `vault.wait-for{,-any,-all,-many}` over the local FS-watch event bus
+- [wait-for: push primitives](docs/wait-for.md) — `vault_wait-for{,-any,-all,-many}` over the local FS-watch event bus
 
 ## Tests
 
@@ -148,6 +165,32 @@ Set `STOA_VAULT_PATH` to skip `--vault=` on every call.
 npm test          # unit + integration
 npm test -- e2e   # end-to-end via real MCP client
 ```
+
+## v0.3 — specialist agent substrate
+
+Substrate additions landed 2026-05-19 that let agents develop deep domain competence without breaking the portable-moves contract. Reference only — see `wikis/_meta/specs/2026-05-19-specialist-agent-substrate-design.md` for the design and `wikis/_agents/guides/guide-using-wiki-local-moves.md` + `wikis/_agents/guides/guide-authoring-a-course.md` for the operator walkthroughs.
+
+### New MCP tool flags
+
+- `vault_claim --source-type=lived|curricular|retro` — claim provenance. Default `lived`. `lived` cites real journal/task/PR evidence; `curricular` cites a course guide page; `retro` cites older artifacts a pattern was extracted from.
+- `vault_list-claims --source-type=<value>` — filter the claim list by source_type. Parallel surface to the existing `--profile=` / `--move=` filters.
+- `vault_bootstrap-repo --wiki=<name>` — now layers every `wikis/<wiki>/moves/<id>/SKILL.md` on top of the resolved profile's portable moveset. Deployed CLAUDE.md fragment renders `### Portable moves` and `### Specialist moves (<wiki>)` subsections.
+- `vault_sync-skills` — same wiki-local layering when called from a context that passes the wiki through. (The CLI `sync-skills` subcommand does not currently expose `--wiki=` — use `bootstrap-repo --wiki=` from the terminal, or call the MCP tool directly.)
+
+### Sidecar schema bump
+
+- `_index/claims.json` `schema_version` is now `3` (was `2`). Adds a `by_source_type` bucket with `lived`, `curricular`, `retro` arrays of claim ids. Readers tolerate `1 | 2 | 3` for back-compat; writers emit `3` going forward.
+
+### New lint codes — moves
+
+- `MOVE_SCOPE_WIKI_FOLDER_MISMATCH` (error) — `scope_wiki:` value does not match the move's parent folder wiki.
+- `MOVE_SCOPE_WIKI_MISSING` (warning) — move under `wikis/<wiki>/moves/` (non-`_agents`) has no `scope_wiki:` field.
+- `MOVE_PORTABLE_HAS_SCOPE` (warning) — move under `wikis/_agents/moves/` erroneously carries `scope_wiki:`.
+- `MOVE_ID_SHADOWS_PORTABLE` (warning) — wiki-local move id collides with a portable move id; portable wins at deploy time.
+
+### New lint code — claims
+
+- `CLAIM_SOURCE_TYPE_INVALID` (error) — claim frontmatter has `source_type:` set to a value outside `lived | curricular | retro`. Absent field treated as default `lived` and does not trigger.
 
 ## License
 

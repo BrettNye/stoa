@@ -11,7 +11,7 @@ const Input = z.object({
 });
 
 export const trainerQueueMatchTool = {
-  name: 'vault.trainer-queue-match',
+  name: 'vault_trainer-queue-match',
   description: 'Create a match invite against an opponent trainer; returns match_id in pending_invite state.',
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>) => {

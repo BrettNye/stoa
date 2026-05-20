@@ -8,14 +8,14 @@
 //
 // The helper is exercised indirectly by registering a probe rule via the
 // public registration surface (registerPerPageRule exported for test use),
-// then running vault.lint against a fixture vault.
+// then running vault_lint against a fixture vault.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-// Internal helper — we test it directly since it is NOT called through vault.lint
+// Internal helper — we test it directly since it is NOT called through vault_lint
 // for "tasks" yet (the task-not-ready rule lands in the next DAG task).
 // We import via a re-export that registration.ts must provide.
 import { walkPagesUnder } from "../../src/core/lint-checks/registration.js";

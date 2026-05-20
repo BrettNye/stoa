@@ -1,6 +1,6 @@
 // vault-mcp/tests/integration/agent-memory-tool.test.ts
 //
-// Integration tests for the `vault.agent-memory` MCP tool wrapper.
+// Integration tests for the `vault_agent-memory` MCP tool wrapper.
 // These tests exercise the tool handler (src/tools/agent-memory.ts) end-to-end,
 // using fixture-seeding helpers from tests/helpers.ts.
 
@@ -17,7 +17,7 @@ function ctx(vaultPath: string) {
   return { vaultPath };
 }
 
-describe("vault.agent-memory tool — basic retrieval", () => {
+describe("vault_agent-memory tool — basic retrieval", () => {
   it("returns top-N truncated claims by default", async () => {
     const vault = await mkTempVault();
 
@@ -139,9 +139,9 @@ describe("vault.agent-memory tool — basic retrieval", () => {
 
   it("tool is registered in allTools", async () => {
     const { allTools } = await import("../../src/tools/index.js");
-    const tool = allTools.find((t) => t.name === "vault.agent-memory");
+    const tool = allTools.find((t) => t.name === "vault_agent-memory");
     expect(tool).toBeDefined();
-    expect(tool?.name).toBe("vault.agent-memory");
+    expect(tool?.name).toBe("vault_agent-memory");
   });
 
   it("description mentions spec path and read-only contract", () => {
@@ -150,7 +150,7 @@ describe("vault.agent-memory tool — basic retrieval", () => {
   });
 });
 
-describe("vault.agent-memory tool — Zod input schema", () => {
+describe("vault_agent-memory tool — Zod input schema", () => {
   it("accepts all valid optional fields", async () => {
     const vault = await mkTempVault();
 

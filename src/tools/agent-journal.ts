@@ -17,7 +17,7 @@ const Input = z.object({
 });
 
 export const agentJournalTool = {
-  name: "vault.agent-journal",
+  name: "vault_agent-journal",
   description: "Append a first-person agent journal entry to <wiki>/journal/. Auto-fills author, created, session.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string; defaultWiki?: string }) => {

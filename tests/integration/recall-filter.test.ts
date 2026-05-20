@@ -199,7 +199,7 @@ Historical pricing context for Miller Trucking negotiations.
   await reindex(vault);
 });
 
-describe("vault.recall with filter — filter-only mode (no topic)", () => {
+describe("vault_recall with filter — filter-only mode (no topic)", () => {
   it("returns pages matching tags filter", () => {
     const result = recall(vault, { filter: "tags:company-miller-trucking" });
     expect(result.hits.map(h => h.id)).toContain("concept-company-miller");
@@ -265,7 +265,7 @@ describe("vault.recall with filter — filter-only mode (no topic)", () => {
   });
 });
 
-describe("vault.recall with filter — topic + filter combined", () => {
+describe("vault_recall with filter — topic + filter combined", () => {
   it("filter narrows candidates before scoring by topic", () => {
     // Only decision pages will be candidates; topic 'contract' should score it
     const result = recall(vault, { topic: "contract", filter: "type:decision" });
@@ -283,7 +283,7 @@ describe("vault.recall with filter — topic + filter combined", () => {
   });
 });
 
-describe("vault.recall zod schema validation", () => {
+describe("vault_recall zod schema validation", () => {
   it("rejects input with neither topic nor filter via schema parse", () => {
     // The MCP server calls tool.inputSchema.parse() before invoking the handler.
     // The .refine() constraint fires at that parse boundary.
@@ -343,7 +343,7 @@ describe("vault.recall zod schema validation", () => {
   });
 });
 
-describe("vault.recall FilterParseError handling", () => {
+describe("vault_recall FilterParseError handling", () => {
   it("core recall surfaces FilterParseError on malformed filter (date field without comparator)", () => {
     expect(() => {
       recall(vault, { filter: "updated:2026-05-01" });
@@ -380,7 +380,7 @@ describe("vault.recall FilterParseError handling", () => {
   });
 });
 
-describe("vault.recall filter — backward compatibility (no filter field)", () => {
+describe("vault_recall filter — backward compatibility (no filter field)", () => {
   it("existing callers without filter behave identically", () => {
     const result = recall(vault, { topic: "miller" });
     expect(result.hits.length).toBeGreaterThan(0);
@@ -393,8 +393,8 @@ describe("vault.recall filter — backward compatibility (no filter field)", () 
 // Worked examples from the spec (§ "Worked examples") — full coverage
 // ────────────────────────────────────────────────────────────────────────────
 
-describe("vault.recall spec worked example 2 — multi-pair status filter", () => {
-  // vault.recall --filter="type:decision,tags:customer,status:active"
+describe("vault_recall spec worked example 2 — multi-pair status filter", () => {
+  // vault_recall --filter="type:decision,tags:customer,status:active"
   it("returns the active customer decision", () => {
     const result = recall(vault, { filter: "type:decision,tags:customer,status:active" });
     const ids = result.hits.map(h => h.id);
@@ -416,8 +416,8 @@ describe("vault.recall spec worked example 2 — multi-pair status filter", () =
   });
 });
 
-describe("vault.recall spec worked example 3 — stale prospect query (motivating use case)", () => {
-  // vault.recall --filter="tags:prospect,updated:<60d" --wiki=meetings
+describe("vault_recall spec worked example 3 — stale prospect query (motivating use case)", () => {
+  // vault_recall --filter="tags:prospect,updated:<60d" --wiki=meetings
   // Today is 2026-05-11; 60d threshold ≈ 2026-03-12.
   // Stale prospect: updated 2025-12-01 → BEFORE threshold → should match.
   // Recent prospect: updated 2026-05-10 → AFTER threshold → should NOT match.
@@ -439,8 +439,8 @@ describe("vault.recall spec worked example 3 — stale prospect query (motivatin
   });
 });
 
-describe("vault.recall spec worked example 4 — topic + absolute date range (Q2 journals)", () => {
-  // vault.recall shilo --filter="type:journal,created:>2026-04-01,created:<2026-07-01"
+describe("vault_recall spec worked example 4 — topic + absolute date range (Q2 journals)", () => {
+  // vault_recall shilo --filter="type:journal,created:>2026-04-01,created:<2026-07-01"
   // Q2 journal (2026-05-15): created inside range → should be returned.
   // March journal (2026-03-15): created before range → should NOT be returned.
   // Uses layer: "all" so execution-layer journal pages are in scope.
@@ -476,8 +476,8 @@ describe("vault.recall spec worked example 4 — topic + absolute date range (Q2
   });
 });
 
-describe("vault.recall spec worked example 5 — topic + filter combined", () => {
-  // vault.recall pricing --filter="tags:company-miller-trucking,type:decision"
+describe("vault_recall spec worked example 5 — topic + filter combined", () => {
+  // vault_recall pricing --filter="tags:company-miller-trucking,type:decision"
   // Topic "pricing" ranks results via token scoring; filter narrows candidate set.
   // Primary target: decision-2026-05-04-miller-trucking-pricing (has tag + pricing content + type decision)
   // Should be excluded (no miller-trucking tag, but has pricing content): decision-2026-05-01-pricing
@@ -536,7 +536,7 @@ describe("vault.recall spec worked example 5 — topic + filter combined", () =>
 // Zero-match coverage — pins the empty-result shape so any future regression
 // in the empty path (e.g., a special-case that drops total_candidates or
 // breaks synthesis_inline construction) is caught immediately.
-describe("vault.recall with filter — zero-match result shape", () => {
+describe("vault_recall with filter — zero-match result shape", () => {
   it("returns the canonical empty-result shape (filter-only mode, no matches)", () => {
     const result = recall(vault, {
       filter: "tags:nonexistent-tag-that-no-page-uses"

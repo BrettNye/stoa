@@ -1,7 +1,7 @@
 // tests/integration/sync-agents-deployed-tools.test.ts
 //
-// Verifies that vault.sync-agents deploys a profile-bound subagent whose
-// tools_allowlist includes both vault.agent-memory and vault.claim (the two
+// Verifies that vault_sync-agents deploys a profile-bound subagent whose
+// tools_allowlist includes both vault_agent-memory and vault_claim (the two
 // tools added to MINIMAL_COORDINATION_TOOLSET in v1.7.x per task-sync-agents-deploy).
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -56,11 +56,11 @@ afterEach(() => {
 });
 
 describe("sync-agents deployed tools — agent-memory + claim in baseline (task-sync-agents-deploy)", () => {
-  it("deployed profile-bound subagent intent includes vault.agent-memory and vault.claim", () => {
+  it("deployed profile-bound subagent intent includes vault_agent-memory and vault_claim", () => {
     const { vaultPath, profileId } = seedRepoWithProfile("profile-pidgey");
     const intent = buildIntent(vaultPath, profileId);
-    expect(intent.tools_allowlist).toContain("vault.agent-memory");
-    expect(intent.tools_allowlist).toContain("vault.claim");
+    expect(intent.tools_allowlist).toContain("vault_agent-memory");
+    expect(intent.tools_allowlist).toContain("vault_claim");
   });
 
   it("the deployed .claude/agents/<id>.md file lists the two new tools in its frontmatter", async () => {

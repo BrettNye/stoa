@@ -41,7 +41,7 @@ const Input = z.object({
 //
 // Two declaration shapes:
 //   - markdown bold with the colon INSIDE the bold: `**Mode:** project-doc`
-//     (current `vault.new-wiki` output).
+//     (current `vault_new-wiki` output).
 //   - plain key:value:                              `mode: project-doc`
 //     (per spec §5.1's example).
 const WIKI_MODE_LINE = /^\s*(?:\*\*\s*mode\s*:\s*\*\*|mode\s*:)\s*([^\s].*?)\s*$/im;
@@ -136,7 +136,7 @@ const Output = z.object({
 export type StartOutput = z.infer<typeof Output>;
 
 export const startTool = {
-  name: "vault.start",
+  name: "vault_start",
   description: "Cold-session bootstrap: reads wiki map, tails active channels, runs recall on primary topics, returns a context brief.",
   inputSchema: Input,
   outputSchema: Output,
@@ -350,7 +350,7 @@ export const startTool = {
             // once with the canonical front_default sprite. Logged to stderr so
             // operators can see the degradation; /start itself remains green.
             process.stderr.write(
-              `[vault.start] sprite variant '${spriteVariant}' unavailable for ${pokemonState.name}; falling back to front_default\n`
+              `[vault_start] sprite variant '${spriteVariant}' unavailable for ${pokemonState.name}; falling back to front_default\n`
             );
             try {
               const out = await renderSprite({ ...baseInput, spriteVariant: "front_default" });

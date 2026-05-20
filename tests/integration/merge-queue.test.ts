@@ -1,4 +1,4 @@
-// Phase-3 T3-1 — `vault.merge-queue` integration tests.
+// Phase-3 T3-1 — `vault_merge-queue` integration tests.
 //
 // The tool is a pure read: tail a coordination channel for `ready: branch=...`
 // signals, list tasks scoped to the resolved wiki/family, map ready PRs to
@@ -86,7 +86,7 @@ function seedSingleWikiVault(): string {
   return v;
 }
 
-describe("phase-3 T3-1 — vault.merge-queue tool", () => {
+describe("phase-3 T3-1 — vault_merge-queue tool", () => {
   afterEach(() => {
     if (vault) rmSync(vault, { recursive: true, force: true });
   });

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 
 beforeEach(() => { vi.resetModules(); vi.unstubAllGlobals(); });
 
-describe('vault.real-skill-refresh', () => {
+describe('vault_real-skill-refresh', () => {
   const vaultPath = join(tmpdir(), 'vault-real-skill-refresh-' + Date.now() + '-' + Math.random());
   beforeEach(() => {
     mkdirSync(join(vaultPath, '_index'), { recursive: true });

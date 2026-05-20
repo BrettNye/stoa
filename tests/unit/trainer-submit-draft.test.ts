@@ -12,7 +12,7 @@ const VALID_ULIDS = [
 
 beforeEach(() => { vi.resetModules(); vi.unstubAllGlobals(); });
 
-describe('vault.trainer-submit-draft', () => {
+describe('vault_trainer-submit-draft', () => {
   beforeEach(() => {
     process.env.STADIUM_API_KEY = 'sk';
     process.env.STADIUM_BASE_URL = 'https://api.test';

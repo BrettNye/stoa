@@ -43,7 +43,7 @@ const Input = z.object({
 const UNKNOWN_ID_RE = /unknown id "([^"]+)"/;
 
 export const lintTool = {
-  name: "vault.lint",
+  name: "vault_lint",
   description: "Read-only health check across the vault. Surfaces issues and suggestions; never mutates.",
   inputSchema: Input,
   handler: async (

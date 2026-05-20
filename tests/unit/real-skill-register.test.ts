@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 
 beforeEach(() => { vi.resetModules(); vi.unstubAllGlobals(); });
 
-describe('vault.real-skill-register', () => {
+describe('vault_real-skill-register', () => {
   const vaultPath = join(tmpdir(), 'vault-real-skill-register-' + Date.now() + '-' + Math.random());
 
   beforeEach(() => {

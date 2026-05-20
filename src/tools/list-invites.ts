@@ -5,7 +5,7 @@ import { StadiumClient } from '../core/stadium-client.js';
 const Input = z.object({});
 
 export const listInvitesTool = {
-  name: 'vault.list-invites',
+  name: 'vault_list-invites',
   description: 'List pending match invites for the calling trainer.',
   inputSchema: Input,
   handler: async (_input: z.infer<typeof Input>) => {

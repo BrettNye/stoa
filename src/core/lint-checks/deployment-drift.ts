@@ -11,7 +11,7 @@ import { readProfile } from "../profiles.js";
 // moveset, then calls `detectDriftAt` (T1-2) to hash both ends. Each
 // `DriftReport` becomes one info-severity Diagnostic that includes the
 // `deployment_path`, `move_id`, and `kind` so an operator can act without
-// running `vault.sync-skills --reverify` explicitly.
+// running `vault_sync-skills --reverify` explicitly.
 //
 // Failure modes (intentionally narrow surface):
 //   - Profile missing but registry entry lingers → swallow + skip the entry.
@@ -66,7 +66,7 @@ registerLintCheck({
             page_id: pokemonId,
             wiki: "_agents",
             message: `deployment drift (${r.kind}) for move "${r.move_id}" at ${r.deployment_path}`,
-            suggestion: "run `vault.sync-skills --reverify --fix` against this deployment to re-deploy drifted moves"
+            suggestion: "run `vault_sync-skills --reverify --fix` against this deployment to re-deploy drifted moves"
           });
         }
       }

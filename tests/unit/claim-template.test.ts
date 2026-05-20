@@ -1,14 +1,14 @@
 // vault-mcp/tests/unit/claim-template.test.ts
 //
 // Acceptance tests for the claim.md template. The template is what
-// `vault.new claim <wiki> "<title>"` will instantiate, so it must:
+// `vault_new claim <wiki> "<title>"` will instantiate, so it must:
 //   - parse cleanly through `parseClaim` as a draft (loosest tier),
 //   - carry the placeholder tokens `{{slug}}`, `{{title}}`, `{{date}}`,
 //     `{{wiki}}`, `{{author}}` so the renderer can substitute them,
 //   - declare every claim-specific frontmatter field (key, scope dimensions,
 //     confidence, supersession + retraction nulls) so authors don't forget,
 //   - include a body comment instructing the author about the ~280 char
-//     summary cap (downstream `vault.sync-skills` rendering),
+//     summary cap (downstream `vault_sync-skills` rendering),
 //   - keep documenting comments inline so authors learn the schema by reading.
 //
 // The fixture copy lives at vault-mcp/tests/fixtures/templates/claim.md and

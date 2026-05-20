@@ -8,7 +8,7 @@ describe("tool registry", () => {
 
   it("every tool has name/description/inputSchema/handler", () => {
     for (const t of allTools) {
-      expect(t.name).toMatch(/^vault\./);
+      expect(t.name).toMatch(/^vault_/);
       expect(t.description.length).toBeGreaterThan(10);
       expect(t.inputSchema).toBeDefined();
       expect(typeof t.handler).toBe("function");

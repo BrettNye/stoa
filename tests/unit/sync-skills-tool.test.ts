@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { syncSkillsTool } from "../../src/tools/sync-skills.js";
 
-describe("vault.sync-skills", () => {
+describe("vault_sync-skills", () => {
   let vaultPath: string;
   let repoPath: string;
 

@@ -12,14 +12,14 @@ First substantial release after the initial publish. 117 commits, several new su
 
 ### Added
 
-- **Event bus + wait-for tools.** Chokidar-backed file watcher, EventBus with snapshot-based fan-out, WaiterRegistry, and four new MCP tools — `vault.wait-for`, `vault.wait-for-any`, `vault.wait-for-all`, `vault.wait-for-many` — for cross-process coordination. Subscribe-before-scan semantics with dedup. See `docs/wait-for.md`.
+- **Event bus + wait-for tools.** Chokidar-backed file watcher, EventBus with snapshot-based fan-out, WaiterRegistry, and four new MCP tools — `vault_wait-for`, `vault_wait-for-any`, `vault_wait-for-all`, `vault_wait-for-many` — for cross-process coordination. Subscribe-before-scan semantics with dedup. See `docs/wait-for.md`.
 - **Dashboard UI.** New `stoa ui` subcommand boots a local web dashboard. Three-pane Alpine.js frontend covering tasks, agents, channels. Includes a watchdog ribbon for stuck tasks, staleness rail for overdue syntheses, spawn-agent modal wired to suggest/register, sprite SVG route, URL-hash persistence for pinned views, and CSRF origin-check middleware on write routes.
-- **Agent memory.** New `vault.agent-memory` MCP tool + `stoa agent-memory` CLI command. Rank, filter, and `--task` scope derivation. Surfaces past entries scoped to a profile or task.
-- **Task-readiness gate.** `vault.task-claim` now refuses to claim a task whose body is not ready; a `force` param overrides. New `task-not-ready` lint rule surfaces violations.
-- **Recall filter.** `vault.recall` accepts an optional `filter` expression — pure parser + evaluator over frontmatter fields with comparators.
+- **Agent memory.** New `vault_agent-memory` MCP tool + `stoa agent-memory` CLI command. Rank, filter, and `--task` scope derivation. Surfaces past entries scoped to a profile or task.
+- **Task-readiness gate.** `vault_task-claim` now refuses to claim a task whose body is not ready; a `force` param overrides. New `task-not-ready` lint rule surfaces violations.
+- **Recall filter.** `vault_recall` accepts an optional `filter` expression — pure parser + evaluator over frontmatter fields with comparators.
 - **Sync `--all` flag.** Both `sync-skills` and `sync-agents` now accept `--all` with `--exclude` and `--type` / `--pokemon` filters. New `stoa sync-agents` CLI subcommand mirrors the existing `sync-skills`.
 - **Task release.** `releaseTask` transitions a claimed task back to pending via mtime OCC; exposed at `POST /api/tasks/:id/release`.
-- **`list-claims` by authored_by.** `by=authored_by` bucket added to `vault.list-claims`.
+- **`list-claims` by authored_by.** `by=authored_by` bucket added to `vault_list-claims`.
 - **Lint rules.** `claim-scope-wiki-nonexistent`, `task-not-ready`, `SYNTHESIS_DEBT`, `MISSING_CURATION_PRIORITY` (with new `curation_priority` frontmatter field).
 - **Sprite SVG output.** New `GET /api/sprites/:bareName.svg` route alongside refactored `decodeSpriteGrid`.
 

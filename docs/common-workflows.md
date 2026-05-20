@@ -6,7 +6,7 @@ This doc assumes you've finished [`quickstart.md`](./quickstart.md) and have at 
 
 A few conventions used below:
 
-- `vault.<tool>` is the MCP tool name Claude Code will invoke. You can ask Claude in plain English ("capture this to inbox: …") or name the tool explicitly. Both work.
+- `vault_<tool>` is the MCP tool name Claude Code will invoke. You can ask Claude in plain English ("capture this to inbox: …") or name the tool explicitly. Both work.
 - "Active wiki" means whichever wiki is resolved from (in order): explicit `wiki:` argument, the `--default-wiki=<name>` flag on the server, or `.active-wiki` at the vault root.
 - All paths are inside your vault root (`STOA_VAULT_PATH`).
 
@@ -19,10 +19,12 @@ A few conventions used below:
 5. [Use stoa from a different repo](#scenario-use-stoa-from-a-different-repo)
 6. [Hand off context between Claude Code sessions](#scenario-hand-off-context-between-claude-code-sessions)
 7. [Coordinate two Claude Code sessions on shared work](#scenario-coordinate-two-claude-code-sessions-on-shared-work)
-8. [Compile multiple notes into one synthesis page](#scenario-compile-multiple-notes-into-one-synthesis-page)
-9. [Queue work for another agent to pick up](#scenario-queue-work-for-another-agent-to-pick-up)
-10. [Audit vault health](#scenario-audit-vault-health)
-11. [Cold-start a session with full context](#scenario-cold-start-a-session-with-full-context)
+8. [Have an agent remember a decision for next time](#scenario-have-an-agent-remember-a-decision-for-next-time)
+9. [Pull an agent's accumulated knowledge at session start](#scenario-pull-an-agents-accumulated-knowledge-at-session-start)
+10. [Compile multiple notes into one synthesis page](#scenario-compile-multiple-notes-into-one-synthesis-page)
+11. [Queue work for another agent to pick up](#scenario-queue-work-for-another-agent-to-pick-up)
+12. [Audit vault health](#scenario-audit-vault-health)
+13. [Cold-start a session with full context](#scenario-cold-start-a-session-with-full-context)
 
 ---
 
@@ -33,7 +35,7 @@ A few conventions used below:
 **Run:**
 
 ```
-vault.inbox  thought: "obsidian's canvas might be the right surface for the map.md rollup view"
+vault_inbox  thought: "obsidian's canvas might be the right surface for the map.md rollup view"
 ```
 
 **What happened:** Stoa wrote a timestamped file to `wikis/<active>/inbox/2026-05-12-1430-obsidians-canvas-might-be.md` containing just the thought text. No frontmatter, no slug decisions, no commitment to a type. The inbox folder is the fast lane — items live here until you process them.
@@ -51,7 +53,7 @@ vault.inbox  thought: "obsidian's canvas might be the right surface for the map.
 **Run:**
 
 ```
-vault.recall  topic: "claim decay"
+vault_recall  topic: "claim decay"
 ```
 
 Add `wiki: <name>` to scope to one wiki. Add `layer: "all"` to include `task` and `journal` pages alongside knowledge pages (the default `layer: "knowledge"` excludes execution-layer noise).
@@ -71,13 +73,13 @@ Add `wiki: <name>` to scope to one wiki. Add `layer: "all"` to include `task` an
 **Run:** Two phases. First, list what's pending:
 
 ```
-vault.process-inbox  commit: false
+vault_process-inbox  commit: false
 ```
 
 You get back a `proposals` array. Each proposal has the inbox path, a suggested type (defaults to `idea`), and a suggested id. Review them with Claude — accept, change the type, or drop items. Then commit the chosen promotions:
 
 ```
-vault.process-inbox  commit: true  items: [
+vault_process-inbox  commit: true  items: [
   { inbox_path: "wikis/notes/inbox/2026-05-12-1430-...md", type: "idea", id: "idea-canvas-as-map-rollup", title: "Canvas as map rollup" },
   { inbox_path: "wikis/notes/inbox/2026-05-12-1500-...md", type: "question", id: "question-decay-half-life-correct" }
 ]
@@ -91,12 +93,12 @@ vault.process-inbox  commit: true  items: [
 
 ## Scenario: Switch which wiki is active
 
-**You'll accomplish:** Change which wiki ambient calls (like `vault.inbox` and `vault.recall` without an explicit `wiki:`) target.
+**You'll accomplish:** Change which wiki ambient calls (like `vault_inbox` and `vault_recall` without an explicit `wiki:`) target.
 
 **Run:**
 
 ```
-vault.set-active  wiki: "research"
+vault_set-active  wiki: "research"
 ```
 
 **What happened:** Stoa wrote the string `research` to `.active-wiki` at the vault root. Every subsequent tool call that doesn't pass an explicit `wiki:` will resolve to `research` (unless the MCP server was launched with `--default-wiki=<name>`, which takes precedence).
@@ -114,7 +116,7 @@ vault.set-active  wiki: "research"
 **Run:**
 
 ```
-vault.bootstrap-repo  repo_path: "/abs/path/to/your/repo"  wiki: "your-project-wiki"
+vault_bootstrap-repo  repo_path: "/abs/path/to/your/repo"  wiki: "your-project-wiki"
 ```
 
 Optionally add `channels: ["your-project-progress", "your-project-requests"]` to declare coordination channels for the repo.
@@ -139,12 +141,12 @@ Existing entries in either file are preserved — bootstrap merges rather than c
 **Run:**
 
 ```
-vault.agent-journal  entry: "Finished the recall ranking spec. Open question: do we want title-match to dominate body-match or weight them evenly? Left in question-recall-ranking-weights."
+vault_agent-journal  entry: "Finished the recall ranking spec. Open question: do we want title-match to dominate body-match or weight them evenly? Left in question-recall-ranking-weights."
 ```
 
 Optional extras: `agent_id: "claude-code"` (default), `session_id: "<your-session-id>"`, `channel: "stoa-progress"` to make this entry visible to channel tails, `duration_minutes: 45`.
 
-**What happened:** Stoa wrote a `journal` page to `wikis/<active>/journal/journal-2026-05-12-1430-finished-the-recall.md` with `author: agent:claude-code` and the entry as body. The index is updated immediately. Future `vault.recall` calls will find this journal entry alongside knowledge pages when its content matches.
+**What happened:** Stoa wrote a `journal` page to `wikis/<active>/journal/journal-2026-05-12-1430-finished-the-recall.md` with `author: agent:claude-code` and the entry as body. The index is updated immediately. Future `vault_recall` calls will find this journal entry alongside knowledge pages when its content matches.
 
 **When to use this:** At the end of every non-trivial session, or whenever you'd otherwise leave a stale browser tab open as your reminder. Journals are the cross-session memory loop — they're what makes "what did I work on last Thursday" a tool call instead of a tab archaeology project.
 
@@ -159,22 +161,72 @@ Optional extras: `agent_id: "claude-code"` (default), `session_id: "<your-sessio
 **Run:** From session A, post the ask:
 
 ```
-vault.channel-post  channel: "stoa-requests"  content: "Need a new `vault.find-orphans` tool that lists pages with zero inbound links. Blocking the cleanup pass."
+vault_channel-post  channel: "stoa-requests"  content: "Need a new `vault_find-orphans` tool that lists pages with zero inbound links. Blocking the cleanup pass."
 ```
 
 From session B, read the channel:
 
 ```
-vault.channel-tail  channel: "stoa-requests"  limit: 20
+vault_channel-tail  channel: "stoa-requests"  limit: 20
 ```
 
 Optional: pass `since: "2026-05-12T00:00:00Z"` to get only entries after a timestamp. Stoa returns the matching entries plus a `cursor` you can pass back as `since` next time.
 
-**What happened:** `vault.channel-post` is a thin wrapper over `vault.agent-journal` — the post becomes a journal entry with the `channel:` field set. `vault.channel-tail` queries the index for journal entries with that channel field, optionally filtered by timestamp. Channel names must match `^[a-z0-9]+(-[a-z0-9]+)*$` (lowercase letters, digits, hyphen-separated). Posts are durable — they live in the vault as plain Markdown, not in a transient queue.
+**What happened:** `vault_channel-post` is a thin wrapper over `vault_agent-journal` — the post becomes a journal entry with the `channel:` field set. `vault_channel-tail` queries the index for journal entries with that channel field, optionally filtered by timestamp. Channel names must match `^[a-z0-9]+(-[a-z0-9]+)*$` (lowercase letters, digits, hyphen-separated). Posts are durable — they live in the vault as plain Markdown, not in a transient queue.
 
 **When to use this:** Whenever two sessions need to talk and you don't want a Slack channel for it. Common patterns: lib-progress / lib-requests channel pairs between a library repo and its consumers; per-feature coordination channels during a multi-session push.
 
 **See also:** [Queue work for another agent to pick up](#scenario-queue-work-for-another-agent-to-pick-up), [Use stoa from a different repo](#scenario-use-stoa-from-a-different-repo).
+
+---
+
+## Scenario: Have an agent remember a decision for next time
+
+**You'll accomplish:** Author a claim so the agent carries a hard-won belief — a non-obvious invariant, a validated pattern — into future sessions without re-deriving it.
+
+**Run:**
+
+```
+vault_claim
+  as: "agent:claude-code"
+  key: "process.dag-planning.grep-symbol-consumers"
+  title: "DAG plans: grep for symbol consumers before assigning files scope"
+  body: "When a DAG task introduces a contract change, its files: scope must include every test and consumer that asserts against the old contract. Grep for symbol consumers first; missing them causes downstream breakage that isn't visible until those tasks run."
+  scope_wiki: ["_meta"]
+  tags: ["dag-planning", "cascade-prevention"]
+  confidence: 0.85
+```
+
+After authoring, run `vault_reindex` so the new claim lands in the `_index/claims.json` sidecar and becomes visible to future `vault_agent-memory` calls.
+
+**What happened:** Stoa wrote a `claim` page to `wikis/<wiki>/claim/<id>.md` with `authored_by: agent:claude-code`, `status: active`, `last_validated: <today>`, and the stated `confidence`. The `key` plus scope hash form the claim's stable identity — a later call with the same key and scope either revalidates (with `revalidate: true`) or supersedes the existing claim if the new confidence is strictly higher. Pass `override: true` to force supersession regardless of the confidence comparison.
+
+**When to use this:** After a debugging session that surfaced a non-obvious invariant. After a code review where a pattern was validated and you'd rather not re-justify it next month. The claim is what separates "I know this" from "I once figured this out and can't remember why."
+
+**See also:** [Pull an agent's accumulated knowledge at session start](#scenario-pull-an-agents-accumulated-knowledge-at-session-start), [docs/agent-memory.md](./agent-memory.md).
+
+---
+
+## Scenario: Pull an agent's accumulated knowledge at session start
+
+**You'll accomplish:** Inject an agent's relevant claims into working context before a task, so prior learnings apply without re-deriving them.
+
+**Run:**
+
+```
+vault_agent-memory
+  agent_id: "claude-code"
+  scope_wiki: ["_meta"]
+  tags: ["dag-planning"]
+```
+
+Optional extras: omit `scope_wiki` and `tags` for a broader pull across all claims authored by or targeted at this agent. Pass `token_budget: 800` to cap output size for system-prompt injection. Pass `detail: "full"` to receive complete claim bodies (default `"truncated"` returns the first ~200 chars of each body). Pass `task: "<task-id>"` to derive scope automatically from a task page's wiki and tags.
+
+**What happened:** Stoa read `_index/claims.json` (falling back to a disk walk if the sidecar was missing or stale), applied the inclusion predicate — agent identity match, scope intersection, `status: active`, effective confidence at or above 0.4 — ranked by `effective_confidence × (1 + scope_match)`, and returned the matching claims in descending score order. Confidence decays over time with a 75-day half-life, so stale claims naturally sink in the ranking without disappearing entirely. The response includes `total_pool_size` and a `truncated` flag so you know whether the budget cut anything off.
+
+**When to use this:** At the start of any multi-step task where the agent has prior claims relevant to the domain. Suitable for injecting the result directly into a system prompt or asking Claude to summarize it before beginning work. Pairs with `vault_start` when you want both vault orientation and agent-specific memory in one cold-start sequence.
+
+**See also:** [Have an agent remember a decision for next time](#scenario-have-an-agent-remember-a-decision-for-next-time), [docs/agent-memory.md](./agent-memory.md).
 
 ---
 
@@ -185,14 +237,14 @@ Optional: pass `since: "2026-05-12T00:00:00Z"` to get only entries after a times
 **Run:**
 
 ```
-vault.synthesize  topic: "recall ranking"  wiki: "stoa"
+vault_synthesize  topic: "recall ranking"  wiki: "stoa"
 ```
 
 Optional: pass `inputs: ["concept-token-stemming", "decision-2026-04-01-title-boost", ...]` to scope the synthesis to a specific page set rather than letting stoa search for matches.
 
 **What happened:** Stoa found every page in the wiki matching the topic, generated a synthesis page at `wikis/<wiki>/synthesis/synthesis-recall-ranking.md` with `last_compiled: <today>`, listed the inputs cited, and (if Claude provided `prose:` text) inlined that prose. Running this command again on the same topic overwrites the existing synthesis page — synthesis is intentionally re-runnable, not append-only.
 
-**When to use this:** When `vault.recall` returns 3+ substantive pages on a topic with no synthesis covering them. Also after authoring a new `decision` — refreshing the topic's synthesis closes the loop so the decision is reflected in what future-you reads.
+**When to use this:** When `vault_recall` returns 3+ substantive pages on a topic with no synthesis covering them. Also after authoring a new `decision` — refreshing the topic's synthesis closes the loop so the decision is reflected in what future-you reads.
 
 **See also:** [Find what you wrote about a topic last week](#scenario-find-what-you-wrote-about-a-topic-last-week).
 
@@ -205,19 +257,19 @@ Optional: pass `inputs: ["concept-token-stemming", "decision-2026-04-01-title-bo
 **Run:** Create the task:
 
 ```
-vault.task-create  title: "Write failing test for recall title-boost rule"  wiki: "stoa"  description: "title token-match should outweigh body token-match by ~2x. Need a unit test that pins the ratio."  channel: "stoa-progress"
+vault_task-create  title: "Write failing test for recall title-boost rule"  wiki: "stoa"  description: "title token-match should outweigh body token-match by ~2x. Need a unit test that pins the ratio."  channel: "stoa-progress"
 ```
 
 List pending tasks:
 
 ```
-vault.task-list  status: "pending"  wiki: "stoa"
+vault_task-list  status: "pending"  wiki: "stoa"
 ```
 
 Claim one (from any session, including the same one). You need the task's current `updated` timestamp from the list call:
 
 ```
-vault.task-claim  task_id: "task-write-failing-test-for-recall-title-boost-rule"  agent_id: "claude-code"  expected_updated: "<the-updated-value-from-task-list>"
+vault_task-claim  task_id: "task-write-failing-test-for-recall-title-boost-rule"  agent_id: "claude-code"  expected_updated: "<the-updated-value-from-task-list>"
 ```
 
 If two sessions race for the same task, only one wins — the loser sees `AlreadyClaimedError`. The `expected_updated` is mtime optimistic concurrency: stoa checks it matches the file's current mtime before claiming, so stale claims fail cleanly.
@@ -225,12 +277,12 @@ If two sessions race for the same task, only one wins — the loser sees `Alread
 Update the task as you progress:
 
 ```
-vault.task-update  task_id: "task-..."  wiki: "stoa"  expected_updated: "<latest-updated>"  status: "in_progress"  notes: "Test scaffold landed; debugging the score-difference assertion."
+vault_task-update  task_id: "task-..."  wiki: "stoa"  expected_updated: "<latest-updated>"  status: "in_progress"  notes: "Test scaffold landed; debugging the score-difference assertion."
 ```
 
-**What happened:** `vault.task-create` wrote a `task` page to `wikis/<wiki>/tasks/` with `status: pending`. `vault.task-claim` flipped it to `status: claimed` and stamped `claimed_by: agent:<agent_id>` and `assigned_at`. `vault.task-update` mutates the task's frontmatter and (optionally) body notes, all via mtime-OCC writes so concurrent updates don't silently overwrite.
+**What happened:** `vault_task-create` wrote a `task` page to `wikis/<wiki>/tasks/` with `status: pending`. `vault_task-claim` flipped it to `status: claimed` and stamped `claimed_by: agent:<agent_id>` and `assigned_at`. `vault_task-update` mutates the task's frontmatter and (optionally) body notes, all via mtime-OCC writes so concurrent updates don't silently overwrite.
 
-**When to use this:** When you have work that can be done independently and you want a durable queue. Especially useful for "I'll do this later" parking — drop the task, move on, find it next session via `vault.task-list` with `status: "pending"`.
+**When to use this:** When you have work that can be done independently and you want a durable queue. Especially useful for "I'll do this later" parking — drop the task, move on, find it next session via `vault_task-list` with `status: "pending"`.
 
 **See also:** [Coordinate two Claude Code sessions on shared work](#scenario-coordinate-two-claude-code-sessions-on-shared-work).
 
@@ -243,7 +295,7 @@ vault.task-update  task_id: "task-..."  wiki: "stoa"  expected_updated: "<latest
 **Run:**
 
 ```
-vault.lint
+vault_lint
 ```
 
 Add `wiki: <name>` to scope to one wiki, or `level: "error"` to only see hard violations (default is `warning`, which includes both errors and warnings; `info` includes everything).
@@ -263,7 +315,7 @@ Add `wiki: <name>` to scope to one wiki, or `level: "error"` to only see hard vi
 **Run:**
 
 ```
-vault.start  wiki: "stoa"
+vault_start  wiki: "stoa"
 ```
 
 Optional: pass `topics: ["recall-ranking", "claim-decay"]` to also run recall on those topics as part of the brief, or `since: "2026-05-10T00:00:00Z"` to scope channel activity to entries newer than that timestamp (default is last 24h).
@@ -279,7 +331,7 @@ Optional: pass `topics: ["recall-ranking", "claim-decay"]` to also run recall on
 ## Habits worth building
 
 - **Capture into inbox; classify later.** The fast lane is intentional. Don't think about types at capture time.
-- **Recall before drafting.** Before any new spec, decision, or design — run `vault.recall <topic>` first. There's a good chance you've already thought about this.
+- **Recall before drafting.** Before any new spec, decision, or design — run `vault_recall <topic>` first. There's a good chance you've already thought about this.
 - **Journal at end-of-task.** One sentence is enough. Future-you will thank present-you.
 - **Run lint weekly.** It's the early-warning system for drift.
 - **Synthesize when a topic hits 3+ pages.** The synthesis is what compounds.

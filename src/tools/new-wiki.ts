@@ -12,7 +12,7 @@ const Input = z.object({
 });
 
 export const newWikiTool = {
-  name: "vault.new-wiki",
+  name: "vault_new-wiki",
   description: "Scaffold a new wiki: folders, starter map.md, log.md, CLAUDE.md, and REGISTRY entry.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {

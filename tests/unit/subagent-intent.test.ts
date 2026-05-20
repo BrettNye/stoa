@@ -179,7 +179,7 @@ describe("subagent-intent — deriveTools (v1.7 §6.5)", () => {
     expect(tools).toContain("WebSearch");
     expect(tools).toContain("WebFetch");
     // Coordination tools always present.
-    expect(tools).toContain("vault.channel-post");
+    expect(tools).toContain("vault_channel-post");
   });
 
   it("merges in tools_used: from each move's frontmatter", () => {

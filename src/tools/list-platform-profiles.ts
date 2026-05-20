@@ -177,7 +177,7 @@ function hydrateRealSkillLevels(
 // ─── MCP tool definition ──────────────────────────────────────────────────────
 
 export const listPlatformProfilesTool = {
-  name: "vault.list-platform-profiles",
+  name: "vault_list-platform-profiles",
   description:
     "List all platform-registered profiles in the resolved wiki. Returns the draft pool with real_skill_levels per profile.",
   inputSchema: listPlatformProfilesInput,

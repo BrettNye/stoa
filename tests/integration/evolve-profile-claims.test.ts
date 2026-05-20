@@ -2,7 +2,7 @@
 //
 // task-evolve-profile-integration-test (Claims Plan 2 Wave 4) — end-to-end
 // proposal-phase coverage of the §9.2 acceptance behaviors layered on
-// `vault.evolve-profile` by the Plan 2 commit 41c8acf (handler now ALWAYS
+// `vault_evolve-profile` by the Plan 2 commit 41c8acf (handler now ALWAYS
 // threads `vaultPath` + `today` + `claimsConfig` into the orchestrator, so
 // the claim-driven extensions are always populated when claims are present).
 //
@@ -22,7 +22,7 @@
 //
 // Drift notes (vs. the Plan 2 §task-evolve-profile-integration-test reference
 // snippet, lines 1217-1271):
-//   - The reference snippet calls through `callTool("vault.evolve-profile",
+//   - The reference snippet calls through `callTool("vault_evolve-profile",
 //     ...)`, but `callTool` in tests/helpers.ts passes a hard-coded
 //     `rawConfig: {}` and bypasses Zod input parsing. Tests in this file
 //     therefore call `evolveProfileTool.handler(...)` DIRECTLY, which (a)
@@ -61,7 +61,7 @@ import { evolveProfileTool } from "../../src/tools/evolve-profile.js";
 /**
  * Seed a profile page with the given moveset AND the matching
  * `_index/profiles.json` row that `profileStatsTool` reads. The orchestrator
- * (`evolve-profile.ts:122`) always invokes `vault.profile-stats` first, which
+ * (`evolve-profile.ts:122`) always invokes `vault_profile-stats` first, which
  * throws `PROFILE_NOT_FOUND` unless `_index/profiles.json` exists with a row
  * for the given profile id (`profile-stats.ts:17-23`). We could spin up a
  * full `reindex` to populate the sidecar, but a hand-written minimal row
@@ -180,7 +180,7 @@ async function seedClaimCluster(
   }
 }
 
-describe("vault.evolve-profile claims integration (Plan 2 §9.2)", () => {
+describe("vault_evolve-profile claims integration (Plan 2 §9.2)", () => {
   // Track temp vaults for cleanup so a failing test doesn't leak temp dirs.
   const created: string[] = [];
   afterEach(() => {

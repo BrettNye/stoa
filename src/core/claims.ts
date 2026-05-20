@@ -47,7 +47,7 @@ export class ClaimsStore {
       // Reads are tolerant of partial-tier fixtures: parse via `ClaimDraft`
       // (which makes wiki/summary/updated/authored_by optional regardless of
       // status). Strict tier enforcement is the responsibility of `write` /
-      // `update` (and a future `vault.lint` pass on existing claims).
+      // `update` (and a future `vault_lint` pass on existing claims).
       const fm = ClaimDraft.parse(this.normalizeIsoDates(parsed.data)) as ClaimFrontmatter;
       const stat = await fs.stat(file);
       return {

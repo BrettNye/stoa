@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 
 beforeEach(() => { vi.resetModules(); vi.unstubAllGlobals(); });
 
-describe('vault.match-watch', () => {
+describe('vault_match-watch', () => {
   const vaultPath = join(tmpdir(), 'vault-match-watch-' + Date.now() + '-' + Math.random());
   beforeEach(() => {
     mkdirSync(join(vaultPath, 'wikis', 'alpha', 'journal'), { recursive: true });

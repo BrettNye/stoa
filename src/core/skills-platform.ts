@@ -62,7 +62,7 @@ export const _internals = {
  * `targetDir` itself; cleans up on success; returns `true` on success, `false`
  * on any thrown error.
  *
- * Used by `vault.sync-skills` to write `actual_mode` truthfully into
+ * Used by `vault_sync-skills` to write `actual_mode` truthfully into
  * `_index/deployments.json` (spec §5.4).
  */
 export function probeSymlinkSupport(targetDir: string): boolean {

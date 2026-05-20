@@ -6,7 +6,7 @@
 // string` (non-null, non-empty) when `status: "superseded"`. The Zod schema
 // enforces it on the write path. This lint catches the bypass case — hand-
 // edits or git-merge artifacts that produce a "superseded" claim without a
-// supersedor — so corpus integrity is enforced even outside `vault.claim`.
+// supersedor — so corpus integrity is enforced even outside `vault_claim`.
 //
 // Severity is `error`, not `warn`: a dangling supersession with no target
 // breaks the supersession DAG, which downstream consumers (Plan 2 evolve-

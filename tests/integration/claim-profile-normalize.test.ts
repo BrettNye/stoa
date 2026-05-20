@@ -1,8 +1,8 @@
 // vault-mcp/tests/integration/claim-profile-normalize.test.ts
 //
-// Verifies that `vault.claim` strips `agent:` and `profile-` prefixes from
+// Verifies that `vault_claim` strips `agent:` and `profile-` prefixes from
 // every entry in the stored `profile:` array. Without this normalization,
-// `vault.agent-memory`'s profile-membership predicate silently fails because
+// `vault_agent-memory`'s profile-membership predicate silently fails because
 // it normalizes its own query input the same way and compares with exact
 // equality. See src/tools/claim.ts:118 region for the fix rationale.
 
@@ -28,14 +28,14 @@ async function readClaimProfile(vault: string, claim_id: string): Promise<string
   });
 }
 
-describe("vault.claim — profile prefix normalization", () => {
+describe("vault_claim — profile prefix normalization", () => {
   let vault: string;
   beforeEach(async () => { vault = await mkTempVault(); });
   afterEach(() => { rmSync(vault, { recursive: true, force: true }); });
 
   it("strips `agent:` prefix from explicit profile entries", async () => {
     const r = await callTool(
-      "vault.claim",
+      "vault_claim",
       {
         as: "agent:claude-code",
         key: "test.normalize.agent-prefix",
@@ -52,7 +52,7 @@ describe("vault.claim — profile prefix normalization", () => {
 
   it("strips `profile-` prefix from explicit profile entries", async () => {
     const r = await callTool(
-      "vault.claim",
+      "vault_claim",
       {
         as: "agent:claude-code",
         key: "test.normalize.profile-prefix",
@@ -69,7 +69,7 @@ describe("vault.claim — profile prefix normalization", () => {
 
   it("normalizes the default-from-as case (no profile arg) to bare name", async () => {
     const r = await callTool(
-      "vault.claim",
+      "vault_claim",
       {
         as: "agent:claude-code",
         key: "test.normalize.default-from-as",
@@ -86,7 +86,7 @@ describe("vault.claim — profile prefix normalization", () => {
 
   it("preserves non-agent-style prefixes like `human:` unchanged", async () => {
     const r = await callTool(
-      "vault.claim",
+      "vault_claim",
       {
         as: "human:brett",
         key: "test.normalize.human-preserved",
@@ -103,7 +103,7 @@ describe("vault.claim — profile prefix normalization", () => {
 
   it("preserves explicit empty profile [] as global (not normalized to anything)", async () => {
     const r = await callTool(
-      "vault.claim",
+      "vault_claim",
       {
         as: "agent:claude-code",
         key: "test.normalize.empty-global",

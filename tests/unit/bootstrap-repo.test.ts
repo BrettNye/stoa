@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { bootstrapRepoTool } from "../../src/tools/bootstrap-repo.js";
 
-describe("vault.bootstrap-repo", () => {
+describe("vault_bootstrap-repo", () => {
   let vaultPath: string;
   let repoPath: string;
 

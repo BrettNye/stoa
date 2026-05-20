@@ -6,7 +6,7 @@ import { taskListTool } from "../../src/tools/task-list.js";
 import { createTask } from "../../src/core/tasks.js";
 import { recordRename } from "../../src/core/aliases.js";
 
-describe("vault.task-list", () => {
+describe("vault_task-list", () => {
   let vaultPath: string;
 
   beforeEach(() => {

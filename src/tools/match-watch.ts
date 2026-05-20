@@ -26,7 +26,7 @@ interface SpectatorState {
 }
 
 export const matchWatchTool = {
-  name: 'vault.match-watch',
+  name: 'vault_match-watch',
   description: 'Poll a match until terminal, then write a result journal.',
   inputSchema: Input,
   handler: async (

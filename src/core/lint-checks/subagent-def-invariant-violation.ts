@@ -5,7 +5,7 @@
 // and 6 (severity warning).
 //
 // Source of truth is the on-disk artifact, NOT the current profile + moveset.
-// Profile drift is what `vault.sync-agents` re-deploy is for, governed by
+// Profile drift is what `vault_sync-agents` re-deploy is for, governed by
 // source_revision (invariant 5). This check answers: "is the deployed
 // artifact still well-formed and not blocked by user policy?"
 
@@ -49,7 +49,7 @@ registerLintCheck({
             page_id: profileId,
             wiki: "_agents",
             message: `deployed agent def missing on disk: ${path} (invariant 4)`,
-            suggestion: `re-run vault.sync-agents ${profileId.replace(/^profile-/, "")} --target=${entry.repo_path}`,
+            suggestion: `re-run vault_sync-agents ${profileId.replace(/^profile-/, "")} --target=${entry.repo_path}`,
           });
           continue;
         }
@@ -66,7 +66,7 @@ registerLintCheck({
               page_id: profileId,
               wiki: "_agents",
               message: `agent def at ${path} missing coordination tool ${wire} (invariant 1)`,
-              suggestion: `re-run vault.sync-agents ${profileId.replace(/^profile-/, "")} --target=${entry.repo_path}`,
+              suggestion: `re-run vault_sync-agents ${profileId.replace(/^profile-/, "")} --target=${entry.repo_path}`,
             });
           }
         }
@@ -79,7 +79,7 @@ registerLintCheck({
             page_id: profileId,
             wiki: "_agents",
             message: `agent def at ${path} missing ## Channel/journal protocol section (invariant 2)`,
-            suggestion: `re-run vault.sync-agents ${profileId.replace(/^profile-/, "")} --target=${entry.repo_path}`,
+            suggestion: `re-run vault_sync-agents ${profileId.replace(/^profile-/, "")} --target=${entry.repo_path}`,
           });
         }
 
@@ -91,7 +91,7 @@ registerLintCheck({
             page_id: profileId,
             wiki: "_agents",
             message: `deployment registry entry for ${profileId} → ${entry.repo_path} has no source_revision (invariant 5)`,
-            suggestion: `re-run vault.sync-agents to record the current revision`,
+            suggestion: `re-run vault_sync-agents to record the current revision`,
           });
         }
 

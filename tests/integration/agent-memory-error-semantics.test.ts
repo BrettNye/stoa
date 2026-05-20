@@ -17,7 +17,7 @@ function ctx(vaultPath: string) {
   return { vaultPath };
 }
 
-describe("vault.agent-memory error semantics (spec §8.3)", () => {
+describe("vault_agent-memory error semantics (spec §8.3)", () => {
   // Row 1: Nonexistent agent_id → returns empty claims: [], no throw.
   it("returns empty claims for a nonexistent agent_id", async () => {
     const vault = await mkTempVault();

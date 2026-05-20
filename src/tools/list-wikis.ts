@@ -97,7 +97,7 @@ function diskOnlyPageCounts(
 }
 
 export const listWikisTool = {
-  name: "vault.list-wikis",
+  name: "vault_list-wikis",
   description: "List all visible wikis (always includes _agents; pass include_reserved for _archive etc.). Optional family: filters to one family; group_by_family: returns a rollup shape.",
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {

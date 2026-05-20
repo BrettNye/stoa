@@ -33,7 +33,7 @@ import { trainerGetStateTool } from "../../src/tools/trainer-get-state.js";
 import * as stadiumClientModule from "../../src/core/stadium-client.js";
 import * as listPlatformProfilesModule from "../../src/tools/list-platform-profiles.js";
 
-describe("vault.trainer-get-state handler — new fields", () => {
+describe("vault_trainer-get-state handler — new fields", () => {
   let getMatchStateMock: ReturnType<typeof vi.fn>;
   let listProfilesMock: ReturnType<typeof vi.fn>;
 

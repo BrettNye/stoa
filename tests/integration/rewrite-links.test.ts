@@ -8,7 +8,7 @@ import { rewriteLinksTool } from "../../src/tools/rewrite-links.js";
 let vault: string;
 
 /**
- * Phase-2 T3-5 — `vault.rewrite-links` integration tests.
+ * Phase-2 T3-5 — `vault_rewrite-links` integration tests.
  *
  * Each test seeds a fixture vault with pages whose body and/or frontmatter
  * `related:` carry `wikis/rastate/concept/...` wikilinks, then exercises the
@@ -63,7 +63,7 @@ function writeConcept(
   writeFileSync(join(dir, `${id}.md`), `${fm.join("\n")}\n${body}\n`);
 }
 
-describe("phase-2 T3-5 — vault.rewrite-links tool", () => {
+describe("phase-2 T3-5 — vault_rewrite-links tool", () => {
   beforeEach(() => {
     vault = seedVault();
   });
