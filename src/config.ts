@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import matter from "gray-matter";
 import { z } from "zod";
@@ -186,6 +186,43 @@ export function resolveSourceTypeWeights(vaultPath: string): SourceTypeWeights {
       return { ...DEFAULT_SOURCE_TYPE_WEIGHTS };
     }
     throw err;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Vault-local Stoa server config (.stoa/config.json)
+//
+// Per spec §9 of docs/superpowers/specs/2026-05-21-stoa-server-mode-design.md.
+// Missing file → all defaults. Malformed JSON → all defaults (no throw).
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface VaultStoaConfig {
+  theme: "pokemon" | "plain";
+  identity: { default_agent_id?: string };
+  auth: { signing_secret_env: string; issuer_hint?: string };
+  bind: string;
+}
+
+const DEFAULT_STOA_CONFIG: VaultStoaConfig = {
+  theme: "pokemon",
+  identity: {},
+  auth: { signing_secret_env: "STOA_TOKEN_SIGNING_SECRET" },
+  bind: "127.0.0.1:8443",
+};
+
+export function loadVaultStoaConfig(vaultPath: string): VaultStoaConfig {
+  const path = join(vaultPath, ".stoa", "config.json");
+  if (!existsSync(path)) return { ...DEFAULT_STOA_CONFIG, identity: { ...DEFAULT_STOA_CONFIG.identity }, auth: { ...DEFAULT_STOA_CONFIG.auth } };
+  try {
+    const file = JSON.parse(readFileSync(path, "utf8"));
+    return {
+      theme: file.theme ?? DEFAULT_STOA_CONFIG.theme,
+      identity: { ...DEFAULT_STOA_CONFIG.identity, ...file.identity },
+      auth: { ...DEFAULT_STOA_CONFIG.auth, ...file.auth },
+      bind: file.bind ?? DEFAULT_STOA_CONFIG.bind,
+    };
+  } catch {
+    return { ...DEFAULT_STOA_CONFIG, identity: { ...DEFAULT_STOA_CONFIG.identity }, auth: { ...DEFAULT_STOA_CONFIG.auth } };
   }
 }
 
