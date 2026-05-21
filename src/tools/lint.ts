@@ -34,7 +34,8 @@ import "../core/lint-checks/missing-curation-priority.js";
 
 const Input = z.object({
   wiki: z.string().optional(),
-  level: z.enum(["error", "warning", "info"]).default("warning")
+  level: z.enum(["error", "warning", "info"]).default("warning"),
+  scope: z.enum(["full", "per-wiki"]).default("per-wiki")
 });
 
 const lintScope: ToolScope = {

@@ -1,6 +1,7 @@
 // src/tools/stadium-scopes.test.ts
 // Verifies scope declarations for all 12 stadium tools.
 import { describe, it, expect } from 'vitest';
+import { z } from 'zod';
 import { trainerInitTool } from './trainer-init.js';
 import { profileRegisterTool } from './profile-register.js';
 import { realSkillRegisterTool } from './real-skill-register.js';
@@ -67,6 +68,29 @@ describe('stadium tools — scope declarations', () => {
       const scope = asScope((telemetryPushTool as any).scope);
       expect(scope.adminOnly).toBeUndefined();
     });
+
+    it('telemetry-push inputSchema accepts and preserves optional wiki field', () => {
+      const schema = (telemetryPushTool as any).inputSchema as z.ZodTypeAny;
+      const result = schema.safeParse({
+        real_skill_id: 'skill-abc',
+        source: 'journal',
+        reference_link: 'https://example.com',
+        wiki: 'myteam',
+      });
+      expect(result.success).toBe(true);
+      expect(result.data?.wiki).toBe('myteam');
+    });
+
+    it('telemetry-push inputSchema accepts input without wiki (wiki is optional)', () => {
+      const schema = (telemetryPushTool as any).inputSchema as z.ZodTypeAny;
+      const result = schema.safeParse({
+        real_skill_id: 'skill-abc',
+        source: 'journal',
+        reference_link: 'https://example.com',
+      });
+      expect(result.success).toBe(true);
+      expect(result.data?.wiki).toBeUndefined();
+    });
   });
 
   describe('trainer-id axis tools', () => {
@@ -87,6 +111,45 @@ describe('stadium tools — scope declarations', () => {
         expect(scope.axis({})).toBe('trainers/*');
       });
     }
+
+    it('trainer-queue-match inputSchema accepts and preserves optional trainer_id field', () => {
+      const schema = (trainerQueueMatchTool as any).inputSchema as z.ZodTypeAny;
+      const result = schema.safeParse({
+        opponent_trainer_id: 'opp-001',
+        trainer_id: 'me-trainer-id',
+      });
+      expect(result.success).toBe(true);
+      expect(result.data?.trainer_id).toBe('me-trainer-id');
+    });
+
+    it('trainer-accept-match inputSchema accepts and preserves optional trainer_id field', () => {
+      const schema = (trainerAcceptMatchTool as any).inputSchema as z.ZodTypeAny;
+      const result = schema.safeParse({
+        match_id: 'MATCH01234567890123456789',
+        trainer_id: 'me-trainer-id',
+      });
+      expect(result.success).toBe(true);
+      expect(result.data?.trainer_id).toBe('me-trainer-id');
+    });
+
+    it('trainer-get-state inputSchema accepts and preserves optional trainer_id field', () => {
+      const schema = (trainerGetStateTool as any).inputSchema as z.ZodTypeAny;
+      const result = schema.safeParse({
+        match_id: 'MATCH01234567890123456789',
+        trainer_id: 'me-trainer-id',
+      });
+      expect(result.success).toBe(true);
+      expect(result.data?.trainer_id).toBe('me-trainer-id');
+    });
+
+    it('trainer-queue-match inputSchema accepts input without trainer_id (field is optional)', () => {
+      const schema = (trainerQueueMatchTool as any).inputSchema as z.ZodTypeAny;
+      const result = schema.safeParse({
+        opponent_trainer_id: 'opp-001',
+      });
+      expect(result.success).toBe(true);
+      expect(result.data?.trainer_id).toBeUndefined();
+    });
   });
 
   describe('match-id axis tools', () => {

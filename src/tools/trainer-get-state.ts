@@ -8,7 +8,8 @@ import type { ToolScope } from '../auth/types.js';
 
 const Input = z.object({
   match_id: z.string().min(1),
-  since_turn: z.number().int().nonnegative().optional()
+  since_turn: z.number().int().nonnegative().optional(),
+  trainer_id: z.string().optional()
 });
 
 export const trainerGetStateTool = {
@@ -22,7 +23,7 @@ export const trainerGetStateTool = {
   } satisfies ToolScope,
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>) => {
-    const ctx = resolveTrainerContext({});
+    const ctx = resolveTrainerContext(input.trainer_id ? { trainer: input.trainer_id } : {});
     const config = resolveStadiumConfig();
     const client = new StadiumClient({ api_key: config.api_key, base_url: config.base_url });
     const platformState = await client.getMatchState(input.match_id, input.since_turn);

@@ -17,7 +17,8 @@ import type { ToolScope } from "../auth/types.js";
 const Input = z.object({
   real_skill_id: z.string().min(1),
   source: z.string().min(1),
-  reference_link: z.string().min(1)
+  reference_link: z.string().min(1),
+  wiki: z.string().optional()
 });
 
 export const telemetryPushTool = {

@@ -8,7 +8,8 @@ import type { ToolScope } from '../auth/types.js';
 const Input = z.object({
   opponent_trainer_id: z.string().min(1),
   ruleset: z.literal('standard').default('standard'),
-  wiki: z.string().min(1).optional()
+  wiki: z.string().min(1).optional(),
+  trainer_id: z.string().optional()
 });
 
 export const trainerQueueMatchTool = {
@@ -24,7 +25,7 @@ export const trainerQueueMatchTool = {
   handler: async (input: z.infer<typeof Input>) => {
     let trainerCtx: TrainerContext | undefined;
     try {
-      trainerCtx = resolveTrainerContext({});
+      trainerCtx = resolveTrainerContext(input.trainer_id ? { trainer: input.trainer_id } : {});
     } catch (err) {
       if (input.wiki && err instanceof TrainerContextError && err.code === 'TRAINER_WIKI_UNSET') {
         // explicit wiki: arg wins; continue without trainer wiki

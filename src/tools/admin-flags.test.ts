@@ -8,6 +8,7 @@ import { evolveProfileTool } from "./evolve-profile.js";
 import { lintTool } from "./lint.js";
 import { setActiveTool } from "./set-active.js";
 import { newWikiTool } from "./new-wiki.js";
+import { z } from "zod";
 
 describe("admin/forbidden tool flags", () => {
   it("admin-only tools carry adminOnly()=true", () => {
@@ -22,9 +23,13 @@ describe("admin/forbidden tool flags", () => {
     expect(bootstrapRepoTool.scope!.httpForbidden).toBe(true);
     expect(seedSubstrateTool.scope!.httpForbidden).toBe(true);
   });
-  it("lint is admin only when scope=full", () => {
-    expect(lintTool.scope!.adminOnly!({ scope: "full" })).toBe(true);
-    expect(lintTool.scope!.adminOnly!({ scope: "per-wiki" })).toBe(false);
+  it("lint is admin only when scope=full (Zod-parsed input)", () => {
+    const parsedFull = lintTool.inputSchema.parse({ scope: "full" });
+    const parsedPerWiki = lintTool.inputSchema.parse({ scope: "per-wiki" });
+    const parsedDefault = lintTool.inputSchema.parse({});
+    expect(lintTool.scope!.adminOnly!(parsedFull)).toBe(true);
+    expect(lintTool.scope!.adminOnly!(parsedPerWiki)).toBe(false);
+    expect(lintTool.scope!.adminOnly!(parsedDefault)).toBe(false);
   });
   it("reindex axis returns wikis/<wiki> when wiki provided", () => {
     expect((reindexTool.scope!.axis as Function)({ wiki: "my-wiki" })).toBe("wikis/my-wiki");

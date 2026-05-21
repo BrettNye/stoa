@@ -7,7 +7,8 @@ import type { ToolScope } from '../auth/types.js';
 
 const Input = z.object({
   match_id: z.string().min(1),
-  wiki: z.string().min(1).optional()
+  wiki: z.string().min(1).optional(),
+  trainer_id: z.string().optional()
 });
 
 export const trainerAcceptMatchTool = {
@@ -23,7 +24,7 @@ export const trainerAcceptMatchTool = {
   handler: async (input: z.infer<typeof Input>) => {
     let trainerCtx: TrainerContext | undefined;
     try {
-      trainerCtx = resolveTrainerContext({});
+      trainerCtx = resolveTrainerContext(input.trainer_id ? { trainer: input.trainer_id } : {});
     } catch (err) {
       if (input.wiki && err instanceof TrainerContextError && err.code === 'TRAINER_WIKI_UNSET') {
         // explicit wiki: arg wins; continue without trainer wiki
