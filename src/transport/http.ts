@@ -129,9 +129,10 @@ export async function startHttp(
       extra: { principal },
     };
     await transport.handleRequest(nodeReq, nodeRes);
-    // The transport writes directly to nodeRes; Hono just needs a response
-    // object so its pipeline doesn't error. Return an already-sent sentinel.
-    return c.body(null);
+    // The transport writes directly to nodeRes and fully ends the response.
+    // Return the @hono/node-server "already-sent" sentinel so the Hono pipeline
+    // skips its own writeHead/end pass — preventing ERR_HTTP_HEADERS_SENT.
+    return new Response(null, { headers: { "x-hono-already-sent": "1" } });
   });
 
   const bind = opts.bindOverride ?? stoaCfg.bind;

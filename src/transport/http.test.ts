@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
+import { SignJWT } from "jose";
 import { startHttp } from "./http.js";
 
 const SECRET = "test-secret-32-bytes-minimum-please-yes";
@@ -71,6 +72,68 @@ describe("HTTP transport", () => {
     });
     expect(res.status).toBe(401);
     expect(res.headers.get("www-authenticate")).toMatch(/invalid_token/);
+  });
+
+  it("valid MCP request reaches transport.handleRequest without double-write crash", async () => {
+    // Mint a valid JWT signed with the same secret the server was started with.
+    const key = new TextEncoder().encode(SECRET);
+    const token = await new SignJWT({ scopes: ["admin"] })
+      .setProtectedHeader({ alg: "HS256" })
+      .setSubject("test-agent")
+      .setIssuedAt()
+      .setExpirationTime("1h")
+      .sign(key);
+
+    // Send a well-formed MCP initialize request.
+    const body = JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2024-11-05",
+        capabilities: {},
+        clientInfo: { name: "test-client", version: "1.0.0" },
+      },
+    });
+
+    // Intercept console.error to detect the ERR_HTTP_HEADERS_SENT crash.
+    // The @hono/node-server listener catches the double-write error and calls
+    // console.error(e) — so we intercept there rather than process.stderr.write.
+    const originalConsoleError = console.error;
+    const capturedErrors: unknown[] = [];
+    console.error = (...args: unknown[]) => {
+      capturedErrors.push(...args);
+      originalConsoleError(...args);
+    };
+
+    let res: Response;
+    try {
+      res = await fetch(`http://127.0.0.1:${port}/mcp`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json, text/event-stream",
+          Authorization: `Bearer ${token}`,
+        },
+        body,
+      });
+      // Give async error handlers time to fire before we check.
+      // The ERR_HTTP_HEADERS_SENT crash fires after the handler returns and
+      // Hono's pipeline tries to call writeHead on the already-ended response.
+      await new Promise<void>((resolve) => setTimeout(resolve, 200));
+    } finally {
+      console.error = originalConsoleError;
+    }
+
+    // The MCP SDK should return 200 for a valid initialize.
+    expect(res!.status).toBe(200);
+
+    // No double-write crash should have occurred.
+    const headersAlreadySent = capturedErrors.some((e) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      return msg.includes("ERR_HTTP_HEADERS_SENT") || msg.includes("Cannot write headers after they are sent");
+    });
+    expect(headersAlreadySent, "ERR_HTTP_HEADERS_SENT crash detected via console.error").toBe(false);
   });
 });
 
