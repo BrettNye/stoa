@@ -26,6 +26,8 @@ export interface InitResult {
   wikisCreated: string[];
   /** Active wiki value written to `.active-wiki` (empty when no content wiki). */
   activeWiki: string;
+  /** Theme used during init (pokemon | plain). Present when set via -y / env. */
+  theme?: "pokemon" | "plain";
 }
 
 /**
@@ -183,6 +185,29 @@ function printNextSteps(r: InitResult): void {
 }
 
 /**
+ * Non-interactive init: reads `STOA_VAULT_PATH`, `STOA_THEME`, `STOA_DEFAULT_WIKI`
+ * from the environment. Falls back to sensible defaults. No prompts.
+ *
+ * Called by `stoa init -y` for Docker / CI scenarios (spec §12).
+ */
+export async function runNonInteractive(): Promise<InitResult & { theme: "pokemon" | "plain" }> {
+  const vaultPath = process.env.STOA_VAULT_PATH ?? process.cwd();
+  const theme = (process.env.STOA_THEME as "pokemon" | "plain" | undefined) === "plain"
+    ? "plain"
+    : "pokemon";
+  const defaultWiki = process.env.STOA_DEFAULT_WIKI;
+
+  const result = await initVault({
+    vaultPath,
+    force: true, // idempotent: allow running on an existing vault
+    withWiki: defaultWiki,
+    print: false,
+  });
+
+  return { ...result, theme };
+}
+
+/**
  * Commander wiring. The `bin.ts` entrypoint dispatches here without first
  * running `parseConfig`, because `init` is pre-vault setup (no STOA_VAULT_PATH
  * exists yet).
@@ -194,7 +219,17 @@ export function registerInit(program: Command): void {
     .option("--with-wiki <name>", "create a first content wiki and set it active")
     .option("--mode <mode>", "wiki mode for --with-wiki (idea-map|project-doc|learning|mixed)", "idea-map")
     .option("--force", "allow init against a non-empty target dir", false)
-    .action(async (vaultPath: string | undefined, opts: { withWiki?: string; mode?: InitOptions["mode"]; force?: boolean }) => {
+    .option("-y, --yes", "accept defaults / use env vars without prompting (STOA_VAULT_PATH, STOA_THEME, STOA_DEFAULT_WIKI)")
+    .action(async (vaultPath: string | undefined, opts: { withWiki?: string; mode?: InitOptions["mode"]; force?: boolean; yes?: boolean }) => {
+      if (opts.yes) {
+        try {
+          await runNonInteractive();
+        } catch (e: any) {
+          process.stderr.write(`init failed: ${e?.message ?? e}\n`);
+          process.exit(1);
+        }
+        return;
+      }
       const target = vaultPath ?? join(process.cwd(), "vault");
       try {
         await initVault({
