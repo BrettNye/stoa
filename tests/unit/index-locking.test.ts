@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { mkdtempSync, writeFileSync, readFileSync, mkdirSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, utimesSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { withSerializedIndexWrite } from "../../src/core/index-locking.js";
+import { withSerializedIndexWrite, STALE_LOCK_THRESHOLD_MS } from "../../src/core/index-locking.js";
 
 describe("withSerializedIndexWrite — atomic-rename-with-retry serialization", () => {
   let vaultPath: string;
@@ -38,5 +38,46 @@ describe("withSerializedIndexWrite — atomic-rename-with-retry serialization", 
     // Subsequent call must succeed (lock not stuck).
     const result = await withSerializedIndexWrite(vaultPath, ["pages.json"], () => "ok");
     expect(result).toBe("ok");
+  });
+});
+
+describe("withSerializedIndexWrite — stale-lock detection", () => {
+  it("exports STALE_LOCK_THRESHOLD_MS as 60000", () => {
+    expect(STALE_LOCK_THRESHOLD_MS).toBe(60_000);
+  });
+
+  it("unlinks a stale lock older than threshold and proceeds", async () => {
+    const vault = mkdtempSync(join(tmpdir(), "stoa-lock-"));
+    const locksDir = join(vault, "_index", ".locks");
+    mkdirSync(locksDir, { recursive: true });
+    const lockPath = join(locksDir, "pages.json.lock");
+    writeFileSync(lockPath, "");
+    const oldTime = (Date.now() - 120_000) / 1000;
+    utimesSync(lockPath, oldTime, oldTime);
+
+    let ran = false;
+    await withSerializedIndexWrite(vault, ["pages.json"], async () => { ran = true; });
+    expect(ran).toBe(true);
+    rmSync(vault, { recursive: true, force: true });
+  });
+
+  it("does not immediately remove a fresh (non-stale) lock", async () => {
+    // A fresh lock should NOT be cleared by stale detection — it must wait via backoff.
+    const vault = mkdtempSync(join(tmpdir(), "stoa-lock-"));
+    const locksDir = join(vault, "_index", ".locks");
+    mkdirSync(locksDir, { recursive: true });
+    const lockPath = join(locksDir, "pages.json.lock");
+    writeFileSync(lockPath, "");
+    // Release the fresh lock after 100ms so the retry loop can proceed.
+    const { unlinkSync } = await import("node:fs");
+    const timer = setTimeout(() => {
+      try { unlinkSync(lockPath); } catch { /* already gone */ }
+    }, 100);
+
+    let ran = false;
+    await withSerializedIndexWrite(vault, ["pages.json"], async () => { ran = true; });
+    clearTimeout(timer);
+    expect(ran).toBe(true);
+    rmSync(vault, { recursive: true, force: true });
   });
 });

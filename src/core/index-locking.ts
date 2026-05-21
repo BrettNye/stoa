@@ -1,5 +1,7 @@
-import { existsSync, mkdirSync, openSync, closeSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, openSync, closeSync, unlinkSync, statSync } from "node:fs";
 import { join } from "node:path";
+
+export const STALE_LOCK_THRESHOLD_MS = 60_000;
 
 /**
  * v1.7 §5.2/§5.3 — Serialize concurrent RMW on the index sidecars using
@@ -46,6 +48,17 @@ export async function withSerializedIndexWrite<T>(
           break;
         } catch (e: any) {
           if (e.code !== "EEXIST") throw e;
+          // Stale-lock detection: if the lock is older than threshold, unlink and
+          // immediately retry without backoff (mirrors spec §8.3).
+          try {
+            const stat = statSync(lockPath);
+            if (Date.now() - stat.mtimeMs > STALE_LOCK_THRESHOLD_MS) {
+              try { unlinkSync(lockPath); } catch { /* race-safe */ }
+              continue; // immediate retry on next loop iteration, no backoff
+            }
+          } catch {
+            // stat failed (lock vanished between EEXIST and stat) — fall through to normal backoff
+          }
           attempts++;
           if (attempts >= MAX_RETRIES) {
             throw new Error(`withSerializedIndexWrite: could not acquire lock on ${lockPath} after ${MAX_RETRIES} retries`);
