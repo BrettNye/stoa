@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { resolveStadiumConfig } from '../core/stadium-config.js';
 import { StadiumClient } from '../core/stadium-client.js';
+import type { ToolScope } from '../auth/types.js';
 
 const Input = z.object({
   canonical_move_name: z.string().regex(/^[a-z0-9-]+$/),
@@ -10,6 +11,10 @@ const Input = z.object({
 export const moveFuseTool = {
   name: 'vault_move-fuse',
   description: 'Fuse a canonical PokeAPI move with a registered real-skill into a usable move_id.',
+  scope: {
+    axis: () => 'stadium',
+    adminOnly: () => true,
+  } satisfies ToolScope,
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>): Promise<{ move_id: string }> => {
     const parsed = Input.parse(input);

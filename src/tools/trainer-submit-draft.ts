@@ -3,6 +3,7 @@ import { z, ZodError } from 'zod';
 import { resolveStadiumConfig } from '../core/stadium-config.js';
 import { StadiumClient } from '../core/stadium-client.js';
 import { resolveTrainerContext } from '../core/resolve-trainer-context.js';
+import type { ToolScope } from '../auth/types.js';
 
 export class InvalidPicksShapeError extends Error {
   constructor(
@@ -22,6 +23,12 @@ export const trainerSubmitDraftInput = z.object({
 export const trainerSubmitDraftTool = {
   name: 'vault_trainer-submit-draft',
   description: "Submit 6 picks (platform_profile_ids as ULIDs) during a match's drafting phase.",
+  scope: {
+    axis: (i: unknown) => {
+      const match_id = (i as Record<string, unknown>)?.match_id;
+      return `matches/${typeof match_id === 'string' ? match_id : '*'}`;
+    },
+  } satisfies ToolScope,
   inputSchema: trainerSubmitDraftInput,
   handler: async (input: z.infer<typeof trainerSubmitDraftInput>) => {
     let parsed: z.infer<typeof trainerSubmitDraftInput>;

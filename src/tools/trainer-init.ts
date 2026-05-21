@@ -8,6 +8,7 @@ import { resolveStadiumConfig } from '../core/stadium-config.js';
 import { StadiumClient } from '../core/stadium-client.js';
 import { upsertPage } from '../core/index.js';
 import { resolveTrainerContext, TrainerContextError } from '../core/resolve-trainer-context.js';
+import type { ToolScope } from '../auth/types.js';
 
 const Input = z.object({
   name: z.string().min(1),
@@ -17,6 +18,10 @@ const Input = z.object({
 export const trainerInitTool = {
   name: 'vault_trainer-init',
   description: 'Validate the configured Stadium API key and scaffold wikis/_agents/trainers/trainer-<name>.md with the initial strategy seed.',
+  scope: {
+    axis: () => 'stadium',
+    adminOnly: () => true,
+  } satisfies ToolScope,
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
     // trainer-init is special — it CREATES a trainer; resolveTrainerContext may not yet have

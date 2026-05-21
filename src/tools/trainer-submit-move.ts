@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { resolveStadiumConfig } from '../core/stadium-config.js';
 import { StadiumClient } from '../core/stadium-client.js';
 import { resolveTrainerContext } from '../core/resolve-trainer-context.js';
+import type { ToolScope } from '../auth/types.js';
 
 const Input = z.object({
   match_id: z.string().min(1),
@@ -14,6 +15,12 @@ const Input = z.object({
 export const trainerSubmitMoveTool = {
   name: 'vault_trainer-submit-move',
   description: 'Submit a move for the current turn; server resolves once both trainers submit.',
+  scope: {
+    axis: (i: unknown) => {
+      const match_id = (i as Record<string, unknown>)?.match_id;
+      return `matches/${typeof match_id === 'string' ? match_id : '*'}`;
+    },
+  } satisfies ToolScope,
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>) => {
     const ctx = resolveTrainerContext({});

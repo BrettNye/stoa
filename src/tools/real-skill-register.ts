@@ -13,6 +13,7 @@ import { resolveStadiumConfig } from "../core/stadium-config.js";
 import { StadiumClient } from "../core/stadium-client.js";
 import { resolveWiki } from "./_resolve-wiki.js";
 import { upsertPage } from "../core/index.js";
+import type { ToolScope } from "../auth/types.js";
 
 const Input = z.object({
   skill_id: z.string().regex(/^move-/),
@@ -23,6 +24,10 @@ export const realSkillRegisterTool = {
   name: "vault_real-skill-register",
   description:
     "Register a real-skill (move-*/SKILL.md) with Stadium; persist returned real_skill_id + advisory combat block.",
+  scope: {
+    axis: () => 'stadium',
+    adminOnly: () => true,
+  } satisfies ToolScope,
   inputSchema: Input,
   handler: async (
     input: z.infer<typeof Input>,
