@@ -13,8 +13,11 @@ import path from "node:path";
 
 const TODAY = new Date("2026-05-13");
 
-function ctx(vaultPath: string) {
-  return { vaultPath };
+// Helper to build ctx; agent_id is now passed via principal (v0.4 calling convention).
+function ctx(vaultPath: string, agent_id?: string) {
+  return agent_id
+    ? { vaultPath, principal: { agent_id } }
+    : { vaultPath };
 }
 
 describe("vault_agent-memory error semantics (spec §8.3)", () => {
@@ -24,7 +27,7 @@ describe("vault_agent-memory error semantics (spec §8.3)", () => {
     // Vault has no claims at all
 
     await expect(
-      agentMemoryTool.handler({ agent_id: "agent-does-not-exist" }, ctx(vault)),
+      agentMemoryTool.handler({}, ctx(vault, "agent-does-not-exist")),
     ).resolves.toMatchObject({
       claims: [],
       total_pool_size: 0,
@@ -52,16 +55,16 @@ describe("vault_agent-memory error semantics (spec §8.3)", () => {
     // task id that doesn't exist should not throw and should still return claims
     await expect(
       agentMemoryTool.handler(
-        { agent_id: "pikachu", task: "task-nonexistent-xyz" },
-        ctx(vault),
+        { task: "task-nonexistent-xyz" },
+        ctx(vault, "pikachu"),
       ),
     ).resolves.toMatchObject({
       agent_id: "pikachu",
     });
 
     const result = await agentMemoryTool.handler(
-      { agent_id: "pikachu", task: "task-nonexistent-xyz" },
-      ctx(vault),
+      { task: "task-nonexistent-xyz" },
+      ctx(vault, "pikachu"),
     );
     // Should not throw; may return claims from non-task scope
     expect(result.claims).toBeDefined();
@@ -92,8 +95,8 @@ describe("vault_agent-memory error semantics (spec §8.3)", () => {
     }
 
     const result = await agentMemoryTool.handler(
-      { agent_id: "geodude" },
-      ctx(vault),
+      {},
+      ctx(vault, "geodude"),
     );
 
     expect(result.claims.map((c: { id: string }) => c.id)).toContain("claim-no-sidecar");
@@ -133,8 +136,8 @@ describe("vault_agent-memory error semantics (spec §8.3)", () => {
     );
 
     const result = await agentMemoryTool.handler(
-      { agent_id: "onix" },
-      ctx(vault),
+      {},
+      ctx(vault, "onix"),
     );
 
     // Falls back to disk walk for authored_by — should find claim
@@ -176,12 +179,11 @@ describe("vault_agent-memory error semantics (spec §8.3)", () => {
     // Pass both task (which wouldn't restrict wiki) and explicit scope_wiki
     const result = await agentMemoryTool.handler(
       {
-        agent_id: "test",
         task: "task-does-not-exist",
         scope_wiki: ["rastate"],
         tags: ["infra"],
       },
-      ctx(vault),
+      ctx(vault, "test"),
     );
 
     // scope_used should reflect explicit scope_wiki
