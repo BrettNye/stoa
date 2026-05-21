@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { ToolScope } from "../auth/types.js";
 import { parseFrontmatter } from "../core/frontmatter.js";
 import { readProfile, ProfileNotFoundError } from "../core/profiles.js";
 import { listTasks } from "../core/tasks.js";
@@ -135,11 +136,16 @@ const Output = z.object({
 
 export type StartOutput = z.infer<typeof Output>;
 
+const startScope: ToolScope = {
+  axis: (input: any) => (input as any).wiki ? `wikis/${(input as any).wiki}` : "wikis/*",
+};
+
 export const startTool = {
   name: "vault_start",
   description: "Cold-session bootstrap: reads wiki map, tails active channels, runs recall on primary topics, returns a context brief.",
   inputSchema: Input,
   outputSchema: Output,
+  scope: startScope,
   handler: async (
     input: z.infer<typeof Input>,
     ctx: { vaultPath: string; defaultWiki?: string; defaultFamily?: string; fetcher?: typeof fetch }

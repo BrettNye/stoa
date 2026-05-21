@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { synthesize } from "../core/synthesize.js";
 import { ProfileNotFoundError } from "../core/profiles.js";
 import { resolveTrainerContext, type TrainerContext } from "../core/resolve-trainer-context.js";
+import type { ToolScope } from "../auth/types.js";
 
 const Input = z.object({
   agent_id: z.string(),
@@ -14,10 +15,19 @@ function bareName(agentId: string): string {
   return agentId.startsWith("profile-") ? agentId.slice("profile-".length) : agentId;
 }
 
+const refreshProfileMemoryScope: ToolScope = {
+  axis: (input: any) => {
+    const wiki = (input as any).wiki;
+    const agentId = (input as any).agent_id;
+    return wiki ? `wikis/${wiki}/profiles/${agentId}` : `wikis/*/profiles/${agentId}`;
+  },
+};
+
 export const refreshProfileMemoryTool = {
   name: "vault_refresh-profile-memory",
   description: "Compile a per-agent memory synthesis at wikis/_agents/synthesis/synthesis-<bare-name>-memory.md from the agent's journals + claimed tasks. Idempotent (overwrites). Convenience wrapper around vault_synthesize with by_agent + scope=memory.",
   inputSchema: Input,
+  scope: refreshProfileMemoryScope,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
     const parsed = Input.parse(input);
     // Resolve trainer context for ambient caller_trainer_id and wiki routing.

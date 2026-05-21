@@ -3,6 +3,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { suggestByType } from "../core/pokeapi.js";
 import { mapDevSpecialty, isValidPokemonType } from "../core/pokemon.js";
+import type { ToolScope } from "../auth/types.js";
 
 const Input = z.object({
   pokemon_type: z.string().optional(),
@@ -25,10 +26,15 @@ function listExistingProfileNames(vaultPath: string): Set<string> {
   return out;
 }
 
+const suggestPokemonScope: ToolScope = {
+  axis: (_input: any) => "vault",
+};
+
 export const suggestPokemonTool = {
   name: "vault_suggest-pokemon",
   description: "Suggest Pokemon names matching a type or dev specialty (e.g. 'backend' → fire). Uses PokeAPI; cached 30 days. Excludes existing profile names by default.",
   inputSchema: Input,
+  scope: suggestPokemonScope,
   handler: async (
     input: unknown,
     ctx: { vaultPath: string; fetcher?: typeof fetch }

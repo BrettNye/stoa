@@ -6,6 +6,7 @@ import { resolveFamily, membersOf } from "../core/family.js";
 import { findOnDisk } from "../core/disk-fallback.js";
 import { toIsoDate } from "../core/frontmatter.js";
 import { FilterParseError } from "../core/recall-filter.js";
+import type { ToolScope } from "../auth/types.js";
 
 const Input = z.object({
   topic: z.string().min(1).optional(),
@@ -26,10 +27,15 @@ const Input = z.object({
   message: "either `topic` or `filter` must be provided"
 });
 
+const recallScope: ToolScope = {
+  axis: (input: any) => (input as any).wiki ? `wikis/${(input as any).wiki}` : "*",
+};
+
 export const recallTool = {
   name: "vault_recall",
   description: "Search the vault for prior thinking on a topic. Returns ranked hits with synthesis content inline.",
   inputSchema: Input,
+  scope: recallScope,
   handler: async (
     input: z.infer<typeof Input>,
     ctx: { vaultPath: string; defaultFamily?: string }
