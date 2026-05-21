@@ -39,6 +39,7 @@ export async function withSerializedIndexWrite<T>(
   try {
     for (const lockPath of lockPaths) {
       let attempts = 0;
+      let staleRetries = 0;
       while (true) {
         try {
           // O_EXCL + O_CREAT — fails if file already exists.
@@ -50,11 +51,17 @@ export async function withSerializedIndexWrite<T>(
           if (e.code !== "EEXIST") throw e;
           // Stale-lock detection: if the lock is older than threshold, unlink and
           // immediately retry without backoff (mirrors spec §8.3).
+          // Cap at 3 stale-unlink attempts to bound the loop under adversarial mtime
+          // conditions (e.g. clock skew, buggy writer, or antivirus interaction).
           try {
             const stat = statSync(lockPath);
             if (Date.now() - stat.mtimeMs > STALE_LOCK_THRESHOLD_MS) {
-              try { unlinkSync(lockPath); } catch { /* race-safe */ }
-              continue; // immediate retry on next loop iteration, no backoff
+              if (staleRetries < 3) {
+                staleRetries++;
+                try { unlinkSync(lockPath); } catch { /* race-safe */ }
+                continue; // immediate retry on next loop iteration, no backoff
+              }
+              // Exceeded stale-unlink cap — fall through to normal backoff below.
             }
           } catch {
             // stat failed (lock vanished between EEXIST and stat) — fall through to normal backoff
