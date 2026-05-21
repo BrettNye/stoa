@@ -103,6 +103,9 @@ import { waitForAnyTool } from "./wait-for-any.js";
 import { waitForAllTool } from "./wait-for-all.js";
 import { waitForManyTool } from "./wait-for-many.js";
 
+// v1.9 onboarding — vault_orient state-aware next-best-action tool
+import { orientTool } from "./orient.js";
+
 export const allTools = [
   recallTool, readTool, listWikisTool, lintTool, channelTailTool,
   inboxTool, processInboxTool, newTool, newWikiTool, setActiveTool,
@@ -131,6 +134,8 @@ export const allTools = [
   listPlatformProfilesTool,
   // v1.7.1 — push primitives
   waitForTool, waitForAnyTool, waitForAllTool, waitForManyTool,
+  // v1.9 onboarding
+  orientTool,
 ];
 
 export type ToolDefinition = (typeof allTools)[number];

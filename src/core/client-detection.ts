@@ -25,6 +25,10 @@ const PLATFORM_PATHS: Record<ClientName, (home: string, platform: NodeJS.Platfor
   },
 };
 
+// `platform` is currently unread — reserved for future per-OS path variations
+// (e.g. Claude Desktop config moves under `~/Library/Application Support/` on
+// darwin and `%APPDATA%/` on win32). Kept in the signature so adding the
+// per-OS branches later isn't a breaking change.
 export function detectClients(home: string, platform: NodeJS.Platform): DetectedClient[] {
   const all: DetectedClient[] = (Object.keys(PLATFORM_PATHS) as ClientName[]).map((k) => PLATFORM_PATHS[k](home, platform));
   return all.filter((c) => existsSync(c.config_dir));
