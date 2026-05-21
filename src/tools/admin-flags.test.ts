@@ -26,4 +26,11 @@ describe("admin/forbidden tool flags", () => {
     expect(lintTool.scope!.adminOnly!({ scope: "full" })).toBe(true);
     expect(lintTool.scope!.adminOnly!({ scope: "per-wiki" })).toBe(false);
   });
+  it("reindex axis returns wikis/<wiki> when wiki provided", () => {
+    expect((reindexTool.scope!.axis as Function)({ wiki: "my-wiki" })).toBe("wikis/my-wiki");
+  });
+  it("reindex axis returns wikis/* (not bare *) when wiki is absent", () => {
+    expect((reindexTool.scope!.axis as Function)({})).toBe("wikis/*");
+    expect((reindexTool.scope!.axis as Function)({ wiki: undefined })).toBe("wikis/*");
+  });
 });

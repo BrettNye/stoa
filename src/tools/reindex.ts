@@ -6,7 +6,7 @@ import type { ToolScope } from "../auth/types.js";
 const Input = z.object({ wiki: z.string().optional() });
 
 const scope: ToolScope = {
-  axis: (input: any) => (input as any).wiki ? `wikis/${(input as any).wiki}` : "*",
+  axis: (input: any) => `wikis/${(input as any).wiki ?? "*"}`,
   adminOnly: () => true,
 };
 
