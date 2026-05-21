@@ -38,12 +38,49 @@ You coordinate with other agents through the vault, not through filesystem watch
 
 **Vault-of-record caveat.** vault-mcp always reads from and writes to the main worktree's vault root. If you are running inside a per-agent git worktree, do NOT watch your worktree's filesystem for coordination signals — use vault_channel-tail. Your worktree filesystem is invisible to peers.`;
 
-export function mcpToolName(toolName: ToolName): string {
+// Render a tool name as the wire-form an MCP client (e.g. Claude Code) sees in
+// its agent tool list. MCP tool names are prefixed by the SERVER name (the
+// key in `.mcp.json`'s `mcpServers` map), not by the tool surface or vendor.
+// Older callers hardcoded `mcp__vault__`; that assumed the user had registered
+// stoa under the literal name `vault`. Users can register stoa under any name
+// (`stoa`, `stoa-dev`, `my-stoa`, etc), and the on-disk agent files MUST match
+// or the dispatched subagent will see an empty MCP tool surface.
+//
+// Resolution order: explicit `serverName` arg → `STOA_MCP_SERVER_NAME` env var
+// → "vault" default. The env-var path lets users set `env.STOA_MCP_SERVER_NAME`
+// in their `.mcp.json` once, and all sync-agents / lint / verify flows
+// automatically use the right prefix without further plumbing.
+export function mcpToolName(toolName: ToolName, serverName?: string): string {
   if (!toolName || typeof toolName !== "string") {
     throw new Error(`mcpToolName: invalid input ${JSON.stringify(toolName)}`);
   }
+  const name = serverName ?? process.env.STOA_MCP_SERVER_NAME ?? "vault";
   if (toolName.startsWith("vault_")) {
-    return `mcp__vault__${toolName}`;
+    return `mcp__${name}__${toolName}`;
   }
   return toolName;
+}
+
+/**
+ * Returns a RegExp that matches the wire form of `toolName` under ANY MCP
+ * server-name prefix. Used by lint + verify when scanning an existing on-disk
+ * agent file — those files were written with whatever serverName was active at
+ * deploy time, which may not match what the current lint/verify caller knows.
+ *
+ * Matches the literal `mcp__<servername>__<toolName>` shape; `<servername>`
+ * conforms to MCP's `^[a-zA-Z0-9_-]+$` server-name grammar.
+ */
+export function mcpToolNamePattern(toolName: ToolName): RegExp {
+  if (!toolName || typeof toolName !== "string") {
+    throw new Error(`mcpToolNamePattern: invalid input ${JSON.stringify(toolName)}`);
+  }
+  if (!toolName.startsWith("vault_")) {
+    // Non-vault tools (Bash, WebSearch, etc) don't carry an mcp__ prefix.
+    return new RegExp(`(?:^|[\\s,\\-])${escapeRegExp(toolName)}(?:$|[\\s,])`);
+  }
+  return new RegExp(`mcp__[a-zA-Z0-9_-]+__${escapeRegExp(toolName)}`);
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

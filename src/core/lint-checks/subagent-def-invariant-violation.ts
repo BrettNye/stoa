@@ -13,7 +13,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { registerLintCheck } from "../lint-check.js";
 import { readDeployments } from "../deployments.js";
-import { MINIMAL_COORDINATION_TOOLSET, mcpToolName } from "../subagent-protocol.js";
+import { MINIMAL_COORDINATION_TOOLSET, mcpToolNamePattern } from "../subagent-protocol.js";
 import type { Diagnostic } from "../lint.js";
 
 interface SettingsJson {
@@ -57,15 +57,18 @@ registerLintCheck({
         const raw = readFileSync(path, "utf8");
 
         // Invariant 1 — every coordination tool present.
+        // Prefix-agnostic: the file may have been deployed under any
+        // mcp__<server>__ prefix; lint just verifies the bare vault_* name
+        // appears under some valid prefix.
         for (const t of MINIMAL_COORDINATION_TOOLSET) {
-          const wire = mcpToolName(t);
-          if (!raw.includes(`- ${wire}`)) {
+          const pattern = mcpToolNamePattern(t);
+          if (!pattern.test(raw)) {
             diagnostics.push({
               severity: "error",
               code: "SUBAGENT_DEF_INVARIANT_VIOLATION",
               page_id: profileId,
               wiki: "_agents",
-              message: `agent def at ${path} missing coordination tool ${wire} (invariant 1)`,
+              message: `agent def at ${path} missing coordination tool ${t} (invariant 1)`,
               suggestion: `re-run vault_sync-agents ${profileId.replace(/^profile-/, "")} --target=${entry.repo_path}`,
             });
           }
