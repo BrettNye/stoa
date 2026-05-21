@@ -18,6 +18,7 @@ import { registerClaimTask } from "./commands/claim-task.js";
 // v1.5 — substrate commands
 import { registerBootstrapRepo } from "./commands/bootstrap-repo.js";
 import { registerSyncSkills } from "./commands/sync-skills.js";
+import { registerSeedSubstrate } from "./commands/seed-substrate.js";
 import { registerSyncAgents } from "./commands/sync-agents.js";
 import { registerUi } from "./commands/ui.js";
 import { registerStart } from "./commands/start.js";
@@ -29,6 +30,12 @@ import { registerEvolveProfile } from "./commands/evolve-profile.js";
 import { registerRefreshProfileMemory } from "./commands/refresh-profile-memory.js";
 import { registerSuggestPokemon } from "./commands/suggest-pokemon.js";
 import { registerAgentMemory } from "./commands/agent-memory.js";
+
+// New-user onboarding (feat/new-user-onboarding) — substrate-aware
+// scaffolding commands mirroring the new-profile / new-move MCP tools.
+import { registerNewProfile } from "./commands/new-profile.js";
+import { registerNewMove } from "./commands/new-move.js";
+import { registerInit } from "./commands/init.js";
 
 export function buildCli(): Command {
   const program = new Command()
@@ -54,6 +61,7 @@ export function buildCli(): Command {
   // v1.5
   registerBootstrapRepo(program);
   registerSyncSkills(program);
+  registerSeedSubstrate(program);
   registerSyncAgents(program);
   registerUi(program);
   registerStart(program);
@@ -65,6 +73,11 @@ export function buildCli(): Command {
   registerRefreshProfileMemory(program);
   registerSuggestPokemon(program);
   registerAgentMemory(program);
+
+  // new-user onboarding
+  registerNewProfile(program);
+  registerNewMove(program);
+  registerInit(program);
 
   return program;
 }

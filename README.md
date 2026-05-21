@@ -37,7 +37,7 @@ Then add to `~/.claude/settings.json`:
   "mcpServers": {
     "stoa": {
       "command": "stoa",
-      "args": ["mcp"],
+      "args": ["--mcp"],
       "env": { "STOA_VAULT_PATH": "/path/to/your/vault" }
     }
   }

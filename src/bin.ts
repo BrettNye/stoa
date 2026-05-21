@@ -6,15 +6,24 @@ import { buildCli } from "./cli/index.js";
 import { startStdio } from "./transport/stdio.js";
 
 async function main() {
+  // Special-case `init`: it CREATES a vault, so it must run before any
+  // vault-path validation. Detect it from raw argv before parseConfig.
+  // The first non-flag arg in `argv.slice(2)` is the subcommand.
+  const rawArgs = process.argv.slice(2);
+  const firstSubcommand = rawArgs.find(a => !a.startsWith("-"));
+  const isInitSubcommand = firstSubcommand === "init";
+
   let config;
-  try {
-    config = parseConfig(process.argv.slice(2));
-  } catch (e) {
-    if (e instanceof ConfigError) {
-      process.stderr.write(`error: ${e.message}\n`);
-      process.exit(2);
+  if (!isInitSubcommand) {
+    try {
+      config = parseConfig(rawArgs);
+    } catch (e) {
+      if (e instanceof ConfigError) {
+        process.stderr.write(`error: ${e.message}\n`);
+        process.exit(2);
+      }
+      throw e;
     }
-    throw e;
   }
 
   // Filter our own flags out before passing to commander
@@ -25,12 +34,12 @@ async function main() {
     a !== "--mcp"
   );
 
-  if (config.mcpMode) {
+  if (config?.mcpMode) {
     await startStdio(config);
     return; // server runs until stdin closes
   }
 
-  setCtx(config);
+  if (config) setCtx(config);
   const program = buildCli();
   await program.parseAsync(cliArgv);
 }

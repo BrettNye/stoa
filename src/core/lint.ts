@@ -67,10 +67,13 @@ export function lint(vaultPath: string, input: LintInput = {}): LintResult {
     }
   }
 
-  // 3. Filename != id (skip map.md)
+  // 3. Filename != id (skip map.md and moves — moves use directory layout
+  // `moves/<id>/SKILL.md` where the directory name carries the id, so the
+  // basename check doesn't apply.)
   for (const p of idx.pages) {
     if (input.wiki && p.wiki !== input.wiki) continue;
     if (p.type === "map") continue;
+    if (p.type === "move") continue;
     const filename = p.path.split("/").pop() ?? "";
     const stem = filename.replace(/\.md$/, "");
     if (stem !== p.id) {

@@ -17,6 +17,9 @@ import { taskClaimTool } from "./task-claim.js";
 // v1.5 — substrate tools
 import { bootstrapRepoTool } from "./bootstrap-repo.js";
 import { syncSkillsTool } from "./sync-skills.js";
+// seed-substrate: copy bundled example profiles/moves/course into a fresh
+// vault's wikis/_agents/. Bundled under <package>/seed/_agents/.
+import { seedSubstrateTool } from "./seed-substrate.js";
 import { startTool } from "./start.js";
 import { taskCreateTool } from "./task-create.js";
 import { taskListTool } from "./task-list.js";
@@ -25,6 +28,14 @@ import { profileStatsTool } from "./profile-stats.js";
 import { evolveProfileTool } from "./evolve-profile.js";
 import { refreshProfileMemoryTool } from "./refresh-profile-memory.js";
 import { suggestPokemonTool } from "./suggest-pokemon.js";
+
+// New-user onboarding (feat/new-user-onboarding) — substrate-aware
+// scaffolding tools that pre-fill v1.5 required frontmatter so authors
+// don't have to memorize the pokemon_type / evolution_stage / moveset
+// contract. Thin wrappers over writePage + upsertPage; see new-profile.ts
+// and new-move.ts.
+import { newProfileTool } from "./new-profile.js";
+import { newMoveTool } from "./new-move.js";
 
 // v1.6 Phase 2 — wiki families. Bulk wikilink rewrite tool used during
 // family migrations (split rastate → rastate-{core,dev,ideas,learning})
@@ -97,8 +108,10 @@ export const allTools = [
   inboxTool, processInboxTool, newTool, newWikiTool, setActiveTool,
   synthesizeTool, reindexTool, agentJournalTool, channelPostTool, taskClaimTool,
   // v1.5
-  bootstrapRepoTool, syncSkillsTool, startTool,
+  bootstrapRepoTool, syncSkillsTool, seedSubstrateTool, startTool,
   taskCreateTool, taskListTool, taskUpdateTool, profileStatsTool, evolveProfileTool, refreshProfileMemoryTool, suggestPokemonTool,
+  // new-user onboarding
+  newProfileTool, newMoveTool,
   // v1.6 phase 2
   rewriteLinksTool,
   // v1.6 phase 3
