@@ -314,6 +314,85 @@ The published image path is the canonical release coordinate but is published on
 
 Tokens are bound to the exact secret used at signing time. Rotating `STOA_TOKEN_SIGNING_SECRET` invalidates every outstanding token. There is no revocation list in v0.4 — rotation is the only invalidation primitive. Plan rotations to coincide with operator-token expiry.
 
+### Windows / Git Bash (MSYS) gotchas
+
+Git Bash on Windows (MINGW64, the shell that ships with Git for Windows) rewrites Unix-shaped paths before passing them to native Windows commands. `docker.exe` is a native Windows binary, so `-e STOA_VAULT_PATH=/vault` becomes `-e STOA_VAULT_PATH=C:/Program Files/Git/vault` inside the container. The server then reports `/health` as `unhealthy` because that mangled path doesn't exist.
+
+Three fixes, pick one:
+
+**Option A — disable conversion per command:**
+
+```bash
+MSYS_NO_PATHCONV=1 docker run --rm -p 8443:8443 \
+  -v stoa-vault:/vault \
+  -e STOA_VAULT_PATH=/vault \
+  -e STOA_TOKEN_SIGNING_SECRET="$STOA_TOKEN_SIGNING_SECRET" \
+  stoa-local
+```
+
+**Option B — disable conversion for the whole session:**
+
+```bash
+export MSYS_NO_PATHCONV=1
+# every subsequent docker command in this terminal works as-is
+```
+
+**Option C — double-slash escape (path-by-path):**
+
+```bash
+docker run --rm -v stoa-vault://vault -e STOA_VAULT_PATH=//vault stoa-local init -y
+```
+
+The leading `//` tells MSYS "leave this alone." Linux inside the container treats `//vault` and `/vault` identically.
+
+**Option D — switch to PowerShell:**
+
+PowerShell doesn't do MSYS path conversion. The same `docker run` lines from this guide work as-is.
+
+### Bind-mount path syntax on Windows
+
+Both forms work with Docker Desktop, but watch for shell quoting on paths with spaces:
+
+```bash
+# Forward-slash form (Git Bash, PowerShell)
+-v "C:/Users/brett/stoa-test-vault:/vault"
+
+# Posix form (Git Bash auto-translates back to Windows for Docker)
+-v "/c/Users/brett/stoa-test-vault:/vault"
+```
+
+If your host path contains spaces, always quote the whole `-v` value. Combine with `MSYS_NO_PATHCONV=1` to keep the container-side `/vault` half from getting rewritten.
+
+### Inline `$(openssl rand -hex 32)` is single-use
+
+`docker run -e STOA_TOKEN_SIGNING_SECRET="$(openssl rand -hex 32)"` generates a fresh secret each time. The server you started yesterday and the `mint-token` you ran today will have different secrets — tokens won't verify.
+
+Save the secret to your shell env (or a file) once and reuse it across the session:
+
+```bash
+export STOA_TOKEN_SIGNING_SECRET=$(openssl rand -hex 32)
+echo $STOA_TOKEN_SIGNING_SECRET   # verify it's set
+
+# Server and any subsequent mint-token calls now share the same secret:
+docker run --rm -p 8443:8443 -v stoa-vault:/vault \
+  -e STOA_VAULT_PATH=/vault \
+  -e STOA_TOKEN_SIGNING_SECRET="$STOA_TOKEN_SIGNING_SECRET" \
+  stoa-local
+
+# In another tab — note exports don't cross shells, so paste the value:
+export STOA_TOKEN_SIGNING_SECRET="<paste the 64-hex string>"
+docker run --rm -e STOA_TOKEN_SIGNING_SECRET="$STOA_TOKEN_SIGNING_SECRET" \
+  stoa-local mint-token --agent-id=tester --scope='vault_recall:*' --ttl=1h
+```
+
+For multi-tab workflows, save the secret to a file and source it:
+
+```bash
+echo "export STOA_TOKEN_SIGNING_SECRET=$(openssl rand -hex 32)" > ~/.stoa-dev-secret
+chmod 600 ~/.stoa-dev-secret
+source ~/.stoa-dev-secret   # do this in every tab that talks to the server
+```
+
 ---
 
 ## Pointers
