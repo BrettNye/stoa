@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mkdtempSync, existsSync, readFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -7,6 +7,10 @@ import { Command } from "commander";
 // --- module-level mutable state used by vi.mock closures ---
 // These are reassigned per-test before the action runs.
 let mockHomedir: string = tmpdir();
+
+beforeEach(() => {
+  mockHomedir = mkdtempSync(join(tmpdir(), "onboard-test-home-"));
+});
 
 vi.mock("node:os", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:os")>();
@@ -37,20 +41,19 @@ import { PRIMER_MARKER_START } from "../../src/core/ai-primer-template.js";
 // Helpers
 // -----------------------------------------------------------------------
 
-function captureStdout(): { lines: string[]; restore: () => string } {
+async function withCapturedStdout<T>(fn: () => Promise<T>): Promise<{ output: string; result: T }> {
   const lines: string[] = [];
   const orig = process.stdout.write.bind(process.stdout);
   process.stdout.write = ((chunk: string) => {
     lines.push(chunk);
     return true;
   }) as typeof process.stdout.write;
-  return {
-    lines,
-    restore: () => {
-      process.stdout.write = orig;
-      return lines.join("");
-    },
-  };
+  try {
+    const result = await fn();
+    return { output: lines.join(""), result };
+  } finally {
+    process.stdout.write = orig;
+  }
 }
 
 function makeProgram(): Command {
@@ -85,10 +88,10 @@ it("onboard subcommand has --diagnose option", () => {
 
 describe("--diagnose flag prints check results", () => {
   it("prints ✓/✗ lines for each check", async () => {
-    const cap = captureStdout();
-    const program = makeProgram();
-    await program.parseAsync(["onboard", "--diagnose"], { from: "user" });
-    const output = cap.restore();
+    const { output } = await withCapturedStdout(async () => {
+      const program = makeProgram();
+      await program.parseAsync(["onboard", "--diagnose"], { from: "user" });
+    });
     expect(output).toMatch(/[✓✗]/);
     expect(output.length).toBeGreaterThan(0);
   });
@@ -107,12 +110,11 @@ describe("no Claude Code install detected", () => {
     const savedExitCode = process.exitCode;
     process.exitCode = undefined;
 
-    const cap = captureStdout();
+    const { output } = await withCapturedStdout(async () => {
+      const program = makeProgram();
+      await program.parseAsync(["node", "stoa", "onboard"]);
+    });
 
-    const program = makeProgram();
-    await program.parseAsync(["node", "stoa", "onboard"]);
-
-    const output = cap.restore();
     const exitCode = process.exitCode;
     process.exitCode = savedExitCode as any;
 
@@ -144,10 +146,10 @@ describe("team mode: no vault seeding", () => {
       per_wiki_descriptions: {},
     });
 
-    const cap = captureStdout();
-    const program = makeProgram();
-    await program.parseAsync(["node", "stoa", "onboard"]);
-    cap.restore();
+    await withCapturedStdout(async () => {
+      const program = makeProgram();
+      await program.parseAsync(["node", "stoa", "onboard"]);
+    });
 
     // onboarding.json MUST exist
     expect(existsSync(join(vaultPath, "_index", "onboarding.json"))).toBe(true);
@@ -185,10 +187,10 @@ describe("solo onboarding flow via registerOnboard wiring", () => {
       per_wiki_descriptions: { codebase: "daily coding work" },
     });
 
-    const cap = captureStdout();
-    const program = makeProgram();
-    await program.parseAsync(["node", "stoa", "onboard"]);
-    cap.restore();
+    await withCapturedStdout(async () => {
+      const program = makeProgram();
+      await program.parseAsync(["node", "stoa", "onboard"]);
+    });
 
     // 1. settings.json contains mcpServers.stoa with correct vault path
     const settingsPath = join(claudeDir, "settings.json");
