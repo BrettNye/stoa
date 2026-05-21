@@ -26,14 +26,14 @@ describe("creator tools scope declarations", () => {
       expect(typeof newTool.scope!.axis).toBe("function");
     });
 
-    it("scope.axis returns path including wiki, type, and id when all present", () => {
-      expect(newTool.scope!.axis({ wiki: "foo", type: "concept", id: "concept-bar" }))
-        .toBe("wikis/foo/concept/concept-bar");
+    it("scope.axis returns wikis/<wiki>/<type> (no id segment)", () => {
+      expect(newTool.scope!.axis({ wiki: "foo", type: "concept" }))
+        .toBe("wikis/foo/concept");
     });
 
-    it("scope.axis defaults id to '*' when absent", () => {
-      expect(newTool.scope!.axis({ wiki: "foo", type: "concept" }))
-        .toBe("wikis/foo/concept/*");
+    it("scope.axis ignores id even when supplied (id is generated internally)", () => {
+      expect(newTool.scope!.axis({ wiki: "foo", type: "concept", id: "concept-bar" }))
+        .toBe("wikis/foo/concept");
     });
 
     it("adminOnly returns true for type=map", () => {
@@ -173,24 +173,24 @@ describe("creator tools scope declarations", () => {
       expect(typeof newMoveTool.scope!.axis).toBe("function");
     });
 
-    it("scope.axis returns wikis/<wiki>/moves/<move_id> when both present", () => {
-      expect(newMoveTool.scope!.axis({ wiki: "myWiki", move_id: "move-foo" }))
-        .toBe("wikis/myWiki/moves/move-foo");
+    it("scope.axis returns wikis/<wiki>/moves (no move_id segment)", () => {
+      expect(newMoveTool.scope!.axis({ wiki: "myWiki" }))
+        .toBe("wikis/myWiki/moves");
     });
 
     it("scope.axis defaults wiki to '_agents' when absent", () => {
-      expect(newMoveTool.scope!.axis({ move_id: "move-bar" }))
-        .toBe("wikis/_agents/moves/move-bar");
-    });
-
-    it("scope.axis defaults move_id to '*' when absent", () => {
-      expect(newMoveTool.scope!.axis({ wiki: "myWiki" }))
-        .toBe("wikis/myWiki/moves/*");
-    });
-
-    it("scope.axis uses defaults for both wiki and move_id when absent", () => {
       expect(newMoveTool.scope!.axis({}))
-        .toBe("wikis/_agents/moves/*");
+        .toBe("wikis/_agents/moves");
+    });
+
+    it("scope.axis ignores move_id even when supplied (id is generated internally)", () => {
+      expect(newMoveTool.scope!.axis({ wiki: "myWiki", move_id: "move-foo" }))
+        .toBe("wikis/myWiki/moves");
+    });
+
+    it("scope.axis defaults wiki to '_agents' and ignores move_id when only move_id supplied", () => {
+      expect(newMoveTool.scope!.axis({ move_id: "move-bar" }))
+        .toBe("wikis/_agents/moves");
     });
 
     it("adminOnly always returns true", () => {

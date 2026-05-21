@@ -27,7 +27,7 @@ const Input = z.object({
 });
 
 const scope: ToolScope = {
-  axis: (i: any) => `wikis/${i.wiki ?? "_agents"}/moves/${i.move_id ?? "*"}`,
+  axis: (i: any) => `wikis/${i.wiki ?? "_agents"}/moves`,
   adminOnly: () => true,
 };
 

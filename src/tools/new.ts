@@ -16,7 +16,7 @@ const Input = z.object({
 });
 
 const scope: ToolScope = {
-  axis: (i: any) => `wikis/${i.wiki}/${i.type}/${i.id ?? "*"}`,
+  axis: (i: any) => `wikis/${i.wiki}/${i.type}`,
   adminOnly: (i: any) => i.type === "map",
 };
 

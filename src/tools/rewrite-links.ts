@@ -61,7 +61,7 @@ export const rewriteLinksTool = {
     input: z.infer<typeof Input>,
     ctx: { vaultPath: string }
   ): Promise<RewriteLinksOutput> => {
-    const scope = normalizeScopes(input.scopes);
+    const normalizedScopes = normalizeScopes(input.scopes);
     const idx = loadIndex(ctx.vaultPath);
 
     const pagesModified: { page_id: string; links_rewritten: number }[] = [];
@@ -103,7 +103,7 @@ export const rewriteLinksTool = {
         related,
         input.from_prefix,
         input.to_prefix,
-        scope
+        normalizedScopes
       );
       if (rewrite === null) continue;
 
