@@ -1,10 +1,10 @@
 # Changelog
 
-## 0.3.0 — 2026-05-19
+## 0.3.0 — 2026-05-21
 
-Specialist agent substrate (v1.9 DAG, 15 tasks). Lets agents develop deep domain competence — through wiki-local move overlays and curricular-claim cold-start — without breaking the portable-moves contract.
+Two feature sets ship together in this release: the specialist agent substrate (v1.9 DAG, 15 tasks) and new-user onboarding (4-wave DAG, 14 tasks). The substrate lets agents develop deep domain competence — through wiki-local move overlays and curricular-claim cold-start — without breaking the portable-moves contract. The onboarding stack turns "I installed Stoa and now what?" into a single `stoa onboard` command that detects clients, writes config, seeds a vault, and installs an AI-primer at the user's `~/.claude/CLAUDE.md` so their AI knows what to do with the new tools.
 
-### Added
+### Added — specialist agent substrate
 
 - **`source_type:` on claims.** New optional frontmatter field on `claim` pages: `lived | curricular | retro`, default `lived`. `lived` cites real journal/task/PR evidence; `curricular` cites a course `guide-course-*` page; `retro` cites older artifacts a pattern was extracted from. Absent field is treated as `lived` — no migration needed.
 - **`vault.claim --source-type=` parameter.** Authoring surface for the new field on `vault.claim`. Validates against the fixed value set; rejects others.
@@ -17,11 +17,22 @@ Specialist agent substrate (v1.9 DAG, 15 tasks). Lets agents develop deep domain
 - **`vault.agent-memory` source-type tags.** Each returned claim gains three new fields: `source_type` (raw value), `source_type_tag` (e.g. `"[curricular | 0.62]"`), and `rendered` (the canonical agent-facing string `[<source_type> | <conf>] <body>`). Ranking is unchanged — the tag is informational, not load-bearing for retrieval.
 - **Lint rules.** Five new lint codes: `CLAIM_SOURCE_TYPE_INVALID` (error — claim has `source_type:` outside the fixed value set), `MOVE_SCOPE_WIKI_FOLDER_MISMATCH` (error — `scope_wiki:` does not match the parent folder), `MOVE_SCOPE_WIKI_MISSING` (warning — wiki-local move missing required `scope_wiki:`), `MOVE_PORTABLE_HAS_SCOPE` (warning — portable move erroneously carries `scope_wiki:`), `MOVE_ID_SHADOWS_PORTABLE` (warning — wiki-local move id collides with a portable move id; portable wins at deploy time).
 
+### Added — new-user onboarding
+
+- **`stoa onboard` CLI command.** Single command that orchestrates first-time setup — detects installed AI clients (Claude Code in v1), runs a 5-question interview (team-vs-solo, role, work surfaces, filing mode, what to remember between sessions), writes the MCP server entry into `~/.claude/settings.json`, installs the AI-primer at `~/.claude/CLAUDE.md`, seeds wikis at the chosen vault path with starter `map.md` and inbox items, and writes per-user state to `<vault>/_index/onboarding.json`. Replaces the old "edit settings.json yourself, then guess" flow with a self-verifying handoff prompt at the end.
+- **`stoa onboard --diagnose` subcommand.** Read-only diagnostic that prints one line per check (AI-primer present, MCP entry registered, vault path writable) with ✓/✗ + a one-line fix instruction for each failure. Vault-path check uses a real write-probe rather than POSIX `accessSync(W_OK)` so it works correctly on Windows ACL-backed directories.
+- **`stoa orient` CLI command + `vault_orient` MCP tool.** State-aware next-best-action classifier. Reads `_index/onboarding.json`, inbox volume across wikis, and synthesis `last_compiled` dates; returns `{ next_best_action, reasoning, tool_to_call?, suggestion_to_user? }`. Priority order: onboarding-incomplete → inbox-overflow (≥5) → stale-synthesis (>60d) → recall-question regex → steady-state. Tool exposed as `vault_orient` for in-session AI use; CLI mirror for human inspection.
+- **AI-primer template.** Marker-bounded (`<!-- stoa-primer:start --> ... <!-- /stoa-primer -->`) CLAUDE.md fragment installed at user scope so every AI session — in any repo on the machine — knows about the vault and its reflex rules. Templated by interview answers: role-specific tag suggestions, passive-vs-active filing discipline, optional team-etiquette block. Idempotent rewrite finds and replaces the existing block; appends fresh when absent. Surrounding CLAUDE.md content untouched.
+- **Per-wiki CLAUDE.md generation.** `buildWikiClaudemdPrompt` constructs the prompt sent to the user's connected AI for generating per-wiki conventions from a free-text workflow description; `fallbackWikiClaudemd` is the stub written when the AI declines. The 11-type schema is global but the *interpretation* (recipe vs account vs system component) is per-wiki — this is how that interpretation gets seeded.
+- **Cross-platform client + sync-folder detection.** `detectClients(home, platform)` finds installed AI clients at canonical paths (`~/.claude`, `~/.cursor`, `~/.config/codex`); only Claude Code is wired into `stoa onboard` in v1. `detectSyncFolders(home, platform)` lists Dropbox / OneDrive / Google Drive / iCloud Drive / Box plus the OneDrive-Business `<Tenant>` variant via `readdirSync`. The `platform` parameter is currently unread — reserved for future per-OS path gating; documented inline.
+- **`vault_orient` MCP tool registered.** `allTools` now exports 54 tools (was 53). Tool registry guard tests updated.
+
 ### Docs
 
 - `docs/agent-memory.md` deep-dive extended with `source_type` / `source_type_tag` / `rendered` field shapes and the unchanged-ranking note.
 - `docs/tool-reference.md` updated for `vault.claim`, `vault.list-claims`, `vault.bootstrap-repo`, `vault.sync-skills`, `vault.agent-memory`.
 - `docs/common-workflows.md` gains a cold-start onboarding workflow covering course-authoring → curricular bootstrap → lived-claim convergence.
+- Onboarding spec at `wikis/_meta/specs/2026-05-20-stoa-onboarding-design.md` (Knowledge repo) and DAG plan at `wikis/_meta/plans/2026-05-20-stoa-onboarding-dag.md` are the canonical references for the new-user surfaces.
 
 ## 0.2.1 — 2026-05-19
 
