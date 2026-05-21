@@ -5,7 +5,7 @@ export default defineConfig({
     include: ["tests/**/*.test.ts"],
     environment: "node",
     globals: false,
-    testTimeout: 10000,
+    testTimeout: 30000,
     pool: "threads",
     setupFiles: ["./tests/setup.ts"]
   }

@@ -12,13 +12,24 @@
 // - Frontmatter is serialized via `JSON.stringify` per value to dodge YAML
 //   escaping pitfalls (matches the v1.5 friction T3-5 lesson on ISO date
 //   quoting).
-// - `callTool` dynamically imports the tools registry to avoid a static
-//   dependency cycle when individual tool modules import test-only helpers
-//   transitively.
+// - `callTool` resolves the tools registry through a module-level cached
+//   promise. The eager `import("../src/tools/index.js")` starts the
+//   resolution as soon as helpers.ts is loaded (which happens during
+//   vitest's collect phase, BEFORE any test runs). Without this prefetch,
+//   the first `callTool` in each file paid the 4-12s cold-import cost
+//   against `testTimeout`, producing parallel-mode flakes when the
+//   substrate added test files pushed warmup past the threshold. The
+//   import is side-effect-free — production code never imports this file
+//   (verified 2026-05-20), so the historical "dependency cycle" concern
+//   no longer applies.
 
 import { promises as fs, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+
+// Kick off the tool-registry module graph eagerly. callTool awaits this
+// instead of paying a fresh dynamic-import cost on its first invocation.
+const _toolsModulePromise = import("../src/tools/index.js");
 
 export async function mkTempVault(): Promise<string> {
   const dir = mkdtempSync(path.join(tmpdir(), "vault-claim-test-"));
@@ -122,9 +133,10 @@ export function makePage(frontmatter: Record<string, unknown>): PageStub {
 }
 
 export async function callTool(toolName: string, input: unknown, vaultPath: string): Promise<any> {
-  // Tools registry exports `allTools` (see vault-mcp/src/tools/index.ts). The
-  // plan template referenced `tools`; the source-of-truth name is `allTools`.
-  const mod = await import("../src/tools/index.js");
+  // Tools registry exports `allTools` (see src/tools/index.ts). Awaits the
+  // module-level prefetch so the first callTool in a file doesn't pay the
+  // full cold-import cost on the testTimeout budget.
+  const mod = await _toolsModulePromise;
   const list = (mod as { allTools: Array<{ name: string; handler: Function }> }).allTools;
   const tool = list.find((t) => t.name === toolName);
   if (!tool) throw new Error(`Tool ${toolName} not registered`);
