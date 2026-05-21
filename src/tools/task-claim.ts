@@ -29,7 +29,7 @@ export const taskClaimTool = {
     const wiki = resolveWiki(input.wiki, ctx.defaultWiki, ctx.vaultPath);
     const agent_id = ctx.principal?.agent_id ?? "stoa-local";
     try {
-      return claimTask(ctx.vaultPath, { ...input, wiki, agent_id });
+      return await claimTask(ctx.vaultPath, { ...input, wiki, agent_id });
     } catch (e) {
       if (e instanceof TaskNotReadyError) {
         throw Object.assign(new Error(e.message), {

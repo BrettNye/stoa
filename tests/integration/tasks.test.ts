@@ -35,28 +35,28 @@ beforeEach(() => {
 });
 
 describe("claimTask", () => {
-  it("claims an unclaimed task", () => {
+  it("claims an unclaimed task", async () => {
     writeTask();
-    const result = claimTask(vault, { task_id: "task-foo", agent_id: "claude-code", expected_updated: "2026-04-28" });
+    const result = await claimTask(vault, { task_id: "task-foo", agent_id: "claude-code", expected_updated: "2026-04-28" });
     expect(result.claimed_by).toBe("agent:claude-code");
     expect(result.task_id).toBe("task-foo");
   });
 
-  it("idempotent re-claim by same agent", () => {
+  it("idempotent re-claim by same agent", async () => {
     writeTask("agent:claude-code");
-    const result = claimTask(vault, { task_id: "task-foo", agent_id: "claude-code", expected_updated: "2026-04-28" });
+    const result = await claimTask(vault, { task_id: "task-foo", agent_id: "claude-code", expected_updated: "2026-04-28" });
     expect(result.claimed_by).toBe("agent:claude-code");
   });
 
-  it("rejects claim by other agent", () => {
+  it("rejects claim by other agent", async () => {
     writeTask("agent:other");
-    expect(() => claimTask(vault, { task_id: "task-foo", agent_id: "claude-code", expected_updated: "2026-04-28" }))
-      .toThrow(AlreadyClaimedError);
+    await expect(claimTask(vault, { task_id: "task-foo", agent_id: "claude-code", expected_updated: "2026-04-28" }))
+      .rejects.toThrow(AlreadyClaimedError);
   });
 
-  it("throws ConflictError on stale expected_updated", () => {
+  it("throws ConflictError on stale expected_updated", async () => {
     writeTask();
-    expect(() => claimTask(vault, { task_id: "task-foo", agent_id: "claude-code", expected_updated: "1999-01-01" }))
-      .toThrow(ConflictError);
+    await expect(claimTask(vault, { task_id: "task-foo", agent_id: "claude-code", expected_updated: "1999-01-01" }))
+      .rejects.toThrow(ConflictError);
   });
 });
