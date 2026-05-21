@@ -40,4 +40,8 @@ describe("authorize", () => {
     const tool = { name: "vault_new", scope: { axis: () => "wikis/foo/concepts/x.md" } };
     expect(() => authorize(tool, {}, httpEmpty)).toThrow(ScopeDeniedError);
   });
+  it("http admin cannot bypass httpForbidden (gate 1 fires before gate 2)", () => {
+    const tool = { name: "vault_sync-skills", scope: { axis: () => "*", httpForbidden: true } };
+    expect(() => authorize(tool, {}, httpAdmin)).toThrow(HttpForbiddenError);
+  });
 });
