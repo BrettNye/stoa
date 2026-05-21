@@ -113,13 +113,14 @@ export const claimTool = {
     const todayIso = today.toISOString().slice(0, 10);
 
     // Retract path (§6.5).
-    // Authorization now compares against ctx.principal?.agent_id (server-mode
-    // hard break §6.5) with fallback to input.as for back-compat during migration.
+    // Authorization compares against ctx.principal?.agent_id (server-mode
+    // hard break §6.5) with fallback to "stoa-local" for the no-auth local mode.
+    // input.as is NOT used as the fallback — that would allow identity spoofing.
     if (input.retract) {
       if (!input.reason || input.reason.length === 0) {
         throw new Error("--reason is required for retraction");
       }
-      const retractAs = ctx.principal?.agent_id ?? input.as;
+      const retractAs = ctx.principal?.agent_id ?? "stoa-local";
       return await retractAction(store, ctx.vaultPath, input.retract, retractAs, input.reason, todayIso);
     }
 

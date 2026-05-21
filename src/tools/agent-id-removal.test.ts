@@ -5,11 +5,15 @@
 // Also verifies each tool declares a `scope` object with an `axis` function,
 // and that handlers read from ctx.principal?.agent_id rather than input.
 //
-// These tests run purely at the schema / metadata level — no filesystem access
-// is needed.
+// Schema / metadata tests run without filesystem access. The retract-fallback
+// behavioral test uses a temp vault (see describe block below).
 
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
+import { mkdtempSync } from "node:fs";
+import { promises as fs } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 import { channelPostTool } from "./channel-post.js";
 import { agentJournalTool } from "./agent-journal.js";
@@ -163,8 +167,83 @@ describe("each tool declares a scope object with an axis function", () => {
     expect(t.scope.axis({})).toBe("*");
   });
 
-  it("vault_agent-memory axis returns wikis/<wiki> when wiki present", () => {
+  it("vault_agent-memory axis always returns * (wiki not in input schema)", () => {
     const t = agentMemoryTool as { scope: { axis: (i: unknown) => string } };
-    expect(t.scope.axis({ wiki: "stoa" })).toBe("wikis/stoa");
+    // wiki was removed from the input schema (over-build fix); axis is always "*"
+    expect(t.scope.axis({ wiki: "stoa" })).toBe("*");
+    expect(t.scope.axis({})).toBe("*");
   });
 });
+
+// ---- vault_agent-memory: wiki NOT in input schema ----------------------------
+
+describe("vault_agent-memory: wiki field removed from input schema", () => {
+  it("wiki is NOT a field in the agent-memory input schema", () => {
+    const shape = schemaShape(agentMemoryTool as AnyTool);
+    expect(shape).not.toHaveProperty("wiki");
+  });
+
+  it("passing wiki in input fails Zod parse in strict mode", () => {
+    const s = agentMemoryTool.inputSchema;
+    if (s instanceof z.ZodObject) {
+      const strict = s.strict();
+      const result = strict.safeParse({ wiki: "stoa" });
+      expect(result.success).toBe(false);
+    }
+  });
+});
+
+// ---- vault_claim retract path: principal fallback is "stoa-local" not input.as
+
+async function makeTempVaultForRetractTest(): Promise<string> {
+  const base = mkdtempSync(path.join(tmpdir(), "stoa-retract-test-"));
+  // Minimal vault skeleton: wikis/_agents/claim/
+  const claimDir = path.join(base, "wikis", "_agents", "claim");
+  await fs.mkdir(claimDir, { recursive: true });
+  return base;
+}
+
+describe("vault_claim retract path: principal fallback is 'stoa-local', not input.as", () => {
+  it("rejects retract when no principal and input.as does not match authored_by", async () => {
+    // This verifies the fix: ctx.principal?.agent_id ?? "stoa-local"
+    // With the OLD (buggy) code: retractAs = input.as = authored_by → succeeds (auth bypass)
+    // With the FIXED code: retractAs = "stoa-local" ≠ authored_by → throws
+    const vault = await makeTempVaultForRetractTest();
+
+    // Create a claim authored by "agent:realauthor"
+    const created = await claimTool.handler(
+      {
+        key: "retract.test",
+        title: "retract test",
+        body: "body",
+        as: "agent:realauthor",
+      },
+      {
+        vaultPath: vault,
+        rawConfig: {},
+        principal: { agent_id: "agent:realauthor" },
+      },
+    );
+    expect(created.action).toBe("created");
+
+    // Now attempt to retract with NO principal (falls back to "stoa-local")
+    // but input.as = "agent:realauthor" (the actual author).
+    // Old buggy: retractAs = input.as = "agent:realauthor" → succeeds (wrong!)
+    // Fixed:     retractAs = "stoa-local" ≠ "agent:realauthor" → throws (correct!)
+    await expect(
+      claimTool.handler(
+        {
+          as: "agent:realauthor",
+          retract: created.claim_id,
+          reason: "testing principal fallback",
+        },
+        {
+          vaultPath: vault,
+          rawConfig: {},
+          // no principal → fallback to "stoa-local"
+        },
+      ),
+    ).rejects.toThrow(/author|authored_by|retract/i);
+  });
+});
+

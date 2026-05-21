@@ -14,11 +14,10 @@ import { agentMemory } from "../core/agent-memory.js";
 
 const Input = z.object({
   // agent_id REMOVED — server stamps from principal
+  // wiki REMOVED — per-wiki scope is not supported; axis always returns "*"
   task: z.string().optional(),
   tags: z.array(z.string()).optional(),
   scope_wiki: z.array(z.string()).optional(),
-  // wiki is the auth-scope hint; optional — axis returns "*" when absent
-  wiki: z.string().optional(),
   token_budget: z.number().int().positive().optional(),
   limit: z.number().int().positive().optional(),
   detail: z.enum(["summary", "truncated", "full"]).optional(),
@@ -26,10 +25,7 @@ const Input = z.object({
 });
 
 const scope: ToolScope = {
-  axis: (input: any) => {
-    const wiki = (input as { wiki?: string }).wiki;
-    return wiki ? `wikis/${wiki}` : "*";
-  },
+  axis: () => "*",
 };
 
 export const agentMemoryTool = {
@@ -47,8 +43,7 @@ export const agentMemoryTool = {
     const agent_id = raw_agent_id
       .replace(/^agent:/, "")
       .replace(/^profile-/, "");
-    // Pass only the fields agentMemory accepts (wiki is axis-only metadata)
-    const { wiki: _wiki, ...coreInput } = input;
-    return agentMemory(ctx.vaultPath, { ...coreInput, agent_id });
+    // Pass only the fields agentMemory accepts
+    return agentMemory(ctx.vaultPath, { ...input, agent_id });
   },
 };
