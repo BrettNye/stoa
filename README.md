@@ -8,7 +8,7 @@
 
 **The pain it solves.** Every new AI chat session starts blank. You re-explain the same context, re-derive the same conclusions, re-justify the same decisions. Six months from now you'll spec the same thing for the fourth time because nobody — you or the AI — remembers the prior three.
 
-**What it is.** A local MCP server that turns a folder of markdown files on your disk into searchable memory for any MCP-speaking AI assistant. When you start a new session and ask *"what did we figure out about X?"*, the assistant calls a tool that actually goes and looks. When you sketch an idea mid-conversation, the assistant files it as a typed page that future-you can find again. Plain text on your disk; nothing locked behind a SaaS.
+**What it is.** A local MCP server that turns a folder of markdown files on your disk into searchable memory for any MCP-speaking AI assistant. When you start a new session and ask *"what did we figure out about X?"*, the assistant calls a tool that actually goes and looks. When you sketch an idea mid-conversation, the assistant files it as a typed page that future-you can find again. Plain text on your disk; nothing locked behind a SaaS. As of v0.4, the same binary also runs as an HTTP server with bearer-authenticated capability scoping — same vault, same tools, networked — for operators dispatching agent pipelines.
 
 **What using it feels like.**
 
@@ -92,6 +92,8 @@ Restart Claude Code. You now have `vault_recall`, `vault_inbox`, `vault_synthesi
 - `vault_sync-skills` — deploy an agent profile's moveset as local skills
 - `vault_profile-stats` — compute evolution metrics and move-mastery scores for a profile
 
+> **v0.4 server-mode note.** A handful of these tools — `vault_sync-skills`, `vault_sync-agents`, `vault_bootstrap-repo`, `vault_seed-substrate`, and map writes via `vault_new` — are HTTP-forbidden and only callable in stdio mode. Admin-shaped tools (`vault_reindex`, `vault_set-active`, `vault_new-wiki`, `vault_evolve-profile`, `vault_lint --scope=full`) require an explicit `admin:*` scope on HTTP tokens. Stdio invocations remain unrestricted. See [`docs/server-mode.md`](docs/server-mode.md) for the full scope grammar.
+
 ## Agent coordination
 
 Multiple AI instances — different repos, different machines — can share the same vault and coordinate without copy-paste. Agents post and tail named channels (`vault_channel-post`, `vault_channel-tail`) to pass work between sessions. Tasks are queued as typed pages and claimed atomically (`vault_task-claim`), so two racing sessions can never silently double-claim the same work. Agents also accumulate persistent memory across sessions: a non-obvious invariant discovered during debugging becomes a `vault_claim`; the next session pulls it back via `vault_agent-memory` before starting work.
@@ -107,7 +109,7 @@ See [docs/agent-memory.md](docs/agent-memory.md) for the claim authoring and ret
 
 ## Server mode (v0.4+)
 
-Run Stoa as an HTTP MCP server for networked clients (e.g. workers dispatched to Fargate):
+Stoa can also run as an HTTP MCP server with bearer-authenticated capability scoping, for operators dispatching agent pipelines that can't share a process boundary with Stoa:
 
 ```bash
 docker run -p 8443:8443 -v stoa-vault:/vault \
@@ -116,9 +118,9 @@ docker run -p 8443:8443 -v stoa-vault:/vault \
   ghcr.io/brettnye/stoa:0.4.0 serve
 ```
 
-Clients authenticate with HS256 JWTs signed by the same secret. See [`docs/server-mode.md`](docs/server-mode.md) for the full deployment walkthrough including JWT-based bearer auth, scoped capabilities, and the two-tier operator/worker credential pattern.
+Clients authenticate with HS256 JWTs signed by the same secret; scopes carried on the token gate every tool call. See [`docs/server-mode.md`](docs/server-mode.md) for deployment, the two-tier operator/worker credential pattern, and troubleshooting.
 
-The existing solo-laptop `stoa --mcp` stdio mode continues to work unchanged.
+**v0.4 includes a breaking change** for clients that previously passed `agent_id` in tool input — see [v0.4 release notes](#v04--server-mode) below for migration. Solo-laptop `stoa --mcp` stdio mode continues to work unchanged.
 
 ## Dashboard (`stoa ui`)
 
@@ -173,6 +175,7 @@ Set `STOA_VAULT_PATH` to skip `--vault=` on every call.
 - [Tool reference](docs/tool-reference.md) — alphabetical reference for every `vault_*` MCP tool
 - [Manual smoke test](docs/manual-smoke-test.md) — verify your setup
 - [wait-for: push primitives](docs/wait-for.md) — `vault_wait-for{,-any,-all,-many}` over the local FS-watch event bus
+- [Server mode](docs/server-mode.md) — operator deployment guide for the HTTP transport (v0.4+); Day-zero install, Fargate task definitions, two-tier credentials, troubleshooting
 
 ## Tests
 
@@ -180,6 +183,69 @@ Set `STOA_VAULT_PATH` to skip `--vault=` on every call.
 npm test          # unit + integration
 npm test -- e2e   # end-to-end via real MCP client
 ```
+
+## v0.4 — server mode
+
+Networked HTTP transport with JWT-based bearer auth and capability scoping. Lets operators run Stoa as a hosted MCP endpoint reachable from dispatched workers (Fargate tasks, Agora-dispatched sub-agents, CI fleets) without sharing a process boundary. Solo-laptop `stoa --mcp` stdio mode continues to work unchanged. Full deployment walkthrough at [`docs/server-mode.md`](docs/server-mode.md); design rationale at [`docs/superpowers/specs/2026-05-21-stoa-server-mode-design.md`](docs/superpowers/specs/2026-05-21-stoa-server-mode-design.md).
+
+### Added — transport + CLI
+
+- **`stoa serve [--bind=HOST:PORT] [--vault=PATH]`** — boots the HTTP MCP server. Hono + MCP `StreamableHTTPServerTransport` in stateful mode. `/health` endpoint for ALB / Fargate liveness probes. Bind defaults to `127.0.0.1:8443`.
+- **`stoa mint-token --agent-id=X --scope=Y[,Z] --ttl=30m`** — HS256 JWT signer for testing and operator-token bootstrap. Reads `STOA_TOKEN_SIGNING_SECRET` from env; never round-trips through Stoa.
+- **`stoa init -y`** — non-interactive init for Docker / CI bootstrap. Reads `STOA_VAULT_PATH`, `STOA_THEME`, `STOA_DEFAULT_WIKI` from env.
+- **`vault_lint --scope=full`** — whole-vault lint pass (admin-only over HTTP). Default `per-wiki` scope is unrestricted.
+- **Docker image** at `ghcr.io/brettnye/stoa:0.4.0`. Multi-stage `node:20-slim` build; `CMD ["serve", "--bind=0.0.0.0:8443"]`.
+
+### Added — auth + capability scoping
+
+- **HS256 JWTs**, integrator-minted, Stoa verifier-only. No token issuance endpoint. Signing secret in `STOA_TOKEN_SIGNING_SECRET` env var, shared between Stoa and the orchestrator process. RS256 / JWKS path-of-record; HMAC only in v0.4.
+- **Bearer tokens** carry `sub` (becomes `agent_id`), `scopes`, `exp`, `iat`, `jti`. Verified once at session `initialize`; principal binds to the MCP session for subsequent tool calls.
+- **Hybrid scope grammar**: closed tool-prefix + open `picomatch` glob over a per-tool axis. Examples: `vault_recall:wikis/project-acme/**`, `vault_task-claim:tasks/review-abc`, `vault_channel-post:channels/build-coord`.
+- **Three-gate dispatcher** per tool call: HTTP-forbidden → admin → axis. Stdio principals carry `*:*` and bypass every gate. HTTP tokens with `admin:*` subsume the axis check for that tool. Scope denials raise `ScopeDeniedError` with the rejected axis string for client diagnostics.
+- **Admin-required tools** (`vault_reindex`, `vault_evolve-profile`, `vault_set-active`, `vault_new-wiki`, map writes via `vault_new`, `vault_lint --scope=full`) refuse HTTP calls without `admin:*` or `admin:<tool>`.
+- **HTTP-forbidden tools** (`vault_sync-skills`, `vault_sync-agents`, `vault_bootstrap-repo`, `vault_seed-substrate`) are refused over HTTP regardless of scopes — stdio-only.
+
+### Added — concurrency
+
+- **Per-task locking on `vault_task-claim`.** `claimTask` now wraps its read-check-write in `withSerializedIndexWrite([\`task-${id}\`], ...)`. Closes the documented same-day race where two concurrent claimants could both pass the frontmatter-date OCC and double-claim. `claimTask` is now `async`; existing callers already await it.
+- **Stale-lock detection** on lock acquisition: 60s threshold, capped at 3 stale-unlink retries per lock to bound the loop under adversarial mtime (clock skew, antivirus interruption, crashed writers). Replaces the orphaned-lock failure mode where five zero-byte locks once blocked every subsequent write.
+
+### Added — vault config
+
+`.stoa/config.json` at vault root carries:
+- `theme: "pokemon" | "plain"` — affects scaffolding and dashboard UX, not enforcement. Default `pokemon`.
+- `identity: { default_agent_id: "..." }` — fallback for stdio `Principal`. Falls through env → OS user → `"stoa-local"` if absent.
+- `auth: { signing_secret_env: "STOA_TOKEN_SIGNING_SECRET", issuer_hint: "..." }` — env-var name for the signing secret; informational `iss` hint.
+- `bind: "127.0.0.1:8443"` — HTTP server bind address. Overridable with `stoa serve --bind=...`.
+
+Missing file → all defaults. Partial config merges over defaults at the key level. Malformed JSON falls back to defaults without throwing.
+
+### Changed (BREAKING) — `agent_id` removed from write tools
+
+The following tools no longer accept `agent_id` in their Zod input schemas. The server now stamps `agent_id` from the verified principal — clients passing it explicitly will fail Zod parse with a clear error:
+
+- `vault_channel-post`, `vault_agent-journal`
+- `vault_task-claim`, `vault_task-update`, `vault_task-create`
+- `vault_claim` (`authored_by` also dropped — retract authorization compares against `ctx.principal.agent_id`)
+- `vault_agent-memory`
+
+**Migration**: run `stoa lint` and look for `AGENT_ID_INPUT_LEAK` warnings. For each call site, move `agent_id` from the tool input to `ctx.principal: { agent_id: "..." }`. The lint rule scans `.ts` and `.md` files for the pattern and reports affected paths.
+
+### New lint code
+
+- **`AGENT_ID_INPUT_LEAK`** (warning) — caller code passes `agent_id` to a write tool whose schema no longer accepts it. Locates within a 200-char window of the tool name.
+
+### Security
+
+- Audit trail is now structurally truthful: `agent_id` cannot be self-asserted over HTTP. The server stamps it from the JWT `sub` claim, which the client cannot forge without the signing secret.
+- Map writes (`vault_new --type=map`) require `admin:*` over HTTP — `map.md` files are curation, not dispatch.
+- Substrate-scaffolding tools (`vault_sync-*`, `vault_bootstrap-repo`, `vault_seed-substrate`) are HTTP-forbidden — they write to consuming repos' filesystems and don't make sense over the wire.
+
+### Fixed
+
+- `withSerializedIndexWrite` stale-lockfile failure mode (orphaned `.lock` files from crashed writers no longer block all subsequent writes).
+- `bin.ts` parseConfig vault-required check now bypasses for `serve` and `mint-token` subcommands that handle their own vault resolution (or don't need a vault at all).
+- `vitest.config.ts` `include` pattern now covers co-located `src/**/*.test.ts` files alongside the existing `tests/` tree.
 
 ## v0.3 — specialist agent substrate
 
