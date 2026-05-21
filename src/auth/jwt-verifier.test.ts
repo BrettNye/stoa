@@ -40,4 +40,13 @@ describe("JwtVerifier", () => {
   it("constructor rejects empty secret", () => {
     expect(() => new JwtVerifier("")).toThrow();
   });
+  it("rejects expired tokens", async () => {
+    const v = new JwtVerifier(secret);
+    const token = await new SignJWT({ scopes: ["vault_recall:*"] })
+      .setProtectedHeader({ alg: "HS256" })
+      .setSubject("worker-abc")
+      .setExpirationTime(Math.floor(Date.now() / 1000) - 60)
+      .sign(key);
+    await expect(v.verify(token)).rejects.toThrow();
+  });
 });
