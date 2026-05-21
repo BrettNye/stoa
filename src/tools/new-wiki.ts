@@ -1,6 +1,7 @@
 // vault-mcp/src/tools/new-wiki.ts
 import { z } from "zod";
 import { newWiki } from "../core/wikis.js";
+import type { ToolScope } from "../auth/types.js";
 
 const Input = z.object({
   name: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
@@ -11,10 +12,16 @@ const Input = z.object({
   family: z.string().optional()
 });
 
+const scope: ToolScope = {
+  axis: (input: any) => `wikis/${(input as any).name}`,
+  adminOnly: () => true,
+};
+
 export const newWikiTool = {
   name: "vault_new-wiki",
   description: "Scaffold a new wiki: folders, starter map.md, log.md, CLAUDE.md, and REGISTRY entry.",
   inputSchema: Input,
+  scope,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
     return newWiki(ctx.vaultPath, input);
   }

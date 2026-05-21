@@ -4,6 +4,7 @@ import { lint } from "../core/lint.js";
 import { loadIndex } from "../core/index.js";
 import { runRegisteredChecks, type LintCheckCtx } from "../core/lint-check.js";
 import { findOnDisk } from "../core/disk-fallback.js";
+import type { ToolScope } from "../auth/types.js";
 
 // Side-effect-only imports: each module calls registerLintCheck() at load
 // time. The IMPORTS THEMSELVES ARE THE WIRING — they look unused, but they
@@ -36,6 +37,11 @@ const Input = z.object({
   level: z.enum(["error", "warning", "info"]).default("warning")
 });
 
+const lintScope: ToolScope = {
+  axis: (input: any) => (input as any).wiki ? `wikis/${(input as any).wiki}` : "*",
+  adminOnly: (i: any) => (i as any).scope === "full",
+};
+
 // v1.7 §5.4 — extract the unknown-id from a CROSS_WIKI_LINK_BROKEN diagnostic
 // message so the post-processing pass can verify the target on disk. Mirrors
 // the format emitted by `core/lint-checks/cross-wiki-link-broken.ts`:
@@ -46,6 +52,7 @@ export const lintTool = {
   name: "vault_lint",
   description: "Read-only health check across the vault. Surfaces issues and suggestions; never mutates.",
   inputSchema: Input,
+  scope: lintScope,
   handler: async (
     input: z.infer<typeof Input>,
     ctx: { vaultPath: string; defaultWiki?: string; defaultFamily?: string; fetcher?: typeof fetch }

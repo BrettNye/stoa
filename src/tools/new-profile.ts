@@ -14,6 +14,7 @@ import { upsertPage } from "../core/index.js";
 import { suggestByType } from "../core/pokeapi.js";
 import { mapDevSpecialty, isValidPokemonType } from "../core/pokemon.js";
 import { resolveWiki } from "./_resolve-wiki.js";
+import type { ToolScope } from "../auth/types.js";
 
 const Input = z.object({
   title: z.string().min(1),
@@ -27,10 +28,16 @@ const Input = z.object({
   applies_to: z.array(z.string()).default(["claude-code"])
 });
 
+const scope: ToolScope = {
+  axis: (i: any) => `wikis/${i.wiki ?? "_agents"}/profiles/${i.pokemon ?? "*"}`,
+  adminOnly: () => true,
+};
+
 export const newProfileTool = {
   name: "vault_new-profile",
   description: "Scaffold a new agent profile with v1.5 substrate frontmatter pre-filled. Rolls a Pokemon name from pokemon_type or dev_specialty if not given. Use this instead of vault_new when creating profiles.",
   inputSchema: Input,
+  scope,
   handler: async (
     input: unknown,
     ctx: { vaultPath: string; defaultWiki?: string; fetcher?: typeof fetch }

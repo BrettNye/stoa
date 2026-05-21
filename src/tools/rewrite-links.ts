@@ -27,6 +27,7 @@ import { loadIndex } from "../core/index.js";
 import { parseFrontmatter, serializeFrontmatter } from "../core/frontmatter.js";
 import { normalizeScopes, rewritePageLinks } from "../core/rewrite-links.js";
 import { reindex } from "../core/reindex.js";
+import type { ToolScope } from "../auth/types.js";
 
 // Flat zod input — `z.discriminatedUnion` is incompatible with the MCP SDK
 // (Plan B Note + Phase 1 carry-forward gotcha).
@@ -45,11 +46,17 @@ export interface RewriteLinksOutput {
   reindex_run: boolean;
 }
 
+const scope: ToolScope = {
+  axis: (i: any) => `wikis/${i.wiki ?? "*"}`,
+  adminOnly: () => true,
+};
+
 export const rewriteLinksTool = {
   name: "vault_rewrite-links",
   description:
     "Bulk-rewrite wikilink prefixes across the vault (body + frontmatter related:). Used for family migrations and wiki renames. Code-fence-safe; idempotent; dry-run by default.",
   inputSchema: Input,
+  scope,
   handler: async (
     input: z.infer<typeof Input>,
     ctx: { vaultPath: string }

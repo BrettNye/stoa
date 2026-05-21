@@ -25,6 +25,7 @@ import { renderBetweenMarkers, removeMarkerSection } from "../core/marker-render
 import { effectiveConfidence } from "../core/decay.js";
 import { getClaimsConfig, type ClaimsConfig } from "../config.js";
 import type { ParsedClaim } from "../core/claims.js";
+import type { ToolScope } from "../auth/types.js";
 
 const Input = z.object({
   topic: z.string().min(1),
@@ -41,10 +42,15 @@ export interface SynthesizeCtx {
   rawConfig?: unknown;
 }
 
+const toolScope: ToolScope = {
+  axis: (i: any) => `wikis/${i.wiki ?? "*"}/synthesis`,
+};
+
 export const synthesizeTool = {
   name: "vault_synthesize",
   description: "Compile or refresh a synthesis page from current matching pages. With by_agent + scope=memory, writes a per-agent memory synthesis at wikis/_agents/synthesis/synthesis-<by_agent>-memory.md, including a marker-bounded `## Learnings` section clustered by tag from the profile's active claims (spec §8.5).",
   inputSchema: Input,
+  scope: toolScope,
   handler: async (input: z.infer<typeof Input>, ctx: SynthesizeCtx) => {
     const wiki = input.scope === "memory" ? "_agents" : resolveWiki(input.wiki, ctx.defaultWiki, ctx.vaultPath);
 

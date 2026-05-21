@@ -8,6 +8,7 @@ import { readProfile } from "../core/profiles.js";
 import { renderClaimSectionInSkillMd } from "../core/claim-render.js";
 import { getClaimsConfig } from "../config.js";
 import { enumerateProfilesForSync } from "../core/sync-enumerate.js";
+import type { ToolScope } from "../auth/types.js";
 
 const Input = z.object({
   repo_path: z.string(),
@@ -51,10 +52,16 @@ function bareName(pokemonId: string): string {
     : pokemonId;
 }
 
+const syncSkillsScope: ToolScope = {
+  axis: () => "*",
+  httpForbidden: true,
+};
+
 export const syncSkillsTool = {
   name: "vault_sync-skills",
   description: "Deploy a Pokemon's moveset into a target repo's local skills directory. With reverify=true, scans existing deployments for drift instead of deploying.",
   inputSchema: Input,
+  scope: syncSkillsScope,
   handler: async (
     input: z.infer<typeof Input>,
     ctx: {

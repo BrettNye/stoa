@@ -49,6 +49,7 @@ import {
   type MergeRecordInput,
   type MergeStatus
 } from "../core/merge-record.js";
+import type { ToolScope } from "../auth/types.js";
 
 const Input = z.object({
   pr_number: z.number().int(),
@@ -186,11 +187,16 @@ function findTask(
   return findTaskOnDisk(vaultPath, taskId);
 }
 
+const scope: ToolScope = {
+  axis: (i: any) => `wikis/${i.wiki ?? "*"}`,
+};
+
 export const mergeRecordTool = {
   name: "vault_merge-record",
   description:
     "Record a merge outcome for a PR: write a journal entry under wikis/_agents/journal/, and when status === 'merged' with a task_id, transition the task to status=completed. Halt/fail statuses write the journal but do NOT touch the task. agent_id is alias-resolved.",
   inputSchema: Input,
+  scope,
   handler: async (
     input: z.infer<typeof Input>,
     ctx: { vaultPath: string }

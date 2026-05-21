@@ -13,6 +13,7 @@ import { writePage } from "../core/pages.js";
 import { upsertPage } from "../core/index.js";
 import { slugify } from "../core/ids.js";
 import { resolveWiki } from "./_resolve-wiki.js";
+import type { ToolScope } from "../auth/types.js";
 
 const Input = z.object({
   title: z.string().min(1),
@@ -25,10 +26,16 @@ const Input = z.object({
   tools_used: z.array(z.string()).default([])
 });
 
+const scope: ToolScope = {
+  axis: (i: any) => `wikis/${i.wiki ?? "_agents"}/moves/${i.move_id ?? "*"}`,
+  adminOnly: () => true,
+};
+
 export const newMoveTool = {
   name: "vault_new-move",
   description: "Scaffold a new move (portable SKILL.md) with v1.5 substrate frontmatter and standard headings pre-filled. Use this instead of vault_new when creating moves.",
   inputSchema: Input,
+  scope,
   handler: async (
     input: unknown,
     ctx: { vaultPath: string; defaultWiki?: string }

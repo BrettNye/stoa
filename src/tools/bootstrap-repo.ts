@@ -10,6 +10,7 @@ import {
 } from "../core/claim-render.js";
 import { parseFrontmatter } from "../core/frontmatter.js";
 import { getClaimsConfig, type ClaimsConfig } from "../config.js";
+import type { ToolScope } from "../auth/types.js";
 
 const Input = z.object({
   repo_path: z.string(),
@@ -278,10 +279,16 @@ function mergeOrCreateMcpJson(repoPath: string, vaultPath: string, wiki: string,
   return mcpJsonPath;
 }
 
+const bootstrapRepoScope: ToolScope = {
+  axis: () => "*",
+  httpForbidden: true,
+};
+
 export const bootstrapRepoTool = {
   name: "vault_bootstrap-repo",
   description: "Wire a repo to the vault MCP: writes .mcp.json + CLAUDE.md fragment; optionally deploys a Pokemon's moveset.",
   inputSchema: Input,
+  scope: bootstrapRepoScope,
   handler: async (
     input: z.infer<typeof Input>,
     ctx: {
