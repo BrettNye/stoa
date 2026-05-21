@@ -15,6 +15,9 @@ const DEFAULT_CANDIDATES = [
   { name: "Box", subdir: "Box" },
 ];
 
+// `platform` is currently unread — reserved for future per-OS gating
+// (e.g. iCloud Drive on darwin only, OneDrive Business pattern on win32).
+// Kept in the signature so adding the gating later isn't a breaking change.
 export function detectSyncFolders(home: string, platform: NodeJS.Platform): SyncFolder[] {
   const found: SyncFolder[] = [];
   for (const c of DEFAULT_CANDIDATES) {

@@ -115,6 +115,9 @@ describe("no Claude Code install detected", () => {
       await program.parseAsync(["node", "stoa", "onboard"]);
     });
 
+    // Capture the exitCode and restore BEFORE asserting — otherwise a
+    // failing assertion would skip the restore and leak exitCode=1 into
+    // subsequent tests.
     const exitCode = process.exitCode;
     process.exitCode = savedExitCode as any;
 
@@ -157,9 +160,9 @@ describe("team mode: no vault seeding", () => {
     // wikis/ subdirectory must NOT exist (no seeding)
     expect(existsSync(join(vaultPath, "wikis"))).toBe(false);
 
-    // No wiki CLAUDE.md files
-    const wikisPath = join(vaultPath, "wikis");
-    expect(existsSync(wikisPath)).toBe(false);
+    // And no per-wiki CLAUDE.md was generated for any candidate wiki
+    expect(existsSync(join(vaultPath, "wikis", "codebase", "CLAUDE.md"))).toBe(false);
+    expect(existsSync(join(vaultPath, "wikis", "meetings", "CLAUDE.md"))).toBe(false);
   });
 });
 
