@@ -9,7 +9,7 @@ import type { ToolScope } from '../auth/types.js';
 const Input = z.object({
   match_id: z.string().min(1),
   since_turn: z.number().int().nonnegative().optional(),
-  trainer_id: z.string().optional()
+  trainer_id: z.string().min(1).optional()
 });
 
 export const trainerGetStateTool = {

@@ -91,6 +91,17 @@ describe('stadium tools — scope declarations', () => {
       expect(result.success).toBe(true);
       expect(result.data?.wiki).toBeUndefined();
     });
+
+    it('telemetry-push inputSchema rejects empty-string wiki', () => {
+      const schema = (telemetryPushTool as any).inputSchema as z.ZodTypeAny;
+      const result = schema.safeParse({
+        real_skill_id: 'skill-abc',
+        source: 'journal',
+        reference_link: 'https://example.com',
+        wiki: '',
+      });
+      expect(result.success).toBe(false);
+    });
   });
 
   describe('trainer-id axis tools', () => {
@@ -149,6 +160,33 @@ describe('stadium tools — scope declarations', () => {
       });
       expect(result.success).toBe(true);
       expect(result.data?.trainer_id).toBeUndefined();
+    });
+
+    it('trainer-queue-match inputSchema rejects empty-string trainer_id', () => {
+      const schema = (trainerQueueMatchTool as any).inputSchema as z.ZodTypeAny;
+      const result = schema.safeParse({
+        opponent_trainer_id: 'opp-001',
+        trainer_id: '',
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('trainer-accept-match inputSchema rejects empty-string trainer_id', () => {
+      const schema = (trainerAcceptMatchTool as any).inputSchema as z.ZodTypeAny;
+      const result = schema.safeParse({
+        match_id: 'MATCH01234567890123456789',
+        trainer_id: '',
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('trainer-get-state inputSchema rejects empty-string trainer_id', () => {
+      const schema = (trainerGetStateTool as any).inputSchema as z.ZodTypeAny;
+      const result = schema.safeParse({
+        match_id: 'MATCH01234567890123456789',
+        trainer_id: '',
+      });
+      expect(result.success).toBe(false);
     });
   });
 

@@ -18,7 +18,7 @@ const Input = z.object({
   real_skill_id: z.string().min(1),
   source: z.string().min(1),
   reference_link: z.string().min(1),
-  wiki: z.string().optional()
+  wiki: z.string().min(1).optional()
 });
 
 export const telemetryPushTool = {

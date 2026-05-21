@@ -9,7 +9,7 @@ const Input = z.object({
   opponent_trainer_id: z.string().min(1),
   ruleset: z.literal('standard').default('standard'),
   wiki: z.string().min(1).optional(),
-  trainer_id: z.string().optional()
+  trainer_id: z.string().min(1).optional()
 });
 
 export const trainerQueueMatchTool = {
