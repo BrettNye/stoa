@@ -6,15 +6,21 @@ import { buildCli } from "./cli/index.js";
 import { startStdio } from "./transport/stdio.js";
 
 async function main() {
-  // Special-case `init`: it CREATES a vault, so it must run before any
-  // vault-path validation. Detect it from raw argv before parseConfig.
-  // The first non-flag arg in `argv.slice(2)` is the subcommand.
+  // Subcommands that handle their own vault-path resolution (or don't need one)
+  // must bypass parseConfig's required-vault check. They resolve --vault /
+  // STOA_VAULT_PATH inside their own action handler — letting parseConfig run
+  // first would fail before they ever execute.
+  //
+  // - `init` creates a vault, so it precedes vault validation.
+  // - `serve` resolves vault path inside its action (supports --vault + STOA_VAULT_PATH).
+  // - `mint-token` only needs STOA_TOKEN_SIGNING_SECRET; no vault required.
   const rawArgs = process.argv.slice(2);
   const firstSubcommand = rawArgs.find(a => !a.startsWith("-"));
-  const isInitSubcommand = firstSubcommand === "init";
+  const SELF_CONFIGURING_SUBCOMMANDS = new Set(["init", "serve", "mint-token"]);
+  const isSelfConfiguring = firstSubcommand !== undefined && SELF_CONFIGURING_SUBCOMMANDS.has(firstSubcommand);
 
   let config;
-  if (!isInitSubcommand) {
+  if (!isSelfConfiguring) {
     try {
       config = parseConfig(rawArgs);
     } catch (e) {
@@ -26,13 +32,15 @@ async function main() {
     }
   }
 
-  // Filter our own flags out before passing to commander
-  const cliArgv = process.argv.filter(a =>
-    !a.startsWith("--vault=") &&
-    !a.startsWith("--default-wiki=") &&
-    !a.startsWith("--default-family=") &&
-    a !== "--mcp"
-  );
+  // Filter our own flags out before passing to commander — but only when we
+  // actually consumed them via parseConfig. Self-configuring subcommands
+  // need to see --vault themselves so their commander option can pick it up.
+  const cliArgv = process.argv.filter(a => {
+    if (a === "--mcp") return false; // never a commander flag
+    if (a.startsWith("--default-wiki=") || a.startsWith("--default-family=")) return false;
+    if (a.startsWith("--vault=")) return !isSelfConfiguring; // pass through to self-configuring subcommands
+    return true;
+  });
 
   if (config?.mcpMode) {
     await startStdio(config);
