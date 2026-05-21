@@ -105,6 +105,21 @@ See [docs/agent-memory.md](docs/agent-memory.md) for the claim authoring and ret
 3. `.active-wiki` file at vault root.
 4. Error.
 
+## Server mode (v0.4+)
+
+Run Stoa as an HTTP MCP server for networked clients (e.g. workers dispatched to Fargate):
+
+```bash
+docker run -p 8443:8443 -v stoa-vault:/vault \
+  -e STOA_VAULT_PATH=/vault \
+  -e STOA_TOKEN_SIGNING_SECRET="$(openssl rand -hex 32)" \
+  ghcr.io/brettnye/stoa:0.4.0 serve
+```
+
+Clients authenticate with HS256 JWTs signed by the same secret. See [`docs/server-mode.md`](docs/server-mode.md) for the full deployment walkthrough including JWT-based bearer auth, scoped capabilities, and the two-tier operator/worker credential pattern.
+
+The existing solo-laptop `stoa --mcp` stdio mode continues to work unchanged.
+
 ## Dashboard (`stoa ui`)
 
 Run `stoa ui` and a local HTTP dashboard opens in your browser. It's a read view onto the agent substrate — agents, tasks, channels — plus two ambient queues that surface obligations your `CLAUDE.md` declared but nothing is actively watching for you.

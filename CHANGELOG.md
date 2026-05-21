@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.4.0] - 2026-05-21
+
+### Added
+- **HTTP transport** (`stoa serve`): MCP Streamable HTTP server with JWT-based bearer auth and scope-gated tool dispatch.
+- **`stoa mint-token` CLI**: convenience HS256 JWT signer for testing and operator tokens.
+- **`stoa init -y`**: non-interactive init for Docker/CI bootstrap.
+- **Vault config**: `.stoa/config.json` with `theme`, `identity`, `auth`, `bind` slots.
+- **Per-task locking**: `claimTask` now uses `withSerializedIndexWrite` for true mutual exclusion (replaces day-granular OCC).
+- **`AGENT_ID_INPUT_LEAK` lint code**: detects callers passing `agent_id` to tools that no longer accept it.
+- Docker image: `ghcr.io/brettnye/stoa:0.4.0`.
+
+### Changed (BREAKING)
+- **`agent_id` removed from tool input schemas** on: `vault_channel-post`, `vault_agent-journal`, `vault_task-claim`, `vault_task-update`, `vault_task-create`, `vault_claim` (`authored_by` also dropped), `vault_agent-memory`. Server now stamps `agent_id` from the verified principal. Callers passing `agent_id` will fail Zod parse.
+- **Migration**: run `vault_lint` for `AGENT_ID_INPUT_LEAK` to find affected call sites in your repo. Move `agent_id` from tool input to `ctx.principal: { agent_id: "..." }` for handler-call sites.
+
+### Security
+- Audit trail is now structurally truthful: `agent_id` cannot be self-asserted; HTTP clients must present a verified JWT.
+- Map writes are forbidden over HTTP by default (require `admin:*` scope); `vault_sync-skills`, `vault_sync-agents`, `vault_bootstrap-repo`, `vault_seed-substrate` are HTTP-forbidden entirely.
+
+[Full spec: `docs/superpowers/specs/2026-05-21-stoa-server-mode-design.md`]
+
 ## 0.3.0 — 2026-05-21
 
 Two feature sets ship together in this release: the specialist agent substrate (v1.9 DAG, 15 tasks) and new-user onboarding (4-wave DAG, 14 tasks). The substrate lets agents develop deep domain competence — through wiki-local move overlays and curricular-claim cold-start — without breaking the portable-moves contract. The onboarding stack turns "I installed Stoa and now what?" into a single `stoa onboard` command that detects clients, writes config, seeds a vault, and installs an AI-primer at the user's `~/.claude/CLAUDE.md` so their AI knows what to do with the new tools.
