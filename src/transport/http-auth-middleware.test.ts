@@ -27,12 +27,13 @@ describe("httpAuthMiddleware", () => {
     expect(res.status).toBe(401);
     expect(res.headers.get("www-authenticate")).toMatch(/Bearer/);
   });
-  it("returns 401 on non-Bearer scheme", async () => {
+  it("returns 401 with WWW-Authenticate on non-Bearer scheme", async () => {
     const app = new Hono();
     app.use("/x", httpAuthMiddleware({ verifier: fakeVerifier }));
     app.get("/x", (c) => c.text("ok"));
     const res = await app.request("/x", { headers: { Authorization: "Basic xyz" } });
     expect(res.status).toBe(401);
+    expect(res.headers.get("www-authenticate")).toMatch(/Bearer/);
   });
   it("returns 401 when verifier throws", async () => {
     const app = new Hono();
@@ -41,5 +42,13 @@ describe("httpAuthMiddleware", () => {
     const res = await app.request("/x", { headers: { Authorization: "Bearer bad" } });
     expect(res.status).toBe(401);
     expect(res.headers.get("www-authenticate")).toMatch(/invalid_token/);
+  });
+  it("propagates downstream errors rather than converting them to 401", async () => {
+    const app = new Hono();
+    app.use("/x", httpAuthMiddleware({ verifier: fakeVerifier }));
+    app.get("/x", () => { throw new Error("db exploded"); });
+    // Hono's default behavior is to surface thrown errors as 500
+    const res = await app.request("/x", { headers: { Authorization: "Bearer good" } });
+    expect(res.status).not.toBe(401);
   });
 });

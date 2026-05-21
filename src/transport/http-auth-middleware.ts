@@ -12,10 +12,9 @@ export function httpAuthMiddleware(opts: { verifier: TokenVerifier }): Middlewar
       );
     }
     const token = auth.slice(7).trim();
+    let principal;
     try {
-      const principal = await opts.verifier.verify(token);
-      c.set("principal", principal);
-      await next();
+      principal = await opts.verifier.verify(token);
     } catch {
       return c.json(
         { error: "invalid_token" },
@@ -23,5 +22,7 @@ export function httpAuthMiddleware(opts: { verifier: TokenVerifier }): Middlewar
         { "WWW-Authenticate": 'Bearer error="invalid_token"' },
       );
     }
+    c.set("principal", principal);
+    await next();
   };
 }
