@@ -22,6 +22,7 @@
 
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import type { ToolScope } from "../auth/types.js";
 import { ClaimsStore } from "../core/claims.js";
 import { scopeHash } from "../core/scope-hash.js";
 import { effectiveConfidence } from "../core/decay.js";
@@ -47,6 +48,7 @@ const Input = z.object({
   source_type: z.enum(["lived", "curricular", "retro"]).optional(),
 
   // Caller identity (mirrors task-claim's `as` convention)
+  // Note: agent_id and authored_by are NOT in the schema — server stamps from principal
   as: z.string().min(1),
 
   // Mutually-exclusive modifiers
@@ -64,6 +66,7 @@ export interface ClaimToolCtx {
   vaultPath: string;
   defaultWiki?: string;
   rawConfig?: unknown;
+  principal?: { agent_id: string };
 }
 
 export interface ClaimToolResult {
@@ -80,11 +83,19 @@ export interface ClaimToolResult {
   reindex_recommended: true;
 }
 
+const scope: ToolScope = {
+  axis: (input: any) => {
+    const wiki = (input as { wiki?: string }).wiki;
+    return wiki ? `wikis/${wiki}/claim` : "wikis/_agents/claim";
+  },
+};
+
 export const claimTool = {
   name: "vault_claim",
   description:
     "Author, re-validate, supersede, or retract a claim. Single primitive over the four authoring actions; see spec §7.1.",
   inputSchema: Input,
+  scope,
   handler: async (input: ClaimToolInput, ctx: ClaimToolCtx): Promise<ClaimToolResult> => {
     // Mutual exclusion of modifiers (§6.4 / §6.5).
     const modCount = [
@@ -102,11 +113,14 @@ export const claimTool = {
     const todayIso = today.toISOString().slice(0, 10);
 
     // Retract path (§6.5).
+    // Authorization now compares against ctx.principal?.agent_id (server-mode
+    // hard break §6.5) with fallback to input.as for back-compat during migration.
     if (input.retract) {
       if (!input.reason || input.reason.length === 0) {
         throw new Error("--reason is required for retraction");
       }
-      return await retractAction(store, ctx.vaultPath, input.retract, input.as, input.reason, todayIso);
+      const retractAs = ctx.principal?.agent_id ?? input.as;
+      return await retractAction(store, ctx.vaultPath, input.retract, retractAs, input.reason, todayIso);
     }
 
     // For every other path, key is required.
