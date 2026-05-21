@@ -41,6 +41,10 @@ import { registerInit } from "./commands/init.js";
 import { registerOnboard } from "./commands/onboard.js";
 import { registerOrient } from "./commands/orient.js";
 
+// v0.4 server-mode
+import { registerServeCommand } from "./commands/serve.js";
+import { registerMintTokenCommand } from "./commands/mint-token.js";
+
 export function buildCli(): Command {
   const program = new Command()
     .name("vault")
@@ -86,6 +90,10 @@ export function buildCli(): Command {
   // v1.9 onboarding
   registerOnboard(program);
   registerOrient(program);
+
+  // v0.4 server-mode
+  registerServeCommand(program);
+  registerMintTokenCommand(program);
 
   return program;
 }
