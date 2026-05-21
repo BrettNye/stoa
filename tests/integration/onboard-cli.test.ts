@@ -51,8 +51,6 @@ async function withCapturedStdout<T>(fn: () => Promise<T>): Promise<{ output: st
   try {
     const result = await fn();
     return { output: lines.join(""), result };
-  } catch (e) {
-    throw e;
   } finally {
     process.stdout.write = orig;
   }
