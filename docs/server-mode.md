@@ -232,6 +232,90 @@ Use this endpoint for ALB target group health checks and Fargate liveness/readin
 
 ---
 
+## Troubleshooting
+
+### `error: vault path required: pass --vault=<path> or set STOA_VAULT_PATH`
+
+The container started but has no vault to operate against. Either `STOA_VAULT_PATH` is unset, or no `--vault=` flag was passed, or the named volume isn't mounted.
+
+```bash
+# Wrong — no vault path:
+docker run --rm stoa-local
+
+# Right — env var + mounted volume:
+docker run --rm -v stoa-vault:/vault -e STOA_VAULT_PATH=/vault stoa-local
+```
+
+If the volume exists but the path inside the container doesn't, double-check the `-v <volume>:<container-path>` and `-e STOA_VAULT_PATH=<container-path>` match.
+
+### `error: STOA_TOKEN_SIGNING_SECRET environment variable must be set`
+
+`stoa serve` fails at startup if the signing secret env var is missing. Generate one with `openssl rand -hex 32` and inject it at run time. In production, source it from Secrets Manager / SSM Parameter Store / Vault — never bake it into the image.
+
+```bash
+docker run --rm -p 8443:8443 \
+  -v stoa-vault:/vault -e STOA_VAULT_PATH=/vault \
+  -e STOA_TOKEN_SIGNING_SECRET="$(openssl rand -hex 32)" \
+  stoa-local
+```
+
+### `401 Unauthorized` on `POST /mcp`
+
+The request did not present a valid `Authorization: Bearer <jwt>` header. Causes in rough order of likelihood:
+
+1. **No `Authorization` header at all.** Add it.
+2. **JWT signed with a different secret** than the running server. Rotate to the same secret on both sides, or mint a fresh token.
+3. **Expired token.** Check the `exp` claim. Mint a fresh one (`stoa mint-token --ttl=1h`).
+4. **Malformed bearer.** The header must be exactly `Authorization: Bearer <token>` — no extra whitespace, no missing `Bearer ` prefix.
+
+`/health` does **not** require auth — use it to verify the server itself is reachable independently of token issues.
+
+### Tool call returns `ScopeDeniedError` or `HttpForbiddenError`
+
+The token verified, but its scopes don't grant the operation:
+
+- `ScopeDeniedError(<axis>)` — your token's scopes don't match the tool's axis for these inputs. Mint a broader token, or correct the path/wiki/task-id you're targeting.
+- `ScopeDeniedError("admin")` — the tool requires `admin:*` (or `admin:<tool>`) and the token lacks it. Admin tools include `vault_reindex`, `vault_evolve-profile`, `vault_set-active`, `vault_new-wiki`, `vault_lint --scope=full`, and map writes via `vault_new`.
+- `HttpForbiddenError` — the tool is HTTP-forbidden entirely (`vault_sync-skills`, `vault_sync-agents`, `vault_bootstrap-repo`, `vault_seed-substrate`). Run those over stdio on a trusted host instead.
+
+### Code changes don't take effect inside the container
+
+Docker caches layers and the image is built from `dist/` (compiled). If you edited source on the host:
+
+```bash
+# Rebuild from worktree root:
+cd C:/Users/brett/Documents/Knowledge/stoa/.worktrees/server-mode
+docker build -t stoa-local .
+
+# Then run the new image:
+docker run --rm ... stoa-local
+```
+
+For a tight inner loop on local code changes, skip docker entirely:
+
+```bash
+npm run build
+node dist/bin.js serve --vault=./my-vault --bind=127.0.0.1:8443
+```
+
+### `ghcr.io/brettnye/stoa:0.4.0` pull fails
+
+The published image path is the canonical release coordinate but is published only on tagged release builds. Until a v0.4.0 tag has been cut and pushed, build the image locally with `docker build -t stoa-local .` from the repo root and use `stoa-local` in place of the published name.
+
+### Vault appears empty on first `vault_recall` after init
+
+`stoa init -y` scaffolds the vault structure but does not seed content. Either:
+
+- Run `stoa --vault=/vault seed-substrate` (or the equivalent inside the container) to install the bundled `_agents` content, or
+- Mount an existing populated vault into `/vault`, or
+- Create your project wikis via `vault_new-wiki` from your orchestrator.
+
+### Tokens minted before changing the signing secret stop verifying
+
+Tokens are bound to the exact secret used at signing time. Rotating `STOA_TOKEN_SIGNING_SECRET` invalidates every outstanding token. There is no revocation list in v0.4 — rotation is the only invalidation primitive. Plan rotations to coincide with operator-token expiry.
+
+---
+
 ## Pointers
 
 For the complete design rationale — authentication model, scope grammar, session lifecycle, task-claim locking, tool axis declarations, and multi-tenant deployment posture — see the spec:
