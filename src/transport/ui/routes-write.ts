@@ -100,8 +100,8 @@ export function mountWriteRoutes(app: Hono, ctx: WriteRoutesCtx): void {
 
     try {
       const result = await taskClaimTool.handler(
-        { task_id: taskId, agent_id, expected_updated, wiki },
-        toolCtx
+        { task_id: taskId, expected_updated, wiki },
+        { ...toolCtx, principal: { agent_id } }
       );
 
       // Build ApiTask from ClaimResult
@@ -219,10 +219,9 @@ export function mountWriteRoutes(app: Hono, ctx: WriteRoutesCtx): void {
           channel: channelName,
           content,
           wiki,
-          agent_id: "human:dashboard",
           session_id,
         },
-        toolCtx
+        { ...toolCtx, principal: { agent_id: "human:dashboard" } }
       );
 
       // channelPostTool returns { id, path, created, channel }
