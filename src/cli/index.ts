@@ -37,6 +37,10 @@ import { registerNewProfile } from "./commands/new-profile.js";
 import { registerNewMove } from "./commands/new-move.js";
 import { registerInit } from "./commands/init.js";
 
+// v1.9 onboarding — interactive setup + state-aware next-best-action
+import { registerOnboard } from "./commands/onboard.js";
+import { registerOrient } from "./commands/orient.js";
+
 export function buildCli(): Command {
   const program = new Command()
     .name("vault")
@@ -78,6 +82,10 @@ export function buildCli(): Command {
   registerNewProfile(program);
   registerNewMove(program);
   registerInit(program);
+
+  // v1.9 onboarding
+  registerOnboard(program);
+  registerOrient(program);
 
   return program;
 }
