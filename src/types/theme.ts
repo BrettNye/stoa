@@ -17,7 +17,7 @@ export const Theme = z.object({
   palette: z.string().default("default"),
   defaultBy: z.enum(["wiki", "type"]).default("wiki"),
   rules: z.array(ColorRule).default([]),
-  perWiki: z.record(z.string(), z.array(ColorRule)).default({}),
+  perWiki: z.record(z.array(ColorRule)).default({}),
 });
 export type Theme = z.infer<typeof Theme>;
 
