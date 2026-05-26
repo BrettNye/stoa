@@ -23,8 +23,12 @@ const DEFAULT_THEME: Theme = {
   perWiki: {},
 };
 
-/** Region super-node sentinel type, emitted by computeVisibleGraph. */
+// Region super-node sentinels. These MUST match the values produced by
+// computeVisibleGraph in ./nav/visible-graph.ts, which generates `wiki:${name}`
+// ids and `type: "__wiki__"` for collapsed-wiki super-nodes. (Exporting these
+// from visible-graph.ts to dedupe is a deferred cross-file follow-up.)
 const WIKI_NODE_TYPE = "__wiki__";
+const WIKI_ID_PREFIX = "wiki:";
 
 let fullGraph: Graph = { nodes: [], links: [] };
 let knownIds: Set<string> = new Set();
@@ -247,7 +251,7 @@ function syncControlsUI(): void {
 
 function isWikiSuperNode(id: string): string | null {
   // Region super-nodes have id `wiki:<name>` and type `__wiki__`.
-  return id.startsWith("wiki:") ? id.slice("wiki:".length) : null;
+  return id.startsWith(WIKI_ID_PREFIX) ? id.slice(WIKI_ID_PREFIX.length) : null;
 }
 
 function onNodeClick(id: string): void {
@@ -347,25 +351,25 @@ function renderSearch(query: string): void {
 // ---------------------------------------------------------------------------
 
 async function loadGraph(): Promise<Graph | null> {
-  // Try served mode first; fall back to static.
+  // Try served mode first; any served failure falls back to static.
   try {
     const g = await loadServed();
     servedMode = true;
     return g;
-  } catch (servedErr) {
-    try {
-      const g = await loadStatic(".");
-      servedMode = false;
-      return g;
-    } catch (staticErr) {
-      if (
-        servedErr instanceof IndexUnavailableError ||
-        staticErr instanceof IndexUnavailableError
-      ) {
-        return null;
-      }
-      throw staticErr;
-    }
+  } catch {
+    // Fall back to static below. We intentionally ignore the served-mode error:
+    // not being served is the expected case, and the static load is the source
+    // of truth for whether the banner is needed.
+  }
+  try {
+    const g = await loadStatic(".");
+    servedMode = false;
+    return g;
+  } catch (staticErr) {
+    // Only a missing/unbuilt static index means "reindex needed" (→ banner).
+    if (staticErr instanceof IndexUnavailableError) return null;
+    // Any other error (e.g. malformed pages.json) is real — surface it.
+    throw staticErr;
   }
 }
 
