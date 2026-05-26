@@ -23,13 +23,28 @@ describe("PagesIndex", () => {
     expect(r.pages[0].updated).toBe("");
   });
 
-  it("rejects a page missing required 'id' field", () => {
-    expect(() =>
-      PagesIndex.parse({ pages: [{ type: "concept", wiki: "w", path: "wikis/w/concept/a.md" }] })
-    ).toThrow();
+  it("repairs a missing 'id' from the path stem", () => {
+    const r = PagesIndex.parse({
+      pages: [{ type: "guide", wiki: "portsandbox", path: "wikis/portsandbox/guides/guide-ai-cli-reference.md" }],
+    });
+    expect(r.pages[0].id).toBe("guide-ai-cli-reference");
   });
 
-  it("rejects a page missing required 'path' field", () => {
+  it("repairs a missing 'wiki' from the path", () => {
+    const r = PagesIndex.parse({
+      pages: [{ id: "x", type: "guide", path: "wikis/portsandbox/guides/x.md" }],
+    });
+    expect(r.pages[0].wiki).toBe("portsandbox");
+  });
+
+  it("defaults a missing 'type' to 'unknown'", () => {
+    const r = PagesIndex.parse({
+      pages: [{ id: "x", wiki: "w", path: "wikis/w/guides/x.md" }],
+    });
+    expect(r.pages[0].type).toBe("unknown");
+  });
+
+  it("rejects a page missing required 'path' field (cannot be derived)", () => {
     expect(() =>
       PagesIndex.parse({ pages: [{ id: "a", type: "concept", wiki: "w" }] })
     ).toThrow();
@@ -78,5 +93,13 @@ describe("LinksIndex", () => {
     const r = LinksIndex.parse({ "concept-foo": {} });
     expect(r["concept-foo"].outbound).toEqual([]);
     expect(r["concept-foo"].inbound).toEqual([]);
+  });
+
+  it("drops null / non-string entries from outbound and inbound", () => {
+    const r = LinksIndex.parse({
+      "concept-foo": { outbound: ["concept-bar", null, "concept-baz"], inbound: [null, "concept-qux"] },
+    });
+    expect(r["concept-foo"].outbound).toEqual(["concept-bar", "concept-baz"]);
+    expect(r["concept-foo"].inbound).toEqual(["concept-qux"]);
   });
 });
