@@ -37,3 +37,17 @@ it("does not inject raw HTML from the markdown body (html: false)", () => {
   const html = renderNoteBody(body, undefined, new Set());
   expect(html).not.toContain("<script>");
 });
+
+it("escapes a script tag in a wikilink alias to prevent XSS", () => {
+  const body = '[[wikis/w/concept/known|</a><script>alert(1)</script>]]';
+  const html = renderNoteBody(body, undefined, new Set(["known"]));
+  expect(html).not.toContain("<script>");
+  expect(html).toContain("&lt;script&gt;");
+});
+
+it("escapes a double-quote in a targetId to prevent attribute injection", () => {
+  const body = '[[wikis/w/concept/a"b]]';
+  const html = renderNoteBody(body, undefined, new Set(['a"b']));
+  expect(html).not.toContain('data-target="a"b"');
+  expect(html).toContain("&quot;");
+});
