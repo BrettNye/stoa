@@ -12,6 +12,9 @@ import { EventDeriver } from "../core/eventbus/event-deriver.js";
 import { Watcher } from "../core/eventbus/watcher.js";
 import { WaiterRegistry } from "../core/eventbus/registry.js";
 import { matchers, getAllGlobs } from "../core/eventbus/matchers/index.js";
+import type { Principal } from "../auth/types.js";
+import { resolveStdioIdentity } from "../auth/stdio-identity.js";
+import { authorize } from "../auth/dispatcher.js";
 
 /**
  * The shape of the dispatch context every tool handler receives. PokeAPI-touching
@@ -40,6 +43,10 @@ export interface DispatchCtx {
   bus?: EventBus;
   registry?: WaiterRegistry;
   watcher?: Watcher;
+  // v0.4 server-mode — the authenticated principal for this request. Stdio
+  // sessions always carry `*:*` scopes (admin wildcard); HTTP sessions carry
+  // whatever scopes the bearer token encodes.
+  principal: Principal;
 }
 
 /** Optional eventbus bundle threaded in by startStdio for wait-for tools. */
@@ -56,8 +63,11 @@ export interface EventBundle {
  * v1.7.1: accepts an optional `eventBundle` parameter populated by `startStdio`
  * so wait-for tools receive their required HandleWaitContext fields. CLI callers
  * omit it; the fields remain undefined and non-wait-for tools are unaffected.
+ *
+ * v0.4: accepts an optional `principal` parameter. When absent, resolves via
+ * `resolveStdioIdentity` which yields `source: "stdio"` with `*:*` scopes.
  */
-export function buildCtx(config: VaultConfig, eventBundle?: EventBundle): DispatchCtx {
+export function buildCtx(config: VaultConfig, eventBundle?: EventBundle, principal?: Principal): DispatchCtx {
   return {
     vaultPath: config.vaultPath,
     defaultWiki: config.defaultWiki,
@@ -67,6 +77,7 @@ export function buildCtx(config: VaultConfig, eventBundle?: EventBundle): Dispat
     // via `getClaimsConfig({})`. Slot is here so DispatchCtx structurally
     // satisfies tool contexts that require `rawConfig?: unknown`.
     rawConfig: undefined,
+    principal: principal ?? resolveStdioIdentity({ vaultPath: config.vaultPath, cliAgentId: (config as any).agentId }),
     ...(eventBundle ?? {}),
   };
 }
@@ -125,7 +136,13 @@ export async function startStdio(config: VaultConfig): Promise<void> {
     // tool contexts narrows to an unsatisfiable type because wait-for tools
     // require non-optional `bus`). Cast to any at the call site — each
     // handler validates the fields it actually reads.
-    const result = await tool.handler(parsed as any, buildCtx(config, eventBundle) as any);
+    const ctx = buildCtx(config, eventBundle);
+    // v0.4 defense-in-depth: gate every tool call through authorize even in
+    // stdio mode. Stdio principals carry *:* scopes so this always passes for
+    // tools with declared scopes; tools without scope metadata throw
+    // ScopeDeniedError("tool missing scope metadata") — fail-closed behaviour.
+    authorize(tool as any, parsed, ctx.principal);
+    const result = await tool.handler(parsed as any, ctx as any);
     return {
       content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
     };

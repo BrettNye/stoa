@@ -9,10 +9,12 @@
 // Registration: add to allTools in src/tools/index.ts.
 
 import { z } from "zod";
+import type { ToolScope } from "../auth/types.js";
 import { agentMemory } from "../core/agent-memory.js";
 
 const Input = z.object({
-  agent_id: z.string().min(1),
+  // agent_id REMOVED — server stamps from principal
+  // wiki REMOVED — per-wiki scope is not supported; axis always returns "*"
   task: z.string().optional(),
   tags: z.array(z.string()).optional(),
   scope_wiki: z.array(z.string()).optional(),
@@ -22,19 +24,26 @@ const Input = z.object({
   include_questions: z.boolean().optional(),
 });
 
+const scope: ToolScope = {
+  axis: () => "*",
+};
+
 export const agentMemoryTool = {
   name: "vault_agent-memory",
   description:
     "Identity-keyed working context for an agent: ranked, scope-aware, decay-aware claims relevant to a task. Read-only. Falls back to disk walk when the claims sidecar is missing or stale. See spec wikis/_meta/specs/2026-05-13-agent-memory-design.md.",
   inputSchema: Input,
+  scope,
   handler: async (
     input: z.infer<typeof Input>,
-    ctx: { vaultPath: string; defaultWiki?: string },
+    ctx: { vaultPath: string; defaultWiki?: string; principal?: { agent_id: string } },
   ) => {
-    // Normalize agent_id: strip "agent:" or "profile-" prefix; keep bare form.
-    const agent_id = input.agent_id
+    // agent_id now comes from principal; normalize: strip "agent:" or "profile-" prefix.
+    const raw_agent_id = ctx.principal?.agent_id ?? "stoa-local";
+    const agent_id = raw_agent_id
       .replace(/^agent:/, "")
       .replace(/^profile-/, "");
+    // Pass only the fields agentMemory accepts
     return agentMemory(ctx.vaultPath, { ...input, agent_id });
   },
 };

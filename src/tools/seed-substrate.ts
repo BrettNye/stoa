@@ -9,6 +9,7 @@ import {
 import { join, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { upsertPage } from "../core/index.js";
+import type { ToolScope } from "../auth/types.js";
 
 const Input = z.object({
   // Optional — falls back to ctx.vaultPath. The override is useful for callers
@@ -63,11 +64,17 @@ function listFilesRecursive(dir: string): string[] {
   return out;
 }
 
+const seedSubstrateScope: ToolScope = {
+  axis: () => "*",
+  httpForbidden: true,
+};
+
 export const seedSubstrateTool = {
   name: "vault_seed-substrate",
   description:
     "Copy stoa's bundled seed substrate (example profiles, moves, and onboarding course) into <vault>/wikis/_agents/. Use this on a fresh vault to get a working starting set. Idempotent — won't overwrite existing files unless force=true.",
   inputSchema: Input,
+  scope: seedSubstrateScope,
   handler: async (
     input: z.infer<typeof Input>,
     ctx: { vaultPath: string }

@@ -13,6 +13,7 @@ import { nextEvolution } from "../core/pokeapi.js";
 import { readThresholds, DEFAULT_THRESHOLDS, ThresholdBlockError, type EvolutionThresholds } from "../core/thresholds.js";
 import { getClaimsConfig } from "../config.js";
 import { resolveTrainerContext, type TrainerContext } from "../core/resolve-trainer-context.js";
+import type { ToolScope } from "../auth/types.js";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Wiki-scoped profile reader: reads the profile from wikis/<wiki>/profiles/<id>.md
@@ -126,10 +127,20 @@ const Input = z.object({
   wiki: z.string().optional()
 });
 
+const evolveProfileScope: ToolScope = {
+  axis: (input: any) => {
+    const wiki = (input as any).wiki;
+    const pokemonId = (input as any).pokemon_id;
+    return `wikis/${wiki ?? "*"}/profiles/${pokemonId ?? "*"}`;
+  },
+  adminOnly: () => true,
+};
+
 export const evolveProfileTool = {
   name: "vault_evolve-profile",
   description: "Two-phase profile evolution. commit:false returns a proposal (eligible? proposed shape, rationale). commit:true applies the proposal, optionally renaming the profile.",
   inputSchema: Input,
+  scope: evolveProfileScope,
   handler: async (
     input: z.infer<typeof Input>,
     ctx: {

@@ -6,6 +6,7 @@ import { readProfile, ProfileNotFoundError } from "./profiles.js";
 import { findOnDisk } from "./disk-fallback.js";
 import { checkTaskReadiness, type TaskReadinessSignal } from "./task-readiness.js";
 import { slugify as sharedSlugify } from "./ids.js";
+import { withSerializedIndexWrite } from "./index-locking.js";
 
 export class AlreadyClaimedError extends Error {
   constructor(public taskId: string, public claimedBy: string) {
@@ -43,68 +44,70 @@ export interface ClaimResult {
   updated: string;
 }
 
-export function claimTask(vaultPath: string, input: ClaimInput): ClaimResult {
-  const wiki = input.wiki ?? "alpha"; // resolved by caller normally; fallback for tests
-  const page = readPage(vaultPath, input.task_id, wiki);
-  const requesterAgent = `agent:${input.agent_id}`;
+export async function claimTask(vaultPath: string, input: ClaimInput): Promise<ClaimResult> {
+  return withSerializedIndexWrite(vaultPath, [`task-${input.task_id}`], () => {
+    const wiki = input.wiki ?? "alpha"; // resolved by caller normally; fallback for tests
+    const page = readPage(vaultPath, input.task_id, wiki);
+    const requesterAgent = `agent:${input.agent_id}`;
 
-  // Type restriction (spec §6.2 modification)
-  const requiredType = page.frontmatter.required_pokemon_type;
-  if (requiredType) {
-    let agentType: string = "normal";  // default for agents without a profile
-    let agentSecondaryType: string | undefined;
-    try {
-      // The profile id is `profile-<agent_id>` per the v1.5 convention.
-      const profileId = input.agent_id.startsWith("profile-")
-        ? input.agent_id
-        : `profile-${input.agent_id}`;
-      const profile = readProfile(vaultPath, profileId);
-      agentType = String(profile.frontmatter.pokemon_type ?? "normal");
-      agentSecondaryType = profile.frontmatter.secondary_pokemon_type
-        ? String(profile.frontmatter.secondary_pokemon_type)
-        : undefined;
-    } catch (e) {
-      if (!(e instanceof ProfileNotFoundError)) throw e;
-      // ProfileNotFoundError → agentType stays "normal"
+    // Type restriction (spec §6.2 modification)
+    const requiredType = page.frontmatter.required_pokemon_type;
+    if (requiredType) {
+      let agentType: string = "normal";  // default for agents without a profile
+      let agentSecondaryType: string | undefined;
+      try {
+        // The profile id is `profile-<agent_id>` per the v1.5 convention.
+        const profileId = input.agent_id.startsWith("profile-")
+          ? input.agent_id
+          : `profile-${input.agent_id}`;
+        const profile = readProfile(vaultPath, profileId);
+        agentType = String(profile.frontmatter.pokemon_type ?? "normal");
+        agentSecondaryType = profile.frontmatter.secondary_pokemon_type
+          ? String(profile.frontmatter.secondary_pokemon_type)
+          : undefined;
+      } catch (e) {
+        if (!(e instanceof ProfileNotFoundError)) throw e;
+        // ProfileNotFoundError → agentType stays "normal"
+      }
+      if (agentType !== requiredType && agentSecondaryType !== requiredType) {
+        throw new WrongTypeError(input.task_id, String(requiredType), agentType);
+      }
     }
-    if (agentType !== requiredType && agentSecondaryType !== requiredType) {
-      throw new WrongTypeError(input.task_id, String(requiredType), agentType);
-    }
-  }
 
-  // Readiness gate — runs after type check (cheaper failure first) and before
-  // AlreadyClaimedError (no point checking readiness on something already grabbed).
-  if (!input.force) {
-    const readiness = checkTaskReadiness(page.body);
-    if (!readiness.ready) {
-      throw new TaskNotReadyError(input.task_id, readiness.missing);
+    // Readiness gate — runs after type check (cheaper failure first) and before
+    // AlreadyClaimedError (no point checking readiness on something already grabbed).
+    if (!input.force) {
+      const readiness = checkTaskReadiness(page.body);
+      if (!readiness.ready) {
+        throw new TaskNotReadyError(input.task_id, readiness.missing);
+      }
     }
-  }
 
-  if (page.frontmatter.claimed_by && page.frontmatter.claimed_by !== requesterAgent) {
-    throw new AlreadyClaimedError(input.task_id, page.frontmatter.claimed_by);
-  }
-  const claimed_at = new Date().toISOString();
-  const newFm = {
-    ...page.frontmatter,
-    status: "claimed",
-    claimed_by: requesterAgent,
-    assigned_at: claimed_at
-  };
-  const result = writePage(vaultPath, {
-    id: input.task_id,
-    type: "task",
-    wiki,
-    frontmatter: newFm,
-    body: page.body,
-    expectedUpdated: input.expected_updated
+    if (page.frontmatter.claimed_by && page.frontmatter.claimed_by !== requesterAgent) {
+      throw new AlreadyClaimedError(input.task_id, page.frontmatter.claimed_by);
+    }
+    const claimed_at = new Date().toISOString();
+    const newFm = {
+      ...page.frontmatter,
+      status: "claimed",
+      claimed_by: requesterAgent,
+      assigned_at: claimed_at
+    };
+    const result = writePage(vaultPath, {
+      id: input.task_id,
+      type: "task",
+      wiki,
+      frontmatter: newFm,
+      body: page.body,
+      expectedUpdated: input.expected_updated
+    });
+    return {
+      task_id: input.task_id,
+      claimed_by: requesterAgent,
+      claimed_at,
+      updated: result.updated
+    };
   });
-  return {
-    task_id: input.task_id,
-    claimed_by: requesterAgent,
-    claimed_at,
-    updated: result.updated
-  };
 }
 
 export interface CreateTaskInput {

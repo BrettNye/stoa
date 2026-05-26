@@ -22,6 +22,7 @@ import { resolveCurrent } from "../core/aliases.js";
 import { ProfileNotFoundError } from "../core/profiles.js";
 import { enumerateProfilesForSync } from "../core/sync-enumerate.js";
 import type { RuntimeName, ValidationDiagnostic } from "../core/runtime-adapters/types.js";
+import type { ToolScope } from "../auth/types.js";
 
 const PokemonInput = z.union([z.string(), z.array(z.string())]);
 
@@ -160,10 +161,16 @@ async function deploySingle(
   });
 }
 
+const syncAgentsScope: ToolScope = {
+  axis: () => "*",
+  httpForbidden: true,
+};
+
 export const syncAgentsTool = {
   name: "vault_sync-agents",
   description: "Deploy a Pokemon (or list of Pokemon, or all profiles via `all: true`) as runtime subagent definitions in a target repo. Builds a SubagentIntent per profile, hands to the per-runtime adapter (currently claude-code), and writes <target>/.claude/agents/<pokemon-id>.md plus optional moveset SKILL.md files. Idempotent on source_revision. Halt-on-first-error by default; pass `continue_on_error: true` for best-effort batches.",
   inputSchema: Input,
+  scope: syncAgentsScope,
   handler: async (
     input: z.infer<typeof Input>,
     ctx: { vaultPath: string }

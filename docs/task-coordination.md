@@ -102,12 +102,63 @@ Success returns:
 }
 ```
 
-### Concurrency: frontmatter-date OCC, not filesystem mtime
+### Concurrency: lock-based mutual exclusion + staleness OCC
+
+`claimTask` in `src/core/tasks.ts` is `async`. Callers must `await` it.
+
+#### Per-task lock (mutual exclusion)
+
+`claimTask` wraps its entire read-check-write sequence in
+`withSerializedIndexWrite(vaultPath, [\`task-${input.task_id}\`], ...)` (see
+`src/core/tasks.ts:47-111`). The lock key is `task-<id>` — one lock per task
+page.
+
+`withSerializedIndexWrite` in `src/core/index-locking.ts` uses `O_EXCL`
+lockfiles with sorted-key acquisition and try/finally cleanup. Two concurrent
+callers racing to claim the same task compete for the same lockfile; exactly
+one acquires it, completes the full read-check-write inside, then releases.
+The other caller then acquires the lock, reads the now-claimed page, and
+throws `AlreadyClaimedError`.
+
+Race scenario:
+
+```
+Agent A and Agent B both call claimTask(vaultPath, { task_id: "task-foo", ... })
+concurrently.
+
+  Agent A acquires lock "task-task-foo"
+    A reads page → claimed_by undefined
+    A passes readiness check
+    A writes page → status: claimed, claimed_by: "agent:A"
+  Agent A releases lock
+
+  Agent B acquires lock "task-task-foo"
+    B reads page → claimed_by: "agent:A"
+    B throws AlreadyClaimedError { taskId: "task-foo", claimedBy: "agent:A" }
+  Agent B releases lock
+
+Result: exactly one winner. The loser sees AlreadyClaimedError with the
+winner's identity in claimedBy.
+```
+
+Index sidecar locks (`pages.json`, etc.) acquired inside `writePage` use
+distinct lock keys from `task-<id>`. Sorted-key acquisition prevents
+deadlock.
+
+#### Staleness OCC (frontmatter `updated:` date)
+
+Inside the lock, `writePage` still checks the `updated:` frontmatter date
+(`YYYY-MM-DD`) as a **staleness guard**: if the page's `updated:` has
+advanced since the caller read it, `writePage` throws
+`ConflictError(id, expectedUpdated, actualUpdated)`. This is no longer doing
+the work of concurrency arbitration (the lock handles that); it catches the
+case where you read the task yesterday and someone else updated it today
+before you claimed it.
 
 The tool description in `src/tools/task-claim.ts:16` and the CLI help text in
 `src/cli/commands/task-update.ts:8` say "mtime OCC". The actual implementation
-uses **the `updated:` frontmatter date** as the optimistic-concurrency token,
-not `fs.stat().mtime`. See `writePage` in `src/core/pages.ts:102-116`:
+uses **the `updated:` frontmatter date** as the OCC token, not
+`fs.stat().mtime`. See `writePage` in `src/core/pages.ts:102-116`:
 
 > If the page on disk has a different `updated:` than the caller passed as
 > `expectedUpdated`, `writePage` throws `ConflictError(id, expectedUpdated,
@@ -118,10 +169,6 @@ To claim safely:
 1. Read the task (e.g. via `vault_task-list` or by reading the file).
 2. Capture `frontmatter.updated`.
 3. Pass that value as `expected_updated`.
-
-Granularity is one day (the field is `YYYY-MM-DD`). Two writes inside the
-same UTC day pass the OCC check even if their content differs. If you need
-finer arbitration, layer it above the substrate.
 
 The actual filesystem-mtime OCC pattern *does* exist in stoa — but on
 **knowledge claims**, not tasks. See `MtimeConflictError` in
@@ -260,7 +307,7 @@ These are different systems with deceptively similar names.
 | Operates on | A `type: task` page | A `type: claim` page |
 | Stored in | `wikis/<wiki>/tasks/` | `wikis/<wiki>/claim/` |
 | Core module | `src/core/tasks.ts` | `src/core/claims.ts` |
-| Concurrency | `expected_updated` (frontmatter date) | `expectedMtime` (real `fs.stat().mtime`, ISO) |
+| Concurrency | per-task `O_EXCL` lockfile (mutual exclusion) + `expected_updated` staleness OCC | `expectedMtime` (real `fs.stat().mtime`, ISO) |
 | Race-loss error | `AlreadyClaimedError` | `MtimeConflictError` |
 | Sibling tools | `vault_task-create`, `vault_task-list`, `vault_task-update` | `vault_list-claims` |
 
@@ -282,9 +329,10 @@ names the winner. Re-claim attempts by the same agent id are idempotent
 
 **Stale `expected_updated`.** If the page's `updated:` advances between your
 read and your write, `writePage` throws `ConflictError(id, expectedUpdated,
-actualUpdated)` (`src/core/pages.ts:14-22`). Re-read, reconcile, retry. Note
-the one-day granularity: same-day writes can race past this check, so do not
-rely on it as fine-grained mutual exclusion.
+actualUpdated)` (`src/core/pages.ts:14-22`). Re-read, reconcile, retry. The
+`updated:` OCC is a staleness guard (day-resolution), not the concurrency
+mechanism — the per-task lock (`withSerializedIndexWrite`) provides mutual
+exclusion for same-day concurrent writes.
 
 **Readiness rejection.** `TaskNotReadyError` (or, at the MCP boundary, an
 error with `code: "TASK_NOT_READY"` and a `missing` array) means the body is

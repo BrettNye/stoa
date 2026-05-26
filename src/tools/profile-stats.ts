@@ -4,16 +4,26 @@ import { join } from "node:path";
 import { thresholdFor, nextStage, EvolutionStage } from "../core/pokemon.js";
 import { parseFrontmatter } from "../core/frontmatter.js";
 import { resolveTrainerContext, type TrainerContext } from "../core/resolve-trainer-context.js";
+import type { ToolScope } from "../auth/types.js";
 
 const Input = z.object({
   pokemon_id: z.string(),
   wiki: z.string().optional()
 });
 
+const profileStatsScope: ToolScope = {
+  axis: (input: any) => {
+    const wiki = (input as any).wiki;
+    const pokemon = (input as any).pokemon_id;
+    return wiki ? `wikis/${wiki}/profiles/${pokemon}` : `wikis/*/profiles/${pokemon}`;
+  },
+};
+
 export const profileStatsTool = {
   name: "vault_profile-stats",
   description: "Returns per-profile counts (tasks completed/failed/in-flight, journals, channels active, moves-used frequency) plus next-evolution threshold.",
   inputSchema: Input,
+  scope: profileStatsScope,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
     const parsed = Input.parse(input);
     // Resolve trainer context for ambient caller_trainer_id and wiki routing.

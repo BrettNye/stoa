@@ -58,9 +58,9 @@ applies_to: [claude-code]
 
     // Claim
     const claim = await taskClaimTool.handler({
-      task_id: created.id, agent_id: "charmander",
+      task_id: created.id,
       expected_updated: created.updated, wiki: "alpha"
-    }, { vaultPath });
+    }, { vaultPath, principal: { agent_id: "charmander" } });
     expect(claim.claimed_by).toBe("agent:charmander");
 
     // Update to in_progress
@@ -69,8 +69,7 @@ applies_to: [claude-code]
       expected_updated: claim.updated,
       status: "in_progress",
       notes: "started; tests at /api/v1",
-      agent_id: "agent:charmander"
-    }, { vaultPath });
+    }, { vaultPath, principal: { agent_id: "agent:charmander" } });
     expect(update.status).toBe("in_progress");
 
     // Complete
@@ -78,8 +77,7 @@ applies_to: [claude-code]
       task_id: created.id, wiki: "alpha",
       expected_updated: update.updated,
       status: "completed",
-      agent_id: "agent:charmander"
-    }, { vaultPath });
+    }, { vaultPath, principal: { agent_id: "agent:charmander" } });
     expect(complete.status).toBe("completed");
 
     // Final list — should show 0 pending

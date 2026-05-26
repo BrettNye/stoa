@@ -6,6 +6,7 @@ import { resolveStadiumConfig } from '../core/stadium-config.js';
 import { StadiumClient } from '../core/stadium-client.js';
 import { resolveWiki } from './_resolve-wiki.js';
 import { upsertPage } from '../core/index.js';
+import type { ToolScope } from '../auth/types.js';
 
 const Input = z.object({
   skill_id: z.string().regex(/^move-/),
@@ -16,6 +17,10 @@ export const realSkillRefreshTool = {
   name: 'vault_real-skill-refresh',
   description:
     "Re-derive a registered real-skill's modifier function from the current SKILL.md content.",
+  scope: {
+    axis: () => 'stadium',
+    adminOnly: () => true,
+  } satisfies ToolScope,
   inputSchema: Input,
   handler: async (
     input: unknown,

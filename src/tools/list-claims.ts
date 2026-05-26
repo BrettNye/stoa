@@ -29,6 +29,7 @@ import { ClaimsStore, type ParsedClaim } from "../core/claims.js";
 import { effectiveConfidence } from "../core/decay.js";
 import { getClaimsConfig } from "../config.js";
 import type { ClaimsIndex } from "../types/claims-index.js";
+import type { ToolScope } from "../auth/types.js";
 
 // `min_effective_confidence` and `limit` are intentionally optional here so
 // the handler can distinguish "caller omitted, fall back to config defaults"
@@ -77,11 +78,16 @@ export interface ClaimEntry {
   supersedes: string[];
 }
 
+const listClaimsScope: ToolScope = {
+  axis: (input: any) => (input as any).wiki ? `wikis/${(input as any).wiki}/claim` : "wikis/*/claim",
+};
+
 export const listClaimsTool = {
   name: "vault_list-claims",
   description:
     "List claims with optional dimension filter, sorted by effective confidence descending.",
   inputSchema: Input,
+  scope: listClaimsScope,
   handler: async (input: ListInput, ctx: ListClaimsCtx) => {
     const cfg = getClaimsConfig(ctx.rawConfig ?? {});
     const today = ctx.today ?? new Date();

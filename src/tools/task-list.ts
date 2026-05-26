@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { listTasks } from "../core/tasks.js";
 import { expandAliases } from "../core/aliases.js";
+import type { ToolScope } from "../auth/types.js";
 
 const Input = z.object({
   wiki: z.string().optional(),
@@ -34,10 +35,15 @@ function expandClaimedBy(vaultPath: string, claimedBy: string): Set<string> {
   return out;
 }
 
+const taskListScope: ToolScope = {
+  axis: (input: any) => (input as any).wiki ? `wikis/${(input as any).wiki}` : "wikis/*",
+};
+
 export const taskListTool = {
   name: "vault_task-list",
   description: "List tasks across the vault, with optional filters.",
   inputSchema: Input,
+  scope: taskListScope,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
     if (!input.claimed_by) {
       return { tasks: listTasks(ctx.vaultPath, input) };

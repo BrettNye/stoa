@@ -37,6 +37,7 @@ import {
   type MergeQueueOutput,
   type TaskRef,
 } from "../core/merge-queue.js";
+import type { ToolScope } from "../auth/types.js";
 
 const Input = z.object({
   channel: z.string(),
@@ -188,11 +189,16 @@ function toTaskRefs(tasks: TaskSummary[]): TaskRef[] {
   });
 }
 
+const mergeQueueScope: ToolScope = {
+  axis: (input: any) => (input as any).wiki ? `wikis/${(input as any).wiki}` : "wikis/*",
+};
+
 export const mergeQueueTool = {
   name: "vault_merge-queue",
   description:
     "Surface the bulk merge queue for a coordination channel: ready PRs (parsed from `ready: branch=...` journal signals), unready tasks, and a topo-sorted dependency order keyed by task.blocking. Pure read; ci_status is always 'unknown'.",
   inputSchema: Input,
+  scope: mergeQueueScope,
   handler: async (
     input: z.infer<typeof Input>,
     ctx: { vaultPath: string; defaultFamily?: string }

@@ -61,25 +61,25 @@ describe("claimTask — readiness gate", () => {
     rmSync(vaultPath, { recursive: true, force: true });
   });
 
-  it("throws TaskNotReadyError when body is ungroomed (missing all signals)", () => {
+  it("throws TaskNotReadyError when body is ungroomed (missing all signals)", async () => {
     const id = "task-ungroomed";
     const expected_updated = writeTaskPage(vaultPath, id, UNGROOMED_BODY);
-    expect(() =>
+    await expect(
       claimTask(vaultPath, {
         task_id: id,
         agent_id: "charmander",
         expected_updated,
         wiki: "alpha",
       })
-    ).toThrow(TaskNotReadyError);
+    ).rejects.toThrow(TaskNotReadyError);
   });
 
-  it("TaskNotReadyError carries the correct missing signals", () => {
+  it("TaskNotReadyError carries the correct missing signals", async () => {
     const id = "task-ungroomed-signals";
     const expected_updated = writeTaskPage(vaultPath, id, UNGROOMED_BODY);
     let thrown: TaskNotReadyError | undefined;
     try {
-      claimTask(vaultPath, {
+      await claimTask(vaultPath, {
         task_id: id,
         agent_id: "charmander",
         expected_updated,
@@ -96,10 +96,10 @@ describe("claimTask — readiness gate", () => {
     expect(thrown!.message).toMatch(/TASK_NOT_READY/);
   });
 
-  it("succeeds when body is groomed (all signals present)", () => {
+  it("succeeds when body is groomed (all signals present)", async () => {
     const id = "task-groomed";
     const expected_updated = writeTaskPage(vaultPath, id, GROOMED_BODY);
-    const result = claimTask(vaultPath, {
+    const result = await claimTask(vaultPath, {
       task_id: id,
       agent_id: "charmander",
       expected_updated,
@@ -109,10 +109,10 @@ describe("claimTask — readiness gate", () => {
     expect(result.task_id).toBe(id);
   });
 
-  it("force: true bypasses the readiness check on an ungroomed body", () => {
+  it("force: true bypasses the readiness check on an ungroomed body", async () => {
     const id = "task-force-bypass";
     const expected_updated = writeTaskPage(vaultPath, id, UNGROOMED_BODY);
-    const result = claimTask(vaultPath, {
+    const result = await claimTask(vaultPath, {
       task_id: id,
       agent_id: "charmander",
       expected_updated,
@@ -123,7 +123,7 @@ describe("claimTask — readiness gate", () => {
     expect(result.task_id).toBe(id);
   });
 
-  it("readiness gate fires AFTER type check — WrongTypeError takes priority when type is wrong", () => {
+  it("readiness gate fires AFTER type check — WrongTypeError takes priority when type is wrong", async () => {
     // If both required_pokemon_type mismatch AND body is ungroomed,
     // WrongTypeError fires first (type-gate is cheaper, runs before readiness)
     const profilesDir = join(vaultPath, "wikis", "_agents", "profiles");
@@ -153,17 +153,17 @@ applies_to: [claude-code]
     });
     // squirtle is water-type, task requires fire, body is also ungroomed
     // WrongTypeError should be thrown (type check fires before readiness)
-    expect(() =>
+    await expect(
       claimTask(vaultPath, {
         task_id: id,
         agent_id: "squirtle",
         expected_updated,
         wiki: "alpha",
       })
-    ).toThrow(/WRONG_TYPE/);
+    ).rejects.toThrow(/WRONG_TYPE/);
   });
 
-  it("readiness gate fires BEFORE AlreadyClaimedError — TaskNotReadyError on ungroomed already-claimed task", () => {
+  it("readiness gate fires BEFORE AlreadyClaimedError — TaskNotReadyError on ungroomed already-claimed task", async () => {
     // Body is ungroomed AND task is already claimed by someone else.
     // Readiness gate should fire before AlreadyClaimedError.
     const id = "task-claimed-and-ungroomed";
@@ -185,13 +185,13 @@ applies_to: [claude-code]
     const tasksDir = join(vaultPath, "wikis", "alpha", "tasks");
     writeFileSync(join(tasksDir, `${id}.md`), content, "utf8");
     // charmander tries to claim it — body is ungroomed AND already claimed by wartortle
-    expect(() =>
+    await expect(
       claimTask(vaultPath, {
         task_id: id,
         agent_id: "charmander",
         expected_updated: updated,
         wiki: "alpha",
       })
-    ).toThrow(TaskNotReadyError);
+    ).rejects.toThrow(TaskNotReadyError);
   });
 });

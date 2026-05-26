@@ -62,8 +62,8 @@ applies_to: [claude-code]
       required_pokemon_type: "fire"
     });
     const r = await taskClaimTool.handler(
-      { task_id: created.id, agent_id: "charmander", expected_updated: created.updated, wiki: "alpha" },
-      { vaultPath }
+      { task_id: created.id, expected_updated: created.updated, wiki: "alpha" },
+      { vaultPath, principal: { agent_id: "charmander" } }
     );
     expect(r.claimed_by).toBe("agent:charmander");
     expect(r.task_id).toBe(created.id);
@@ -77,8 +77,8 @@ applies_to: [claude-code]
     });
     await expect(
       taskClaimTool.handler(
-        { task_id: created.id, agent_id: "squirtle", expected_updated: created.updated, wiki: "alpha" },
-        { vaultPath }
+        { task_id: created.id, expected_updated: created.updated, wiki: "alpha" },
+        { vaultPath, principal: { agent_id: "squirtle" } }
       )
     ).rejects.toThrow(/WRONG_TYPE/);
   });
@@ -86,8 +86,8 @@ applies_to: [claude-code]
   it("allows any agent to claim a task with no required_pokemon_type", async () => {
     const created = createTask(vaultPath, { title: "feat-x: anything", wiki: "alpha" });
     const r = await taskClaimTool.handler(
-      { task_id: created.id, agent_id: "squirtle", expected_updated: created.updated, wiki: "alpha" },
-      { vaultPath }
+      { task_id: created.id, expected_updated: created.updated, wiki: "alpha" },
+      { vaultPath, principal: { agent_id: "squirtle" } }
     );
     expect(r.claimed_by).toBe("agent:squirtle");
   });
@@ -97,8 +97,8 @@ applies_to: [claude-code]
     mkdirSync(join(vaultPath, "wikis", "gamma", "tasks"), { recursive: true });
     const created = createTask(vaultPath, { title: "ambient-wiki test", wiki: "gamma" });
     const r = await taskClaimTool.handler(
-      { task_id: created.id, agent_id: "charmander", expected_updated: created.updated },
-      { vaultPath, defaultWiki: "gamma" }
+      { task_id: created.id, expected_updated: created.updated },
+      { vaultPath, defaultWiki: "gamma", principal: { agent_id: "charmander" } }
     );
     expect(r.claimed_by).toBe("agent:charmander");
   });

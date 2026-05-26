@@ -7,6 +7,7 @@ import { resolveStadiumConfig } from '../core/stadium-config.js';
 import { StadiumClient } from '../core/stadium-client.js';
 import { resolveWiki } from './_resolve-wiki.js';
 import { upsertPage } from '../core/index.js';
+import type { ToolScope } from '../auth/types.js';
 
 const TERMINAL = new Set(['completed', 'forfeit_a', 'forfeit_b', 'draw']);
 
@@ -28,6 +29,12 @@ interface SpectatorState {
 export const matchWatchTool = {
   name: 'vault_match-watch',
   description: 'Poll a match until terminal, then write a result journal.',
+  scope: {
+    axis: (i: unknown) => {
+      const match_id = (i as Record<string, unknown>)?.match_id;
+      return `matches/${typeof match_id === 'string' ? match_id : '*'}`;
+    },
+  } satisfies ToolScope,
   inputSchema: Input,
   handler: async (
     input: z.infer<typeof Input>,

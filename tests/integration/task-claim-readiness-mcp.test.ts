@@ -64,8 +64,8 @@ describe("vault_task-claim — readiness gate at MCP boundary", () => {
     const expected_updated = writeTaskPage(vaultPath, "task-bare", UNGROOMED_BODY);
     await expect(
       taskClaimTool.handler(
-        { task_id: "task-bare", agent_id: "charmander", expected_updated },
-        { vaultPath, defaultWiki: "alpha" }
+        { task_id: "task-bare", expected_updated },
+        { vaultPath, defaultWiki: "alpha", principal: { agent_id: "charmander" } }
       )
     ).rejects.toMatchObject({
       code: "TASK_NOT_READY",
@@ -78,8 +78,8 @@ describe("vault_task-claim — readiness gate at MCP boundary", () => {
     let thrown: unknown;
     try {
       await taskClaimTool.handler(
-        { task_id: "task-bare2", agent_id: "charmander", expected_updated },
-        { vaultPath, defaultWiki: "alpha" }
+        { task_id: "task-bare2", expected_updated },
+        { vaultPath, defaultWiki: "alpha", principal: { agent_id: "charmander" } }
       );
     } catch (e) {
       thrown = e;
@@ -93,8 +93,8 @@ describe("vault_task-claim — readiness gate at MCP boundary", () => {
   it("MCP claim with force: true bypasses readiness and returns claimed_by", async () => {
     const expected_updated = writeTaskPage(vaultPath, "task-bare-force", UNGROOMED_BODY);
     const r = await taskClaimTool.handler(
-      { task_id: "task-bare-force", agent_id: "charmander", expected_updated, force: true },
-      { vaultPath, defaultWiki: "alpha" }
+      { task_id: "task-bare-force", expected_updated, force: true },
+      { vaultPath, defaultWiki: "alpha", principal: { agent_id: "charmander" } }
     );
     expect(r.claimed_by).toBe("agent:charmander");
     expect(r.task_id).toBe("task-bare-force");
@@ -103,8 +103,8 @@ describe("vault_task-claim — readiness gate at MCP boundary", () => {
   it("MCP claim on groomed task (no force) succeeds without TASK_NOT_READY", async () => {
     const expected_updated = writeTaskPage(vaultPath, "task-groomed", GROOMED_BODY);
     const r = await taskClaimTool.handler(
-      { task_id: "task-groomed", agent_id: "charmander", expected_updated },
-      { vaultPath, defaultWiki: "alpha" }
+      { task_id: "task-groomed", expected_updated },
+      { vaultPath, defaultWiki: "alpha", principal: { agent_id: "charmander" } }
     );
     expect(r.claimed_by).toBe("agent:charmander");
   });
@@ -114,7 +114,6 @@ describe("vault_task-claim — readiness gate at MCP boundary", () => {
     const schema = (taskClaimTool as any).inputSchema;
     const withForce = schema.parse({
       task_id: "t1",
-      agent_id: "a1",
       expected_updated: "2026-05-13",
       force: true,
     });
@@ -122,7 +121,6 @@ describe("vault_task-claim — readiness gate at MCP boundary", () => {
 
     const withoutForce = schema.parse({
       task_id: "t1",
-      agent_id: "a1",
       expected_updated: "2026-05-13",
     });
     expect(withoutForce.force).toBeUndefined();

@@ -4,6 +4,7 @@ import { writePage } from "../core/pages.js";
 import { NoteType, PageStatus } from "../core/frontmatter.js";
 import { generateId } from "../core/ids.js";
 import { upsertPage } from "../core/index.js";
+import type { ToolScope } from "../auth/types.js";
 
 const Input = z.object({
   type: NoteType,
@@ -14,10 +15,16 @@ const Input = z.object({
   status: PageStatus.default("draft")
 });
 
+const scope: ToolScope = {
+  axis: (i: any) => `wikis/${i.wiki}/${i.type}`,
+  adminOnly: (i: any) => i.type === "map",
+};
+
 export const newTool = {
   name: "vault_new",
   description: "Create a typed page from the template, with required frontmatter pre-filled.",
   inputSchema: Input,
+  scope,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
     const today = new Date().toISOString().slice(0, 10);
     const time = new Date().toISOString().slice(11, 16).replace(":", "");

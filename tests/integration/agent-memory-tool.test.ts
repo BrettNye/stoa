@@ -12,9 +12,11 @@ import { buildClaimsIndex, writeClaimsIndex } from "../../src/core/claims-index.
 const TODAY = new Date("2026-05-13");
 const CTX_OPTS = { today: TODAY } as { today: Date };
 
-// Helper to build ctx; the tool handler only needs vaultPath.
-function ctx(vaultPath: string) {
-  return { vaultPath };
+// Helper to build ctx; agent_id is now passed via principal.
+function ctx(vaultPath: string, agent_id?: string) {
+  return agent_id
+    ? { vaultPath, principal: { agent_id } }
+    : { vaultPath };
 }
 
 describe("vault_agent-memory tool — basic retrieval", () => {
@@ -39,8 +41,8 @@ describe("vault_agent-memory tool — basic retrieval", () => {
     await buildClaimsIndex(vault).then((idx) => writeClaimsIndex(vault, idx));
 
     const r = await agentMemoryTool.handler(
-      { agent_id: "charmander" },
-      ctx(vault),
+      {},
+      ctx(vault, "charmander"),
     );
 
     expect(r.claims.length).toBeLessThanOrEqual(10);
@@ -66,9 +68,9 @@ describe("vault_agent-memory tool — basic retrieval", () => {
     await buildClaimsIndex(vault).then((idx) => writeClaimsIndex(vault, idx));
 
     // All three forms should yield equivalent results
-    const r1 = await agentMemoryTool.handler({ agent_id: "charmander" }, ctx(vault));
-    const r2 = await agentMemoryTool.handler({ agent_id: "agent:charmander" }, ctx(vault));
-    const r3 = await agentMemoryTool.handler({ agent_id: "profile-charmander" }, ctx(vault));
+    const r1 = await agentMemoryTool.handler({}, ctx(vault, "charmander"));
+    const r2 = await agentMemoryTool.handler({}, ctx(vault, "agent:charmander"));
+    const r3 = await agentMemoryTool.handler({}, ctx(vault, "profile-charmander"));
 
     // All should find the same claim
     const ids1 = r1.claims.map((c: { id: string }) => c.id);
@@ -105,8 +107,8 @@ describe("vault_agent-memory tool — basic retrieval", () => {
     await buildClaimsIndex(vault).then((idx) => writeClaimsIndex(vault, idx));
 
     const r = await agentMemoryTool.handler(
-      { agent_id: "squirtle", limit: 2 },
-      ctx(vault),
+      { limit: 2 },
+      ctx(vault, "squirtle"),
     );
 
     expect(r.claims.length).toBeLessThanOrEqual(2);
@@ -130,8 +132,8 @@ describe("vault_agent-memory tool — basic retrieval", () => {
     await buildClaimsIndex(vault).then((idx) => writeClaimsIndex(vault, idx));
 
     const rSummary = await agentMemoryTool.handler(
-      { agent_id: "bulbasaur", detail: "summary" },
-      ctx(vault),
+      { detail: "summary" },
+      ctx(vault, "bulbasaur"),
     );
 
     expect(rSummary.claims[0].body).toBe("");
@@ -151,12 +153,11 @@ describe("vault_agent-memory tool — basic retrieval", () => {
 });
 
 describe("vault_agent-memory tool — Zod input schema", () => {
-  it("accepts all valid optional fields", async () => {
+  it("accepts all valid optional fields (no agent_id in input schema)", async () => {
     const vault = await mkTempVault();
 
-    // Should not throw on a fully-specified valid input
+    // Should not throw on a fully-specified valid input (agent_id removed from schema)
     const input = {
-      agent_id: "charmander",
       task: "task-some-slug",
       tags: ["alpha", "beta"],
       scope_wiki: ["rastate"],
@@ -171,14 +172,20 @@ describe("vault_agent-memory tool — Zod input schema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects empty agent_id", () => {
-    const result = agentMemoryTool.inputSchema.safeParse({ agent_id: "" });
-    expect(result.success).toBe(false);
+  it("rejects extraneous agent_id in input (agent_id now comes from ctx.principal)", () => {
+    // The schema no longer accepts agent_id as an input field.
+    // Zod strips unknown keys by default, so we verify the field is absent
+    // from the parsed output, confirming it's not part of the schema contract.
+    const result = agentMemoryTool.inputSchema.safeParse({ agent_id: "charmander" });
+    // Parsing succeeds (Zod strips unknowns), but agent_id is absent from the output
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).not.toHaveProperty("agent_id");
+    }
   });
 
   it("rejects negative token_budget", () => {
     const result = agentMemoryTool.inputSchema.safeParse({
-      agent_id: "charmander",
       token_budget: -1,
     });
     expect(result.success).toBe(false);
@@ -186,7 +193,6 @@ describe("vault_agent-memory tool — Zod input schema", () => {
 
   it("rejects zero limit", () => {
     const result = agentMemoryTool.inputSchema.safeParse({
-      agent_id: "charmander",
       limit: 0,
     });
     expect(result.success).toBe(false);
@@ -194,7 +200,6 @@ describe("vault_agent-memory tool — Zod input schema", () => {
 
   it("rejects invalid detail enum value", () => {
     const result = agentMemoryTool.inputSchema.safeParse({
-      agent_id: "charmander",
       detail: "invalid-detail",
     });
     expect(result.success).toBe(false);
@@ -203,7 +208,6 @@ describe("vault_agent-memory tool — Zod input schema", () => {
   it("accepts detail values summary, truncated, full", () => {
     for (const detail of ["summary", "truncated", "full"] as const) {
       const result = agentMemoryTool.inputSchema.safeParse({
-        agent_id: "charmander",
         detail,
       });
       expect(result.success).toBe(true);

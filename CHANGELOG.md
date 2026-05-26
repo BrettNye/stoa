@@ -1,5 +1,78 @@
 # Changelog
 
+## 0.4.0 — 2026-05-21
+
+Server mode. Networked HTTP transport with JWT-based bearer auth and capability scoping. Lets operators run Stoa as a hosted MCP endpoint reachable from dispatched workers (Fargate tasks, Agora-dispatched sub-agents, CI fleets) without sharing a process boundary with Stoa. Solo-laptop `stoa --mcp` stdio mode continues to work unchanged. Full deployment walkthrough at `docs/server-mode.md`; design rationale at `docs/superpowers/specs/2026-05-21-stoa-server-mode-design.md`.
+
+### Added — transport + CLI
+
+- **`stoa serve [--bind=HOST:PORT] [--vault=PATH]`** — boots the HTTP MCP server. Hono + MCP `StreamableHTTPServerTransport` in stateful mode. `/health` endpoint returns 200 + `{ status, vault, version }` when the vault path is readable; 503 otherwise. Bind defaults to `127.0.0.1:8443`.
+- **`stoa mint-token --agent-id=X --scope=Y[,Z] --ttl=30m`** — HS256 JWT signer for testing and operator-token bootstrap. Reads `STOA_TOKEN_SIGNING_SECRET` from env; never round-trips through Stoa. Defaults `--ttl=30m`.
+- **`stoa init -y`** — non-interactive init for Docker / CI bootstrap. Reads `STOA_VAULT_PATH`, `STOA_THEME`, `STOA_DEFAULT_WIKI` from env. Idempotent on existing vaults.
+- **`vault_lint --scope=full`** — whole-vault lint pass (admin-only over HTTP). Default `per-wiki` scope is unrestricted.
+- **Docker image** at `ghcr.io/brettnye/stoa:0.4.0`. Multi-stage `node:20-slim` build; CMD `serve --bind=0.0.0.0:8443`. `.dockerignore` excludes worktrees, tests, dev artifacts.
+
+### Added — auth model
+
+- **HS256 JWTs**, integrator-minted, Stoa verifier-only. No token issuance endpoint. Signing secret in `STOA_TOKEN_SIGNING_SECRET` env var, shared between Stoa and the orchestrator. RS256 / JWKS is the path of record; HMAC only in v0.4.
+- **Bearer tokens** carry `sub` (becomes `Principal.agent_id`), `scopes`, `exp`, `iat`, `jti`. Verified once at MCP session `initialize`; principal binds to the session for subsequent tool calls.
+- **Hono bearer middleware** on `/mcp` — extracts the token, calls the injected `TokenVerifier`, attaches the `Principal` to the Hono context. 401 + `WWW-Authenticate` headers per RFC 6750 on failures.
+- **`Principal` shape**: `{ agent_id, scopes, exp?, source: "stdio" | "http" }`. Stdio principals resolve from env → vault `.stoa/identity` → OS username → `"stoa-local"`, always carrying `*:*` scopes.
+
+### Added — capability scoping
+
+- **Hybrid scope grammar**: closed tool-prefix + open `picomatch` glob over a per-tool axis. Examples: `vault_recall:wikis/project-acme/**`, `vault_task-claim:tasks/review-abc`, `vault_channel-post:channels/build-coord`.
+- **Three-gate dispatcher** (`src/auth/dispatcher.ts`) per tool call: `httpForbidden` → `admin` → `axis`. Used identically by stdio and HTTP dispatchers — DRY chokepoint shared by both transports.
+- **`ToolScope` metadata** on every one of the 53 tools — declares `axis: (input) => string`, optional `adminOnly: (input) => boolean`, optional `httpForbidden: true`.
+- **Stdio principals** carry `*:*` scope and pass every gate automatically. HTTP tokens are subject to all three gates.
+- **Admin-required tools** (refuse HTTP without `admin:*` or `admin:<tool>` scope): `vault_reindex`, `vault_evolve-profile`, `vault_set-active`, `vault_new-wiki`, map writes via `vault_new --type=map`, `vault_lint --scope=full`.
+- **HTTP-forbidden tools** (refuse HTTP regardless of scopes): `vault_sync-skills`, `vault_sync-agents`, `vault_bootstrap-repo`, `vault_seed-substrate`. Stdio-only.
+
+### Added — concurrency
+
+- **Per-task locking** in `vault_task-claim`. `claimTask` is now `async` and wraps its read-check-write in `withSerializedIndexWrite([\`task-${input.task_id}\`], ...)`. Closes the documented same-day race where two concurrent claimants could both pass the frontmatter-date OCC and double-claim — exactly one fulfills, the other rejects with `AlreadyClaimedError`.
+- **Stale-lock detection** on lock acquisition: 60s threshold via `statSync(lockPath).mtimeMs`, capped at 3 stale-unlink retries per lock to bound the loop under adversarial mtime (clock skew, antivirus interruption, crashed writers). Race-safe unlink. Replaces the failure mode where five zero-byte locks from a crashed process once blocked every subsequent write.
+
+### Added — vault config
+
+`.stoa/config.json` at vault root carries:
+
+- `theme: "pokemon" | "plain"` — affects scaffolding and dashboard UX only, not enforcement. Default `pokemon`.
+- `identity: { default_agent_id: "..." }` — fallback for stdio `Principal`.
+- `auth: { signing_secret_env: "STOA_TOKEN_SIGNING_SECRET", issuer_hint: "..." }` — env-var name for the signing secret; informational `iss` hint.
+- `bind: "127.0.0.1:8443"` — HTTP server bind address. Overridable with `stoa serve --bind=...`.
+
+Missing file → all defaults. Partial config merges over defaults at the key level. Malformed JSON falls back to defaults without throwing.
+
+### Changed (BREAKING)
+
+- **`agent_id` removed from tool input schemas** on: `vault_channel-post`, `vault_agent-journal`, `vault_task-claim`, `vault_task-update`, `vault_task-create`, `vault_claim` (`authored_by` also dropped — retract authorization now compares against `ctx.principal.agent_id`), `vault_agent-memory`. Server now stamps `agent_id` from the verified principal. Callers passing `agent_id` will fail Zod parse with a clear error.
+- **Migration**: run `stoa lint` and look for `AGENT_ID_INPUT_LEAK` warnings. For each call site, move `agent_id` from the tool input to `ctx.principal: { agent_id: "..." }`.
+- **`claimTask` is now `async`.** Existing tool-handler callers already `await` it; direct importers of the core function need to add `await`.
+
+### Added — lint code
+
+- **`AGENT_ID_INPUT_LEAK`** (warning) — caller code passes `agent_id` to a write tool whose schema no longer accepts it. Locates within a 200-char window of the tool name. Scans `.ts` and `.md` files.
+
+### Security
+
+- Audit trail is now structurally truthful: `agent_id` cannot be self-asserted over HTTP. The server stamps it from the JWT `sub` claim, which the client cannot forge without the signing secret.
+- Map writes require `admin:*` over HTTP — `map.md` files are curation, not dispatch.
+- Substrate-scaffolding tools are HTTP-forbidden — they write to consuming repos' filesystems and don't make sense over the wire.
+
+### Fixed
+
+- **Stale-lockfile failure mode** in `withSerializedIndexWrite` (orphaned `.lock` files from crashed writers no longer block all subsequent writes).
+- **`bin.ts` parseConfig vault-required check** now bypasses for `serve` and `mint-token` subcommands that handle their own vault resolution (or don't need a vault at all). The `cliArgv` filter also stops stripping `--vault=` when a self-configuring subcommand is in play.
+- **`vitest.config.ts` `include` pattern** now covers co-located `src/**/*.test.ts` files alongside the existing `tests/` tree.
+
+### Docs
+
+- New `docs/server-mode.md` — operator deployment guide (~350 lines) covering install artifact, persistent storage, TLS posture, network reachability, day-zero install, Fargate task definition sketch, local dev recipe, two-tier credential pattern, per-dispatch flow, migration from stdio, health check, and a troubleshooting section that covers the common Windows / Git Bash path-conversion gotchas, secret-mismatch pitfalls, scope-denial diagnostics, and Docker layer caching.
+- Updated `docs/task-coordination.md` "Concurrency" section to describe the new lock-based mutual exclusion (replaces the day-granular OCC admission).
+- New design spec at `docs/superpowers/specs/2026-05-21-stoa-server-mode-design.md` and DAG plan at `docs/superpowers/plans/2026-05-21-stoa-server-mode-dag.md`.
+- README `## Server mode (v0.4+)` section and a detailed `## v0.4 — server mode` release section, parallel to the v0.3 entry.
+
 ## 0.3.0 — 2026-05-21
 
 Two feature sets ship together in this release: the specialist agent substrate (v1.9 DAG, 15 tasks) and new-user onboarding (4-wave DAG, 14 tasks). The substrate lets agents develop deep domain competence — through wiki-local move overlays and curricular-claim cold-start — without breaking the portable-moves contract. The onboarding stack turns "I installed Stoa and now what?" into a single `stoa onboard` command that detects clients, writes config, seeds a vault, and installs an AI-primer at the user's `~/.claude/CLAUDE.md` so their AI knows what to do with the new tools.

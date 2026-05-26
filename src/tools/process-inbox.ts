@@ -4,6 +4,7 @@ import { basename } from "node:path";
 import { listInbox, promoteInboxItem } from "../core/inbox.js";
 import { NoteType } from "../core/frontmatter.js";
 import { resolveWiki } from "./_resolve-wiki.js";
+import type { ToolScope } from "../auth/types.js";
 
 const Item = z.object({
   inbox_path: z.string(),
@@ -19,10 +20,15 @@ const Input = z.object({
   items: z.array(Item).optional()
 });
 
+const scope: ToolScope = {
+  axis: (i: any) => `wikis/${i.wiki ?? "*"}/inbox`,
+};
+
 export const processInboxTool = {
   name: "vault_process-inbox",
   description: "Two-phase: (1) commit:false returns proposed type+id+title for each inbox item; (2) commit:true with items[] moves and adds frontmatter.",
   inputSchema: Input,
+  scope,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string; defaultWiki?: string }) => {
     const wiki = resolveWiki(input.wiki, ctx.defaultWiki, ctx.vaultPath);
     if (!input.commit) {

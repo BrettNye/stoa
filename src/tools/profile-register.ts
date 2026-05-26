@@ -18,6 +18,7 @@ import { resolveStadiumConfig } from "../core/stadium-config.js";
 import { StadiumClient } from "../core/stadium-client.js";
 import { upsertPage } from "../core/index.js";
 import { resolveTrainerContext, type TrainerContext } from "../core/resolve-trainer-context.js";
+import type { ToolScope } from "../auth/types.js";
 
 const Input = z.object({
   profile_id: z.string().regex(/^profile-/),
@@ -28,6 +29,10 @@ export const profileRegisterTool = {
   name: "vault_profile-register",
   description:
     "Register a profile with the Stadium platform; persist returned platform_profile_id + stats to the profile file.",
+  scope: {
+    axis: () => 'stadium',
+    adminOnly: () => true,
+  } satisfies ToolScope,
   inputSchema: Input,
   handler: async (
     input: z.infer<typeof Input>,

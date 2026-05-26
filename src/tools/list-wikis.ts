@@ -5,6 +5,7 @@ import { z } from "zod";
 import { listWikis } from "../core/wikis.js";
 import { loadIndex, type IndexedWiki } from "../core/index.js";
 import { findOnDisk } from "../core/disk-fallback.js";
+import type { ToolScope } from "../auth/types.js";
 
 const Input = z.object({
   include_reserved: z.boolean().default(false),
@@ -96,10 +97,15 @@ function diskOnlyPageCounts(
   return out;
 }
 
+const listWikisScope: ToolScope = {
+  axis: (_input: any) => "vault",
+};
+
 export const listWikisTool = {
   name: "vault_list-wikis",
   description: "List all visible wikis (always includes _agents; pass include_reserved for _archive etc.). Optional family: filters to one family; group_by_family: returns a rollup shape.",
   inputSchema: Input,
+  scope: listWikisScope,
   handler: async (input: z.infer<typeof Input>, ctx: { vaultPath: string }) => {
     const all = listWikis(ctx.vaultPath, { include_reserved: input.include_reserved });
 

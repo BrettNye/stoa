@@ -4,18 +4,26 @@ import { resolveStadiumConfig } from '../core/stadium-config.js';
 import { StadiumClient } from '../core/stadium-client.js';
 import { resolveTrainerContext } from '../core/resolve-trainer-context.js';
 import { listPlatformProfiles, type PlatformProfileRow } from './list-platform-profiles.js';
+import type { ToolScope } from '../auth/types.js';
 
 const Input = z.object({
   match_id: z.string().min(1),
-  since_turn: z.number().int().nonnegative().optional()
+  since_turn: z.number().int().nonnegative().optional(),
+  trainer_id: z.string().min(1).optional()
 });
 
 export const trainerGetStateTool = {
   name: 'vault_trainer-get-state',
   description: 'Fetch authenticated match state; supports since_turn for incremental polling.',
+  scope: {
+    axis: (i: unknown) => {
+      const trainer_id = (i as Record<string, unknown>)?.trainer_id;
+      return `trainers/${typeof trainer_id === 'string' ? trainer_id : '*'}`;
+    },
+  } satisfies ToolScope,
   inputSchema: Input,
   handler: async (input: z.infer<typeof Input>) => {
-    const ctx = resolveTrainerContext({});
+    const ctx = resolveTrainerContext(input.trainer_id ? { trainer: input.trainer_id } : {});
     const config = resolveStadiumConfig();
     const client = new StadiumClient({ api_key: config.api_key, base_url: config.base_url });
     const platformState = await client.getMatchState(input.match_id, input.since_turn);

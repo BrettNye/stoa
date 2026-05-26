@@ -15,6 +15,7 @@ import { join } from "node:path";
 import { resolveTrainerContext, type ResolveTrainerContextOpts } from "../core/resolve-trainer-context.js";
 import { parseFrontmatter } from "../core/frontmatter.js";
 import { loadIndex } from "../core/index.js";
+import type { ToolScope } from "../auth/types.js";
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -176,11 +177,16 @@ function hydrateRealSkillLevels(
 
 // ─── MCP tool definition ──────────────────────────────────────────────────────
 
+const listPlatformProfilesScope: ToolScope = {
+  axis: (input: any) => (input as any).wiki ? `wikis/${(input as any).wiki}` : "wikis/*",
+};
+
 export const listPlatformProfilesTool = {
   name: "vault_list-platform-profiles",
   description:
     "List all platform-registered profiles in the resolved wiki. Returns the draft pool with real_skill_levels per profile.",
   inputSchema: listPlatformProfilesInput,
+  scope: listPlatformProfilesScope,
   handler: async (
     input: z.infer<typeof listPlatformProfilesInput>,
     ctx: { vaultPath: string }

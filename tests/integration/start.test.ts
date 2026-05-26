@@ -60,17 +60,16 @@ moveset: []
       title: "feat-x: API", wiki: "alpha", required_pokemon_type: "fire"
     }, { vaultPath });
     const claim = await taskClaimTool.handler({
-      task_id: t.id, agent_id: "charmander",
+      task_id: t.id,
       expected_updated: t.updated, wiki: "alpha"
-    }, { vaultPath });
+    }, { vaultPath, principal: { agent_id: "charmander" } });
     // Move to in_progress for the start to see it
     const { taskUpdateTool } = await import("../../src/tools/task-update.js");
     await taskUpdateTool.handler({
       task_id: t.id, wiki: "alpha",
       expected_updated: claim.updated,
       status: "in_progress",
-      agent_id: "agent:charmander"
-    }, { vaultPath });
+    }, { vaultPath, principal: { agent_id: "agent:charmander" } });
 
     const r = await startTool.handler(
       { wiki: "alpha", pokemon: "profile-charmander" },
