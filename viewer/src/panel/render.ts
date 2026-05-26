@@ -1,7 +1,7 @@
 import MarkdownIt from "markdown-it";
 import { resolveBodyWikilinks } from "./wikilinks.js";
 
-const md = new MarkdownIt({ html: false, linkify: true });
+const md = new MarkdownIt({ html: false });
 
 export function renderNoteBody(
   body: string,
