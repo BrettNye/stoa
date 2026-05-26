@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.0 — 2026-05-21
+## 0.4.0 — 2026-05-26
 
 Server mode. Networked HTTP transport with JWT-based bearer auth and capability scoping. Lets operators run Stoa as a hosted MCP endpoint reachable from dispatched workers (Fargate tasks, Agora-dispatched sub-agents, CI fleets) without sharing a process boundary with Stoa. Solo-laptop `stoa --mcp` stdio mode continues to work unchanged. Full deployment walkthrough at `docs/server-mode.md`; design rationale at `docs/superpowers/specs/2026-05-21-stoa-server-mode-design.md`.
 
