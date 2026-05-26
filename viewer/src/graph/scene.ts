@@ -9,6 +9,10 @@ export interface SceneCallbacks {
 
 /** How far toward the background a non-highlighted node is dimmed (0..1). */
 const DIM_AMOUNT = 0.8;
+/** Camera offset (scene units) from a node when flying to it. */
+const FLY_DISTANCE = 120;
+/** Camera fly animation duration (ms). */
+const FLY_DURATION_MS = 1500;
 
 export class GraphScene {
   private fg: any;
@@ -54,15 +58,16 @@ export class GraphScene {
 
   flyToNode(id: string): void {
     const node = (this.fg.graphData().nodes as any[]).find((n) => n.id === id);
-    // Missing node, or layout hasn't assigned coordinates yet -> no-op safely.
-    if (!node || typeof node.x !== "number") return;
-    const distance = 120;
+    // Missing node, or layout hasn't assigned all coordinates yet -> no-op safely.
+    // Guard every axis: a partially-positioned node would otherwise yield a NaN
+    // camera position (the `|| 1` below only catches a zero magnitude, not NaN).
+    if (!node || !Number.isFinite(node.x + node.y + node.z)) return;
     const hyp = Math.hypot(node.x, node.y, node.z) || 1;
-    const r = 1 + distance / hyp;
+    const r = 1 + FLY_DISTANCE / hyp;
     this.fg.cameraPosition(
       { x: node.x * r, y: node.y * r, z: node.z * r },
       node,
-      1500,
+      FLY_DURATION_MS,
     );
   }
 
