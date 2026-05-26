@@ -16,21 +16,31 @@ const FLY_DURATION_MS = 1500;
 
 export class GraphScene {
   private fg: any;
+  private readonly el: HTMLElement;
+  private readonly cb: SceneCallbacks;
+  /**
+   * `controlType` is a construction-time option in 3d-force-graph, NOT a runtime
+   * setter, so changing it requires tearing down and rebuilding the instance.
+   * We retain all state (data, colors, highlight, particles) and re-apply it.
+   */
+  private controlType: ControlType = "trackball";
   /** Base (theme) color accessor; highlight composes on top of this. */
   private baseColor: (n: GraphNode) => string = () => "#888888";
   /** Active highlight set, or null when nothing is highlighted. */
   private highlight: Set<string> | null = null;
+  /** Last data set, retained so a control-type rebuild can re-apply it. */
+  private data: Graph = { nodes: [], links: [] };
+  /** Whether directional particles are enabled, retained across rebuilds. */
+  private particles = false;
 
   constructor(el: HTMLElement, cb: SceneCallbacks = {}) {
-    this.fg = (ForceGraph3D as any)()(el)
-      .nodeVal((n: any) => degreeToRadius(n.degree))
-      .onNodeClick((n: any) => cb.onNodeClick?.(n.id));
-    // Install the effective color accessor once; it always reflects the latest
-    // base color fn + highlight set.
-    this.fg.nodeColor((n: any) => this.effectiveColor(n));
+    this.el = el;
+    this.cb = cb;
+    this.build();
   }
 
   setData(g: Graph): void {
+    this.data = g;
     this.fg.graphData({ nodes: g.nodes, links: g.links });
   }
 
@@ -49,10 +59,17 @@ export class GraphScene {
   }
 
   setControlType(c: ControlType): void {
-    this.fg.controlType(c);
+    // No-op when unchanged (e.g. the app shell sets the default at boot) — this
+    // avoids a needless teardown/rebuild.
+    if (c === this.controlType) return;
+    this.controlType = c;
+    this.fg._destructor?.();
+    this.el.innerHTML = "";
+    this.build();
   }
 
   setDirectionalParticles(on: boolean): void {
+    this.particles = on;
     this.fg.linkDirectionalParticles(on ? 2 : 0);
   }
 
@@ -71,10 +88,22 @@ export class GraphScene {
     );
   }
 
+  /**
+   * (Re)create the underlying graph with the current `controlType` and re-apply
+   * all retained state: sizing, click callback, data, particles, colors.
+   */
+  private build(): void {
+    this.fg = (ForceGraph3D as any)({ controlType: this.controlType })(this.el)
+      .nodeVal((n: any) => degreeToRadius(n.degree))
+      .onNodeClick((n: any) => this.cb.onNodeClick?.(n.id));
+    this.fg.graphData({ nodes: this.data.nodes, links: this.data.links });
+    this.fg.linkDirectionalParticles(this.particles ? 2 : 0);
+    this.applyColors();
+  }
+
   /** Re-push the effective accessors so the library recomputes colors. */
   private applyColors(): void {
     this.fg.nodeColor((n: any) => this.effectiveColor(n));
-    // Dim links whose endpoints are both outside the highlight set.
     this.fg.linkColor((l: any) => this.effectiveLinkColor(l));
   }
 
