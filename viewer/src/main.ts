@@ -329,8 +329,14 @@ async function fetchNoteBody(node: GraphNode): Promise<string | null> {
 function renderSearch(query: string): void {
   searchResults.innerHTML = "";
   const q = query.trim();
-  if (!q) return;
+  if (!q) {
+    // Cleared query: drop the canvas highlight so all nodes return to normal.
+    scene.setHighlight(null);
+    return;
+  }
   const hits = rankNodes(q, fullGraph.nodes, 20);
+  // Light up every matching node on the canvas; dim the rest.
+  scene.setHighlight(new Set(hits.map((h) => h.id)));
   for (const hit of hits) {
     const node = fullGraph.nodes.find((n) => n.id === hit.id);
     if (!node) continue;
@@ -341,6 +347,8 @@ function renderSearch(query: string): void {
       selectNode(node.id);
       searchResults.innerHTML = "";
       searchInput.value = "";
+      // Input is now empty: drop the highlight so the canvas is undimmed.
+      scene.setHighlight(null);
     });
     searchResults.appendChild(row);
   }

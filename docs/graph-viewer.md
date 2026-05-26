@@ -211,13 +211,13 @@ Close the panel with the × button.
 
 ### Search
 
-The search box (top right) filters nodes by title in real time. Typing a query surfaces a ranked results list beneath the input. Selecting a result:
+The search box (top right) filters nodes by title in real time. Typing a query surfaces a ranked results list beneath the input. While a query is active, the canvas highlights as you type: matching nodes stay lit at their full theme color while every non-matching node dims toward the dark background, so matches stand out by contrast. Selecting a result:
 
 1. Auto-expands the result's wiki (if in region mode).
-2. Flies the camera to that node via `scene.flyToNode`.
+2. Flies the camera to that node — a real per-node camera move via `scene.flyToNode`, which animates to the selected node's position and looks at it.
 3. Opens the detail panel for the node.
 
-Clearing the input dismisses the results list.
+Clearing the input dismisses the results list and removes the highlight, returning all nodes to their normal theme color.
 
 ---
 
@@ -253,8 +253,6 @@ Run through these steps after any significant change to the app shell to verify 
 
 ## Known limitations (MVP)
 
-- **`flyToNode` is a placeholder.** The current implementation calls a zoom-to-fit on the full visible graph rather than animating the camera to the specific selected node. A true fly-to animation is deferred.
-- **Search does not highlight on the canvas.** Selecting a search result surfaces a results list; it does not dim unmatched nodes or draw a glow around the matched node. Canvas-level highlight/dim is deferred.
 - **Full note-body search is not yet available.** Search only covers node titles and metadata fields indexed in `_index/tokens.json`. Full free-text search of note bodies is deferred.
 - **No in-viewer visual theme editor.** Themes must be edited in `graph-themes.json` directly (or via `PUT /graph/themes`). A GUI editor is deferred.
 

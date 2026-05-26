@@ -2,12 +2,22 @@ import { it, expect, vi, beforeEach } from "vitest";
 
 const calls: Record<string, unknown[]> = {};
 let nodeClickHandler: ((n: unknown) => void) | undefined;
+// Backing store for the mock's graphData(): a no-arg call returns this; a call
+// with an argument records it (and stores the data so flyToNode can read it back).
+let graphStore: { nodes: any[]; links: any[] } = { nodes: [], links: [] };
 
 const inst: any = new Proxy(
   {},
   {
     get: (_t, prop: string) =>
       (...args: unknown[]) => {
+        if (prop === "graphData") {
+          // No-arg read returns current data; setter records + stores it.
+          if (args.length === 0) return graphStore;
+          calls[prop] = args;
+          graphStore = args[0] as { nodes: any[]; links: any[] };
+          return inst;
+        }
         calls[prop] = args;
         if (prop === "onNodeClick") {
           nodeClickHandler = args[0] as (n: unknown) => void;
@@ -27,6 +37,7 @@ beforeEach(() => {
     delete calls[key];
   }
   nodeClickHandler = undefined;
+  graphStore = { nodes: [], links: [] };
 });
 
 it("constructor calls the factory and registers onNodeClick", () => {
@@ -104,4 +115,83 @@ it("nodeVal uses degreeToRadius for node sizing", () => {
   const r100 = accessor({ degree: 100 });
   expect(r0).toBe(2); // degreeToRadius(0) = min = 2
   expect(r100).toBeGreaterThan(r0);
+});
+
+it("flyToNode calls cameraPosition when the node exists with coordinates", () => {
+  const s = new GraphScene({} as unknown as HTMLElement);
+  s.setData({
+    nodes: [{ id: "a", x: 10, y: 20, z: 30 } as any],
+    links: [],
+  } as any);
+  s.flyToNode("a");
+  expect(calls.cameraPosition).toBeDefined();
+  const [pos, lookAt, ms] = calls.cameraPosition as [
+    { x: number; y: number; z: number },
+    unknown,
+    number,
+  ];
+  // Camera position is the node direction scaled out past the node.
+  expect(pos.x).toBeGreaterThan(10);
+  expect(pos.y).toBeGreaterThan(20);
+  expect(pos.z).toBeGreaterThan(30);
+  // lookAt is the node object itself; duration is a positive ms value.
+  expect((lookAt as { id: string }).id).toBe("a");
+  expect(ms).toBeGreaterThan(0);
+});
+
+it("flyToNode no-ops when the node is not in the graph", () => {
+  const s = new GraphScene({} as unknown as HTMLElement);
+  s.setData({ nodes: [{ id: "a", x: 1, y: 2, z: 3 } as any], links: [] } as any);
+  s.flyToNode("missing");
+  expect(calls.cameraPosition).toBeUndefined();
+});
+
+it("flyToNode no-ops when the node has no position yet", () => {
+  const s = new GraphScene({} as unknown as HTMLElement);
+  s.setData({ nodes: [{ id: "a" } as any], links: [] } as any);
+  s.flyToNode("a");
+  expect(calls.cameraPosition).toBeUndefined();
+});
+
+it("setHighlight dims non-matching nodes and keeps matches at base color", () => {
+  const s = new GraphScene({} as unknown as HTMLElement);
+  s.setNodeColor(((_n: unknown) => "#ffffff") as any);
+  s.setHighlight(new Set(["a"]));
+  // Re-read the effective accessor registered on the library.
+  const accessor = calls.nodeColor?.[0] as (n: unknown) => string;
+  expect(typeof accessor).toBe("function");
+  const lit = accessor({ id: "a" });
+  const dimmed = accessor({ id: "b" });
+  expect(lit).toBe("#ffffff");
+  expect(dimmed).not.toBe("#ffffff");
+  // Dimmed should be closer to the dark bg than the lit base.
+  expect(parseInt(dimmed.slice(1, 3), 16)).toBeLessThan(0xff);
+});
+
+it("setHighlight(null) restores base colors for all nodes", () => {
+  const s = new GraphScene({} as unknown as HTMLElement);
+  s.setNodeColor(((_n: unknown) => "#61afef") as any);
+  s.setHighlight(new Set(["a"]));
+  s.setHighlight(null);
+  const accessor = calls.nodeColor?.[0] as (n: unknown) => string;
+  expect(accessor({ id: "a" })).toBe("#61afef");
+  expect(accessor({ id: "b" })).toBe("#61afef");
+});
+
+it("setHighlight with an empty set behaves like null (no dimming)", () => {
+  const s = new GraphScene({} as unknown as HTMLElement);
+  s.setNodeColor(((_n: unknown) => "#61afef") as any);
+  s.setHighlight(new Set());
+  const accessor = calls.nodeColor?.[0] as (n: unknown) => string;
+  expect(accessor({ id: "a" })).toBe("#61afef");
+  expect(accessor({ id: "b" })).toBe("#61afef");
+});
+
+it("setNodeColor after setHighlight recomposes against the active highlight", () => {
+  const s = new GraphScene({} as unknown as HTMLElement);
+  s.setHighlight(new Set(["a"]));
+  s.setNodeColor(((_n: unknown) => "#ffffff") as any);
+  const accessor = calls.nodeColor?.[0] as (n: unknown) => string;
+  expect(accessor({ id: "a" })).toBe("#ffffff");
+  expect(accessor({ id: "b" })).not.toBe("#ffffff");
 });
