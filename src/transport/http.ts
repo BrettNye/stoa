@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
+import { serveStatic } from "@hono/node-server/serve-static";
 import type { VaultConfig } from "../config.js";
 import { loadVaultStoaConfig } from "../config.js";
 import { allTools } from "../tools/index.js";
@@ -16,6 +17,7 @@ import { httpAuthMiddleware } from "./http-auth-middleware.js";
 import { healthHandler } from "./health.js";
 import { buildCtx } from "./stdio.js";
 import type { Principal } from "../auth/types.js";
+import { registerGraphRoutes } from "./graph-routes.js";
 
 // Re-export so future surfaces can use the same ctx construction.
 export { buildCtx };
@@ -100,6 +102,13 @@ export async function startHttp(
     "/health",
     healthHandler({ vaultPath: config.vaultPath, version: "0.4.0" }),
   );
+
+  // Graph data/theme routes — PUBLIC (read-only viewer, non-sensitive).
+  // Must be registered BEFORE the bearer-auth middleware so they are reachable
+  // without a token, mirroring the /health public posture.
+  registerGraphRoutes(app, config);
+  app.use("/graph/*", serveStatic({ root: "./dist/viewer" }));
+  app.get("/graph", serveStatic({ path: "./dist/viewer/index.html" }));
 
   // Bearer middleware mounts before the catch-all /mcp route so unauthenticated
   // requests get a 401 (with WWW-Authenticate) before touching the transport.
