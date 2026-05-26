@@ -16,3 +16,9 @@ it("clamps negative input to minimum (no NaN)", () => {
   expect(degreeToRadius(-5)).toBe(minRadius);
   expect(Number.isNaN(degreeToRadius(-5))).toBe(false);
 });
+
+it("partial opts override does not produce NaN (min-only override)", () => {
+  const result = degreeToRadius(5, { min: 3 });
+  expect(Number.isFinite(result)).toBe(true);
+  expect(result).toBeGreaterThanOrEqual(3);
+});
