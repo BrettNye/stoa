@@ -8,10 +8,15 @@ export function buildGraph(pages: RawPage[], links: LinksIndex): Graph {
     return { ...p, degree };
   });
   const out: GraphLink[] = [];
+  const seen = new Set<string>();
   for (const [source, e] of Object.entries(links)) {
     if (!ids.has(source)) continue;
     for (const target of e.outbound) {
-      if (ids.has(target)) out.push({ source, target });
+      if (!ids.has(target)) continue;
+      const key = `${source}\0${target}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ source, target });
     }
   }
   return { nodes, links: out };
