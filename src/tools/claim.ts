@@ -112,16 +112,22 @@ export const claimTool = {
     const today = new Date();
     const todayIso = today.toISOString().slice(0, 10);
 
-    // Retract path (§6.5).
-    // Authorization compares against ctx.principal?.agent_id (server-mode
-    // hard break §6.5) with fallback to "stoa-local" for the no-auth local mode.
-    // input.as is NOT used as the fallback — that would allow identity spoofing.
+    // Identity is stamped from the authenticated principal, never from caller
+    // input (§6.5; spec §7 removes `authored_by` as an input field). The
+    // "stoa-local" fallback covers the no-auth local stdio mode. input.as is
+    // NOT used for identity — that would allow audit-trail spoofing. It is
+    // still consumed below for the §6.6 profile-scoping default, which is a
+    // scoping concern, not an identity/audit one.
+    const authoredBy = ctx.principal?.agent_id ?? "stoa-local";
+
+    // Retract path (§6.5): only the original principal may retract. Create and
+    // retract MUST source identity identically (both via `authoredBy`) or no
+    // claim could ever be retracted.
     if (input.retract) {
       if (!input.reason || input.reason.length === 0) {
         throw new Error("--reason is required for retraction");
       }
-      const retractAs = ctx.principal?.agent_id ?? "stoa-local";
-      return await retractAction(store, ctx.vaultPath, input.retract, retractAs, input.reason, todayIso);
+      return await retractAction(store, ctx.vaultPath, input.retract, authoredBy, input.reason, todayIso);
     }
 
     // For every other path, key is required.
@@ -162,6 +168,7 @@ export const claimTool = {
         store,
         ctx.vaultPath,
         input,
+        authoredBy,
         profile,
         move,
         scope_wiki,
@@ -184,6 +191,7 @@ export const claimTool = {
         ctx.vaultPath,
         existing,
         input,
+        authoredBy,
         profile,
         move,
         scope_wiki,
@@ -229,6 +237,7 @@ async function createAction(
   store: ClaimsStore,
   vaultPath: string,
   input: ClaimToolInput,
+  authoredBy: string,
   profile: string[],
   move: string[],
   scope_wiki: string[],
@@ -261,7 +270,7 @@ async function createAction(
     wiki,
     summary: input.title ?? input.key!,
     updated: todayIso,
-    authored_by: input.as,
+    authored_by: authoredBy,
   };
   await store.write(vaultPath, fm, input.body ?? "");
   return { claim_id: id, action: "created", reindex_recommended: true };
@@ -272,6 +281,7 @@ async function supersedeAction(
   vaultPath: string,
   existing: Awaited<ReturnType<ClaimsStore["read"]>> & object,
   input: ClaimToolInput,
+  authoredBy: string,
   profile: string[],
   move: string[],
   scope_wiki: string[],
@@ -308,7 +318,7 @@ async function supersedeAction(
     wiki,
     summary: input.title ?? input.key!,
     updated: todayIso,
-    authored_by: input.as,
+    authored_by: authoredBy,
   };
   await store.write(vaultPath, newFm, input.body ?? "");
 

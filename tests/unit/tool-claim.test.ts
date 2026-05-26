@@ -22,7 +22,16 @@ import { mkTempVault, writeClaimFile } from "../helpers.js";
 import { ClaimsStore } from "../../src/core/claims.js";
 import { scopeHash } from "../../src/core/scope-hash.js";
 
-const ctx = (vaultPath: string) => ({ vaultPath, rawConfig: {} });
+// Identity is now stamped from the principal, never from `input.as` (server-
+// mode hard break — spec §7 / §6.5). The stdio dispatcher synthesizes the
+// principal via resolveStdioIdentity; tests inject it directly. `as` is still
+// passed for the §6.6 profile-scoping default. Default agent id mirrors the
+// "agent:a" used by most cases; pass an override where identity is asserted.
+const ctx = (vaultPath: string, agentId = "agent:a") => ({
+  vaultPath,
+  rawConfig: {},
+  principal: { agent_id: agentId },
+});
 
 describe("vault_claim tool surface", () => {
   it("exports the canonical tool name and a Zod input schema", () => {
@@ -46,7 +55,7 @@ describe("vault_claim — create path", () => {
         confidence: 0.7,
         as: "agent:charmander",
       },
-      ctx(vault),
+      ctx(vault, "agent:charmander"),
     );
     expect(result.action).toBe("created");
     expect(typeof result.claim_id).toBe("string");
@@ -324,7 +333,7 @@ describe("vault_claim — retract path", () => {
     const vault = await mkTempVault();
     const first = await claimTool.handler(
       { key: "auth.x", title: "t", body: "b", as: "agent:original" },
-      ctx(vault),
+      ctx(vault, "agent:original"),
     );
     await expect(
       claimTool.handler(
@@ -333,7 +342,7 @@ describe("vault_claim — retract path", () => {
           retract: first.claim_id,
           reason: "trying to nuke another agent's claim",
         },
-        ctx(vault),
+        ctx(vault, "agent:imposter"),
       ),
     ).rejects.toThrow(/author|authored_by|retract/i);
   });

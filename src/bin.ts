@@ -38,7 +38,7 @@ async function main() {
   const cliArgv = process.argv.filter(a => {
     if (a === "--mcp") return false; // never a commander flag
     if (a.startsWith("--default-wiki=") || a.startsWith("--default-family=")) return false;
-    if (a.startsWith("--vault=")) return !isSelfConfiguring; // pass through to self-configuring subcommands
+    if (a.startsWith("--vault=")) return isSelfConfiguring; // pass through to self-configuring subcommands
     return true;
   });
 
