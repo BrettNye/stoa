@@ -211,3 +211,35 @@ it("all mode filters by tag", () => {
   expect(v.nodes.map((n) => n.id)).toEqual(["a"]);
   expect(v.links).toHaveLength(0);
 });
+
+// --- Regression: 3d-force-graph mutates link.source/target into node OBJECTS
+// after rendering "all" mode. Subsequent computes must tolerate object endpoints
+// and must emit fresh string-id links (else edges vanish on All -> Region/Focus). ---
+function mutatedGraph() {
+  const a = { id: "a", wiki: "w1", type: "concept", title: "A", summary: "", tags: [] as string[], status: "active", updated: "", path: "", degree: 1 };
+  const b = { id: "b", wiki: "w2", type: "concept", title: "B", summary: "", tags: [] as string[], status: "active", updated: "", path: "", degree: 1 };
+  // Endpoints are node OBJECTS, as d3-force leaves them post-render.
+  return { nodes: [a, b], links: [{ source: a, target: b } as any] };
+}
+
+it("region mode tolerates object link endpoints and emits string-id links", () => {
+  const v = computeVisibleGraph(mutatedGraph(), base);
+  const link = v.links.find((l) => l.source === "wiki:w1");
+  expect(link?.target).toBe("wiki:w2");
+  expect(typeof v.links[0].source).toBe("string");
+  expect(typeof v.links[0].target).toBe("string");
+});
+
+it("all mode tolerates object link endpoints and emits string-id links", () => {
+  const view: ViewState = { mode: "all", expandedWikis: new Set(), focusId: null, hops: 1 };
+  const v = computeVisibleGraph(mutatedGraph(), view);
+  expect(v.links).toHaveLength(1);
+  expect(v.links[0]).toEqual({ source: "a", target: "b" });
+});
+
+it("focus mode tolerates object link endpoints in its BFS adjacency", () => {
+  const view: ViewState = { mode: "focus", expandedWikis: new Set(), focusId: "a", hops: 1 };
+  const v = computeVisibleGraph(mutatedGraph(), view);
+  expect(v.nodes.map((n) => n.id).sort()).toEqual(["a", "b"]);
+  expect(v.links[0]).toEqual({ source: "a", target: "b" });
+});
