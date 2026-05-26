@@ -107,8 +107,12 @@ export async function startHttp(
   // Must be registered BEFORE the bearer-auth middleware so they are reachable
   // without a token, mirroring the /health public posture.
   registerGraphRoutes(app, config);
-  app.use("/graph/*", serveStatic({ root: "./dist/viewer" }));
   app.get("/graph", serveStatic({ path: "./dist/viewer/index.html" }));
+  app.use("/graph/*", serveStatic({ root: "./dist/viewer" }));
+  // The built index.html references its bundle at root-absolute `/assets/...`
+  // (Vite's default base), so serve the asset dir at the root too — otherwise
+  // the JS/CSS 404 even though /graph renders.
+  app.use("/assets/*", serveStatic({ root: "./dist/viewer" }));
 
   // Bearer middleware mounts before the catch-all /mcp route so unauthenticated
   // requests get a 401 (with WWW-Authenticate) before touching the transport.

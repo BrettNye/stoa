@@ -107,4 +107,13 @@ describe("graph routes (public — no bearer required)", () => {
     // acceptable — 500 would indicate the route handler itself threw.
     expect(res.status).not.toBe(500);
   });
+
+  it("GET /assets/* is served publicly (viewer bundle, not bearer-gated)", async () => {
+    // The built index.html references its JS/CSS at root-absolute /assets/...,
+    // so this mount must exist and be public. 200 if built, 404 if not — but
+    // never 401 (gated) and never 500 (handler threw).
+    const res = await fetch(`http://127.0.0.1:${port}/assets/index.js`);
+    expect(res.status).not.toBe(401);
+    expect(res.status).not.toBe(500);
+  });
 });
