@@ -5,23 +5,23 @@ created: 2026-05-26
 
 ```mermaid
 flowchart TD
-    task-scaffold["task-scaffold: scaffold viewer Vite project<br/>files: package.json +5 more"]
-    task-graph-types["task-graph-types: graph contract types<br/>files: src/types/graph.ts +1 more"]
-    task-theme-types["task-theme-types: theme contract types<br/>files: src/types/theme.ts +1 more"]
-    task-normalize["task-normalize: graph normalization<br/>files: src/core/graph.ts +1 more"]
-    task-encoding["task-encoding: visual encoding helpers<br/>files: viewer/src/graph/encoding.ts +1 more"]
-    task-theme-resolve["task-theme-resolve: theme color resolution<br/>files: viewer/src/theme/resolve.ts +1 more"]
-    task-visible-graph["task-visible-graph: visible-graph computation<br/>files: viewer/src/nav/visible-graph.ts +1 more"]
-    task-search-rank["task-search-rank: search ranking<br/>files: viewer/src/search/rank.ts +1 more"]
-    task-wikilinks["task-wikilinks: wikilink resolution<br/>files: viewer/src/panel/wikilinks.ts +1 more"]
-    task-panel-render["task-panel-render: markdown body rendering<br/>files: viewer/src/panel/render.ts +1 more"]
-    task-data-load["task-data-load: graph data loading<br/>files: viewer/src/data/load.ts +1 more"]
-    task-scene["task-scene: 3D scene wrapper<br/>files: viewer/src/graph/scene.ts +1 more"]
-    task-graph-routes["task-graph-routes: graph server routes<br/>files: src/transport/graph-routes.ts +1 more"]
-    task-http-wiring["task-http-wiring: register graph routes in HTTP server<br/>files: src/transport/http.ts +1 more"]
-    task-cli-graph["task-cli-graph: stoa graph CLI command<br/>files: src/cli/commands/graph.ts +2 more"]
-    task-app-shell["task-app-shell: viewer app shell<br/>files: viewer/src/main.ts +1 more"]
-    task-docs["task-docs: graph viewer documentation<br/>files: docs/graph-viewer.md"]
+    task-scaffold["task-scaffold: scaffold viewer Vite project<br/>files: package.json +5 more"]:::done
+    task-graph-types["task-graph-types: graph contract types<br/>files: src/types/graph.ts +1 more"]:::done
+    task-theme-types["task-theme-types: theme contract types<br/>files: src/types/theme.ts +1 more"]:::done
+    task-normalize["task-normalize: graph normalization<br/>files: src/core/graph.ts +1 more"]:::done
+    task-encoding["task-encoding: visual encoding helpers<br/>files: viewer/src/graph/encoding.ts +1 more"]:::done
+    task-theme-resolve["task-theme-resolve: theme color resolution<br/>files: viewer/src/theme/resolve.ts +1 more"]:::done
+    task-visible-graph["task-visible-graph: visible-graph computation<br/>files: viewer/src/nav/visible-graph.ts +1 more"]:::done
+    task-search-rank["task-search-rank: search ranking<br/>files: viewer/src/search/rank.ts +1 more"]:::done
+    task-wikilinks["task-wikilinks: wikilink resolution<br/>files: viewer/src/panel/wikilinks.ts +1 more"]:::done
+    task-panel-render["task-panel-render: markdown body rendering<br/>files: viewer/src/panel/render.ts +1 more"]:::done
+    task-data-load["task-data-load: graph data loading<br/>files: viewer/src/data/load.ts +1 more"]:::done
+    task-scene["task-scene: 3D scene wrapper<br/>files: viewer/src/graph/scene.ts +1 more"]:::done
+    task-graph-routes["task-graph-routes: graph server routes<br/>files: src/transport/graph-routes.ts +1 more"]:::done
+    task-http-wiring["task-http-wiring: register graph routes in HTTP server<br/>files: src/transport/http.ts +1 more"]:::done
+    task-cli-graph["task-cli-graph: stoa graph CLI command<br/>files: src/cli/commands/graph.ts +2 more"]:::done
+    task-app-shell["task-app-shell: viewer app shell<br/>files: viewer/src/main.ts +1 more"]:::done
+    task-docs["task-docs: graph viewer documentation<br/>files: docs/graph-viewer.md"]:::done
 
     task-graph-types --> task-normalize
     task-scaffold --> task-encoding
@@ -93,7 +93,7 @@ files:
   - viewer/index.html
   - viewer/src/main.ts
   - vitest.config.ts
-status: pending
+status: done
 is_wiring_task: true
 ```
 
@@ -166,7 +166,7 @@ depends_on: []
 files:
   - src/types/graph.ts
   - src/types/graph.test.ts
-status: pending
+status: done
 ```
 
 The shared graph data contract: zod schemas for the raw `_index` shapes (`pages.json`, `links.json`) plus the normalized `GraphNode` / `GraphLink` / `Graph` types the whole viewer and the server route consume. Per spec §3.1.
@@ -237,7 +237,7 @@ depends_on: []
 files:
   - src/types/theme.ts
   - src/types/theme.test.ts
-status: pending
+status: done
 ```
 
 The shared theming contract: zod schemas for `ColorRule`, `Theme`, and the on-disk `ThemesFile`. Used by the viewer's color resolver and by the server's `PUT /graph/themes` validation. Per spec §6.
@@ -303,7 +303,7 @@ depends_on: [task-graph-types]
 files:
   - src/core/graph.ts
   - src/core/graph.test.ts
-status: pending
+status: done
 ```
 
 Pure normalization from the two raw `_index` shapes into the `Graph` consumed by the viewer and the server route. One `GraphNode` per page (with `degree` = outbound+inbound), one `GraphLink` per outbound edge, dangling edges dropped. Per spec §3.1. Shared by `task-data-load` (static mode) and `task-graph-routes` (served mode) — single source of truth.
@@ -367,7 +367,7 @@ depends_on: [task-scaffold]
 files:
   - viewer/src/graph/encoding.ts
   - viewer/src/graph/encoding.test.ts
-status: pending
+status: done
 ```
 
 Pure, deterministic visual-encoding helpers used by the 3D scene: node radius as a function of degree (hubs bigger, bounded), and the control-type cycle for the trackball/orbit toggle. Per spec §4.4, §6.3.
@@ -420,7 +420,7 @@ depends_on: [task-scaffold, task-graph-types, task-theme-types]
 files:
   - viewer/src/theme/resolve.ts
   - viewer/src/theme/resolve.test.ts
-status: pending
+status: done
 ```
 
 Pure theme engine: given a node and a theme, resolve its color via per-wiki rules first, then global rules (first match wins), then a stable palette hue keyed on the `defaultBy` dimension. Per spec §6.1. Built-in named palettes live here.
@@ -495,7 +495,7 @@ depends_on: [task-scaffold, task-graph-types]
 files:
   - viewer/src/nav/visible-graph.ts
   - viewer/src/nav/visible-graph.test.ts
-status: pending
+status: done
 ```
 
 Pure transform from the full `Graph` + a `ViewState` to the sub-graph the scene should render — the logic core behind all three navigation modes (region drill-down, show-all+filters, focus/neighborhood). Per spec §4.1–§4.3. Collapsed wikis collapse to one synthetic super-node; inter-wiki edges to a collapsed wiki retarget onto its super-node.
@@ -569,7 +569,7 @@ depends_on: [task-scaffold, task-graph-types]
 files:
   - viewer/src/search/rank.ts
   - viewer/src/search/rank.test.ts
-status: pending
+status: done
 ```
 
 Pure client-side metadata search: rank nodes against a query over `title / summary / tags / id`. Per spec §7. Powers both type-to-highlight and type-to-focus in the UI.
@@ -632,7 +632,7 @@ depends_on: [task-scaffold, task-graph-types]
 files:
   - viewer/src/panel/wikilinks.ts
   - viewer/src/panel/wikilinks.test.ts
-status: pending
+status: done
 ```
 
 Resolve the wikilinks in a note body to target node ids for the detail panel, **reusing** the pre-existing pure `extractWikilinks()` from `src/core/wikilinks.ts` (DRY — no second parser). Maps each extracted ref's `id` to a known node, flagging unresolved links. Per spec §5, §9.
@@ -688,7 +688,7 @@ depends_on: [task-scaffold, task-wikilinks]
 files:
   - viewer/src/panel/render.ts
   - viewer/src/panel/render.test.ts
-status: pending
+status: done
 ```
 
 Render a note's markdown body to HTML with `markdown-it`, then rewrite its wikilinks into clickable anchors (resolved) or dead-link spans (unresolved), using the resolver from `task-wikilinks`. Output HTML is what the detail panel injects. Per spec §5.
@@ -745,7 +745,7 @@ depends_on: [task-scaffold, task-normalize]
 files:
   - viewer/src/data/load.ts
   - viewer/src/data/load.test.ts
-status: pending
+status: done
 ```
 
 The viewer's two data acquisition paths: `loadStatic` fetches `_index/pages.json` + `_index/links.json` and normalizes via shared `buildGraph`; `loadServed` fetches the pre-normalized `/graph/data`. A typed error signals missing/old index for the UI banner. Per spec §3.1, §9.
@@ -808,7 +808,7 @@ depends_on: [task-scaffold, task-graph-types, task-encoding]
 files:
   - viewer/src/graph/scene.ts
   - viewer/src/graph/scene.test.ts
-status: pending
+status: done
 ```
 
 Thin wrapper around `3d-force-graph` exposing a typed API the app shell drives: set data, set node color/size accessors, switch control type (trackball/orbit/fly), toggle directional particles, fly camera to a node, and a node-click callback. Per spec §4.4, §6.3. Library interaction is unit-tested by mocking `3d-force-graph` (real WebGL is exercised only in the manual smoke).
@@ -873,7 +873,7 @@ depends_on: [task-normalize, task-theme-types]
 files:
   - src/transport/graph-routes.ts
   - src/transport/graph-routes.test.ts
-status: pending
+status: done
 ```
 
 A Hono route registrar exposing the served-mode data + theme endpoints: `GET /graph/data` (reads the index, returns normalized `Graph` via shared `buildGraph`), `GET /graph/themes` and `PUT /graph/themes` (read/atomically-write `graph-themes.json`, validating input with the shared `Theme` schema). Per spec §3.2, §6.4.
@@ -952,7 +952,7 @@ depends_on: [task-graph-routes]
 files:
   - src/transport/http.ts
   - src/transport/graph-mount.test.ts
-status: pending
+status: done
 is_wiring_task: true
 ```
 
@@ -988,7 +988,7 @@ files:
   - src/cli/commands/graph.ts
   - src/cli/commands/graph.test.ts
   - src/cli/index.ts
-status: pending
+status: done
 is_wiring_task: true
 ```
 
@@ -1050,7 +1050,7 @@ depends_on: [task-scene, task-theme-resolve, task-visible-graph, task-search-ran
 files:
   - viewer/src/main.ts
   - viewer/src/styles.css
-status: pending
+status: done
 is_wiring_task: true
 model_hint: opus
 ```
@@ -1089,7 +1089,7 @@ id: task-docs
 depends_on: [task-app-shell, task-http-wiring, task-cli-graph]
 files:
   - docs/graph-viewer.md
-status: pending
+status: done
 is_wiring_task: true
 ```
 
