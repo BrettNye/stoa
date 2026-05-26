@@ -5,7 +5,8 @@ import type { Theme } from "@stoa/types/theme";
 
 import { GraphScene } from "./graph/scene.js";
 import { nextControlType, type ControlType } from "./graph/encoding.js";
-import { resolveNodeColor } from "./theme/resolve.js";
+import { resolveNodeColor, hueScale, type ColorScales } from "./theme/resolve.js";
+import { computeLegend } from "./theme/legend.js";
 import { computeVisibleGraph, type ViewState } from "./nav/visible-graph.js";
 import { rankNodes } from "./search/rank.js";
 import { renderNoteBody } from "./panel/render.js";
@@ -32,6 +33,8 @@ const WIKI_ID_PREFIX = "wiki:";
 
 let fullGraph: Graph = { nodes: [], links: [] };
 let knownIds: Set<string> = new Set();
+/** Distinct color scales (by wiki / by type), built once from the full graph. */
+let scales: ColorScales = { wiki: new Map(), type: new Map() };
 let activeTheme: Theme = DEFAULT_THEME;
 let controlType: ControlType = "trackball";
 
@@ -146,6 +149,28 @@ document.body.appendChild(search);
 
 searchInput.addEventListener("input", () => renderSearch(searchInput.value));
 
+// --- Legend -----------------------------------------------------------------
+// Maps swatch colors -> wiki/type. Hidden until the first render (boot) so an
+// empty box never floats over the canvas (e.g. the reindex-banner path).
+const legend = el("div", { class: "legend", style: "display:none" });
+const legendHeader = el("div", { class: "legend-header" });
+const legendTitle = el("span", { class: "legend-title" }, "Legend");
+const legendToggle = el("button", { class: "legend-toggle", type: "button" }, "−");
+legendHeader.appendChild(legendTitle);
+legendHeader.appendChild(legendToggle);
+const legendBody = el("div", { class: "legend-body" });
+legend.appendChild(legendHeader);
+legend.appendChild(legendBody);
+document.body.appendChild(legend);
+
+let legendCollapsed = false;
+// One listener on the header covers clicks on the toggle button too (it bubbles).
+legendHeader.addEventListener("click", () => {
+  legendCollapsed = !legendCollapsed;
+  legend.classList.toggle("collapsed", legendCollapsed);
+  legendToggle.textContent = legendCollapsed ? "+" : "−";
+});
+
 // --- Detail panel -----------------------------------------------------------
 const panel = el("div", { class: "panel" });
 const panelClose = el("button", { class: "panel-close", type: "button" }, "×");
@@ -221,7 +246,54 @@ function populateThemeSelect(): void {
 // ---------------------------------------------------------------------------
 
 function applyColors(): void {
-  scene.setNodeColor((n: GraphNode) => resolveNodeColor(n, activeTheme));
+  scene.setNodeColor((n: GraphNode) =>
+    // Region super-nodes represent a wiki, so always color them by wiki
+    // (their synthetic `__wiki__` type is meaningless for by-type coloring).
+    n.type === WIKI_NODE_TYPE
+      ? scales.wiki.get(n.wiki) ?? "#888888"
+      : resolveNodeColor(n, activeTheme, scales),
+  );
+  renderLegend();
+}
+
+/**
+ * Nodes the legend should describe: the visible graph, but with collapsed-wiki
+ * super-nodes expanded back into the real nodes they stand for. Without this,
+ * any view that shows super-nodes (region mode, or focus mode before a focus
+ * node is chosen) would leave the legend empty — the canvas has bubbles but no
+ * real nodes to color-key.
+ */
+function legendNodes(): GraphNode[] {
+  // Describe exactly what's drawn: region super-nodes become by-wiki rows and
+  // real nodes group by the active dimension (no super-node expansion).
+  return computeVisibleGraph(fullGraph, view).nodes;
+}
+
+function renderLegend(): void {
+  // Region mode draws wiki super-nodes (colored by wiki); reflect that in the
+  // title even when the by-type toggle is set, since super-nodes ignore it.
+  const collapsedRegion = view.mode === "region" && view.expandedWikis.size === 0;
+  const dim = collapsedRegion ? "wiki" : activeTheme.defaultBy;
+  legendTitle.textContent = `Legend · by ${dim}`;
+  const entries = computeLegend(legendNodes(), activeTheme, scales);
+  legendBody.innerHTML = "";
+  legend.style.display = "";
+  if (entries.length === 0) {
+    legendBody.appendChild(el("div", { class: "legend-empty" }, "No nodes to show"));
+    return;
+  }
+  for (const e of entries) {
+    const text = e.sublabel ? `${e.label} · ${e.sublabel}` : e.label;
+    const row = el("div", { class: "legend-row" });
+    const swatch = el("span", { class: "legend-swatch" });
+    swatch.style.background = e.color;
+    row.appendChild(swatch);
+    const label = el("span", { class: "legend-label" }, text);
+    label.title = text;
+    row.appendChild(label);
+    row.appendChild(el("span", { class: "legend-count" }, String(e.count)));
+    legendBody.appendChild(row);
+  }
 }
 
 function rerender(): void {
@@ -394,6 +466,12 @@ async function boot(): Promise<void> {
 
   fullGraph = graph;
   knownIds = new Set(graph.nodes.map((n) => n.id));
+  // Build distinct color scales from the full domain so colors are stable and
+  // collision-free regardless of which nodes are currently visible.
+  scales = {
+    wiki: hueScale(graph.nodes.map((n) => n.wiki)),
+    type: hueScale(graph.nodes.map((n) => n.type)),
+  };
 
   await loadThemes();
 

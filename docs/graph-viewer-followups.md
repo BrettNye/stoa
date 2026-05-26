@@ -31,17 +31,32 @@ toggle · directional-particle checkbox · search box · detail panel.
 
 ## Backlog
 
-### P1 — Legend
-Nothing currently maps colors → meaning, which is rough with 16 wikis.
-- Render a legend panel alongside the controls listing each visible
-  wiki (when `defaultBy: "wiki"`) or each type (when `defaultBy: "type"`) with its
-  resolved swatch color. It must re-derive from the **same** `resolveNodeColor`
-  used by the scene so colors match exactly (don't recompute the palette
-  independently — import from `viewer/src/theme/resolve.ts`).
-- Swap legend contents when the By-wiki/By-type toggle flips.
-- Reflect active per-wiki rule overrides (e.g. meal-planning `recipe → red`)
-  when present in `graph-themes.json`.
-- Collapsible; should not obscure the canvas.
+### P1 — Legend ✅ DONE
+Done in `viewer/src/theme/legend.ts` (pure `computeLegend`, unit-tested in
+`legend.test.ts`) + DOM/CSS wiring in `viewer/src/main.ts` / `styles.css`.
+- Collapsible panel, bottom-left, listing each wiki (`defaultBy: "wiki"`) or each
+  type (`defaultBy: "type"`) with a swatch + node count. Title reads
+  "Legend · by wiki|type".
+- Swatches re-derive through the **same** `resolveNodeColor`, so colors match the
+  canvas exactly. Refreshes from `applyColors()`, so it tracks the By-wiki/By-type
+  flip, theme switches, mode changes, and wiki expand/collapse.
+- Per-wiki / global rule overrides (e.g. meal-planning `recipe → red`) render as
+  extra sub-rows under the group, labeled by the secondary dimension. (No
+  overrides appear against the current vault — it has no `graph-themes.json`, so
+  the default ruleless theme is used.)
+- Describes the **visible** nodes exactly: region super-nodes render as by-wiki
+  rows (count = the wiki's page count), real nodes group by the active dimension.
+  In collapsed region mode the title reads "by wiki" even if the by-type toggle
+  is set, since super-nodes always colour by wiki.
+
+### Colour scale — distinct hues, no collisions ✅ DONE
+- Region super-nodes always colour **by wiki** (their synthetic `__wiki__` type is
+  meaningless for by-type), so the Regions bubbles + legend agree.
+- The default by-wiki / by-type colouring now uses `hueScale` in
+  `viewer/src/theme/resolve.ts` — evenly-spaced, deterministic hues so N wikis/types
+  get N distinct colours (no more hash collisions like concept/`__wiki__` both blue).
+  Scales are built once from the full graph in `main.ts`. Named non-"default"
+  palettes keep the legacy hash-into-palette behaviour.
 
 ### P1 — Advanced search & filters
 The data layer already supports filtering (`computeVisibleGraph` reads
