@@ -21,8 +21,11 @@ const { MockSpriteText } = vi.hoisted(() => {
       this.textSetCount++;
     }
     visible = true;
+    positionSetCount = 0;
     position = {
-      set(_x: number, _y: number, _z: number) {},
+      set: (_x: number, _y: number, _z: number) => {
+        this.positionSetCount++;
+      },
     };
   }
   return { MockSpriteText };
@@ -42,6 +45,7 @@ const calls: Record<string, unknown[]> = {};
 let builds: Array<{ controlType?: string } | undefined> = [];
 let nodeClickHandler: ((n: unknown) => void) | undefined;
 let nodeHoverHandler: ((n: unknown) => void) | undefined;
+let engineStopHandler: (() => void) | undefined;
 let graphStore: { nodes: any[]; links: any[] } = { nodes: [], links: [] };
 
 // Fake THREE.Scene for label pool tracking
@@ -76,6 +80,8 @@ const inst: any = {
   linkDirectionalParticles(n: unknown) { calls.linkDirectionalParticles = [n]; return inst; },
   warmupTicks(n: unknown) { calls.warmupTicks = [n]; return inst; },
   cooldownTicks(n: unknown) { calls.cooldownTicks = [n]; return inst; },
+  nodeResolution(n: unknown) { calls.nodeResolution = [n]; return inst; },
+  onEngineStop(fn: any) { engineStopHandler = fn; calls.onEngineStop = [fn]; return inst; },
   graphData(d?: any) {
     if (d === undefined) return graphStore;
     calls.graphData = [d];
@@ -159,6 +165,7 @@ beforeEach(() => {
   builds = [];
   nodeClickHandler = undefined;
   nodeHoverHandler = undefined;
+  engineStopHandler = undefined;
   graphStore = { nodes: [], links: [] };
   fakeScene = makeFakeScene();
   cameraPos = { x: 0, y: 0, z: 0 };
@@ -170,6 +177,7 @@ it("constructor builds with orbit (default) and registers nodeVal + onNodeClick"
   expect(builds[0]).toEqual({ controlType: "orbit" });
   expect(calls.nodeVal).toBeDefined();
   expect(calls.onNodeClick).toBeDefined();
+  expect(calls.nodeResolution).toBeDefined();
   void s;
 });
 
@@ -225,6 +233,27 @@ it("does not re-render a sprite's texture when its label is unchanged across pas
   s.syncLabels();
   const afterSecond = sprites.map((c: any) => c.textSetCount);
   expect(afterSecond).toEqual(afterFirst);
+});
+
+it("idle-skips the label recompute once the engine settles (no camera/hover change)", () => {
+  const s = new GraphScene({} as unknown as HTMLElement);
+  s.setData({ nodes: [hub, leaf], links: [] });
+  s.setLabelsEnabled(true);
+  s.syncLabels(); // engine not settled yet -> runs, positions labels, records cam
+  const sprites = fakeScene.children.filter((c: any) => c instanceof MockSpriteText);
+  const before = sprites.map((c: any) => c.positionSetCount);
+  expect(before.some((n: number) => n > 0)).toBe(true);
+
+  // Engine cools -> settled. Same camera + hover: the next pass must skip.
+  engineStopHandler?.();
+  s.syncLabels();
+  expect(sprites.map((c: any) => c.positionSetCount)).toEqual(before);
+
+  // Camera moves -> recompute resumes.
+  cameraPos = { x: 10, y: 0, z: 0 };
+  s.syncLabels();
+  const moved = sprites.map((c: any) => c.positionSetCount);
+  expect(moved.some((n: number, i: number) => n > before[i])).toBe(true);
 });
 
 it("setControlType is a no-op when unchanged (default orbit at boot)", () => {

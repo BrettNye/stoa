@@ -32,6 +32,11 @@ const WARMUP_TICKS = 60;
  * promptly, instead of re-rendering every tick for the default ~15s cooldown.
  */
 const COOLDOWN_TICKS = 200;
+/**
+ * Sphere triangle detail per node (3d-force-graph default is 8). Lower trims
+ * GPU fill cost when many nodes are on screen; 6 still reads as round.
+ */
+const NODE_RESOLUTION = 6;
 
 const HUB_COUNT = 3;
 const LABEL_BUDGET = 12;
@@ -75,6 +80,11 @@ export class GraphScene {
   private hoveredId: string | null = null;
   private labelPool: LabelSprite[] = [];
   private rafId: number | null = null;
+  // Idle-skip state: once the layout settles, syncLabels short-circuits unless
+  // the camera moved or the hovered node changed, so a static graph is ~free.
+  private engineSettled = false;
+  private lastSyncCam: { x: number; y: number; z: number } | null = null;
+  private lastSyncHover: string | null = null;
 
   constructor(el: HTMLElement, cb: SceneCallbacks = {}) {
     this.el = el;
@@ -85,6 +95,9 @@ export class GraphScene {
   setData(g: Graph): void {
     this.data = g;
     this.fg.graphData({ nodes: g.nodes, links: g.links });
+    // New layout reheats the sim; resync labels until it settles again.
+    this.engineSettled = false;
+    this.lastSyncCam = null;
   }
 
   setNodeColor(fn: (n: GraphNode) => string): void {
@@ -139,6 +152,7 @@ export class GraphScene {
   setLabelsEnabled(on: boolean): void {
     this.labelsEnabled = on;
     if (on) {
+      this.lastSyncCam = null; // force a sync on (re)enable
       this.startLabelLoop();
     } else {
       this.stopLabelLoop();
@@ -149,6 +163,7 @@ export class GraphScene {
   /** Change the text accessor used for label text. Triggers a sync immediately if enabled. */
   setLabelAccessor(fn: (n: GraphNode) => string): void {
     this.labelAccessor = fn;
+    this.lastSyncCam = null; // accessor changed -> force a relabel
     this.syncLabels();
   }
 
@@ -159,6 +174,21 @@ export class GraphScene {
   syncLabels(): void {
     if (!this.labelsEnabled) return;
     const cam = this.fg.camera();
+    const p = cam.position;
+    // Idle-skip: once settled, only recompute when the camera moved or the
+    // hovered node changed. Skips the full O(N log N) scan on a static graph.
+    if (
+      this.engineSettled &&
+      this.lastSyncCam &&
+      this.lastSyncCam.x === p.x &&
+      this.lastSyncCam.y === p.y &&
+      this.lastSyncCam.z === p.z &&
+      this.lastSyncHover === this.hoveredId
+    ) {
+      return;
+    }
+    this.lastSyncCam = { x: p.x, y: p.y, z: p.z };
+    this.lastSyncHover = this.hoveredId;
     const nodes = this.fg.graphData().nodes as Array<GraphNode & { x?: number; y?: number; z?: number }>;
     const candidates: LabelCandidate[] = [];
     for (const n of nodes) {
@@ -202,7 +232,9 @@ export class GraphScene {
       });
     // Bound the force sim so large (re)layouts settle off-screen and stop
     // promptly, rather than exploding on-screen and animating for ~15s.
-    fg.warmupTicks(WARMUP_TICKS).cooldownTicks(COOLDOWN_TICKS);
+    fg.warmupTicks(WARMUP_TICKS).cooldownTicks(COOLDOWN_TICKS).nodeResolution(NODE_RESOLUTION);
+    // Mark the layout settled when the engine cools, so the label loop can idle.
+    fg.onEngineStop(() => { this.engineSettled = true; });
     // Cursor-centric zoom: the wheel dollies toward the point under the pointer.
     // This is an OrbitControls feature; TrackballControls has no equivalent, so
     // it only applies in orbit mode.
@@ -213,6 +245,9 @@ export class GraphScene {
     fg.linkDirectionalParticles(this.particles ? 2 : 0);
     this.applyColors();
 
+    // New engine starts hot; force a relabel pass and let it re-settle.
+    this.engineSettled = false;
+    this.lastSyncCam = null;
     // Re-establish label pool in the new scene and restart loop if enabled.
     this.reAddPoolToScene();
     if (this.labelsEnabled) {
