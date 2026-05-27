@@ -32,17 +32,15 @@ export function selectLabeledIds(
   const byDegree = [...real].sort(
     (a, b) => b.degree - a.degree || a.id.localeCompare(b.id),
   );
-  const hubIds = new Set(byDegree.slice(0, Math.max(0, hubCount)).map((c) => c.id));
   let realCount = 0;
-  for (const c of byDegree) {
-    if (!hubIds.has(c.id)) continue;
+  for (const c of byDegree.slice(0, Math.max(0, hubCount))) {
     if (realCount >= budget) break;
     add(c.id); realCount++;
   }
 
   // 3. proximity fill to budget by nearest distance within maxDistance
   const rest = real
-    .filter((c) => !hubIds.has(c.id) && c.distance <= maxDistance)
+    .filter((c) => !chosen.has(c.id) && c.distance <= maxDistance)
     .sort((a, b) => a.distance - b.distance || b.degree - a.degree || a.id.localeCompare(b.id));
   for (const c of rest) {
     if (realCount >= budget) break;

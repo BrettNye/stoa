@@ -289,6 +289,28 @@ it("output order is: regions first, then hubs, then proximity", () => {
 });
 
 // ---------------------------------------------------------------------------
+// hubCount > budget: budget is the hard cap, excess hubs never displace proximity
+// ---------------------------------------------------------------------------
+
+it("budget is the hard cap when hubCount > budget: only top-degree ids are selected", () => {
+  // Three real candidates: degrees 10, 9, 8.
+  // The degree-8 node is the nearest (distance 5), but hubCount=3 with budget=2
+  // means only the two highest-degree ids win — the budget is hit before the
+  // third hub is added, and the nearest-but-lower-degree node does NOT sneak in
+  // via proximity fill either (budget is already full).
+  const candidates = [
+    makeReal("high", 10, 100),
+    makeReal("mid", 9, 200),
+    makeReal("near-low", 8, 5), // nearest but lowest degree
+  ];
+  const ids = selectLabeledIds(candidates, { hubCount: 3, budget: 2 });
+  expect(ids).toHaveLength(2);
+  expect(ids).toContain("high");
+  expect(ids).toContain("mid");
+  expect(ids).not.toContain("near-low");
+});
+
+// ---------------------------------------------------------------------------
 // Edge cases
 // ---------------------------------------------------------------------------
 
