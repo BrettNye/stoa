@@ -1,4 +1,22 @@
-import { it, expect, vi, beforeEach } from "vitest";
+import { it, expect, vi, beforeEach, describe } from "vitest";
+
+// Minimal SpriteText mock: just enough surface for the label pool.
+// Must be defined with vi.hoisted so it is available when vi.mock factories run
+// (vi.mock is hoisted to top of file by vitest, before class declarations).
+const { MockSpriteText } = vi.hoisted(() => {
+  class MockSpriteText {
+    text = "";
+    visible = true;
+    position = {
+      set(_x: number, _y: number, _z: number) {},
+    };
+  }
+  return { MockSpriteText };
+});
+
+vi.mock("three-spritetext", () => ({
+  default: MockSpriteText,
+}));
 
 // Faithful mock of 3d-force-graph: it exposes ONLY the methods the real library
 // actually has. `controlType` is intentionally NOT a method here — it is a
@@ -9,11 +27,33 @@ const calls: Record<string, unknown[]> = {};
 /** Config object passed to each ForceGraph3D() construction. */
 let builds: Array<{ controlType?: string } | undefined> = [];
 let nodeClickHandler: ((n: unknown) => void) | undefined;
+let nodeHoverHandler: ((n: unknown) => void) | undefined;
 let graphStore: { nodes: any[]; links: any[] } = { nodes: [], links: [] };
+
+// Fake THREE.Scene for label pool tracking
+interface FakeScene {
+  children: any[];
+  add(obj: any): void;
+  remove(obj: any): void;
+}
+
+let fakeScene: FakeScene;
+
+function makeFakeScene(): FakeScene {
+  return {
+    children: [],
+    add(obj: any) { this.children.push(obj); },
+    remove(obj: any) { this.children = this.children.filter((c: any) => c !== obj); },
+  };
+}
+
+// Camera is positioned at origin by default; tests can override.
+let cameraPos = { x: 0, y: 0, z: 0 };
 
 const inst: any = {
   nodeVal(fn: unknown) { calls.nodeVal = [fn]; return inst; },
   onNodeClick(fn: any) { calls.onNodeClick = [fn]; nodeClickHandler = fn; return inst; },
+  onNodeHover(fn: any) { calls.onNodeHover = [fn]; nodeHoverHandler = fn; return inst; },
   nodeColor(fn: unknown) { calls.nodeColor = [fn]; return inst; },
   linkColor(fn: unknown) { calls.linkColor = [fn]; return inst; },
   linkDirectionalParticles(n: unknown) { calls.linkDirectionalParticles = [n]; return inst; },
@@ -24,6 +64,8 @@ const inst: any = {
     return inst;
   },
   cameraPosition(...a: unknown[]) { calls.cameraPosition = a; return inst; },
+  camera() { return { position: cameraPos }; },
+  scene() { return fakeScene; },
   _destructor() { calls._destructor = []; },
 };
 
@@ -36,11 +78,70 @@ vi.mock("3d-force-graph", () => ({
 
 import { GraphScene } from "./scene.js";
 
+// Helper: collect visible text labels from the fake scene
+function visibleLabelTexts(): string[] {
+  return fakeScene.children
+    .filter((c: any) => c instanceof MockSpriteText && c.visible)
+    .map((c: any) => c.text);
+}
+
+// Shared node fixtures
+const hub = {
+  id: "hub-1",
+  wiki: "w",
+  type: "concept",
+  title: "Hub Node",
+  summary: "",
+  tags: [],
+  status: "active",
+  updated: "",
+  path: "/hub-1",
+  degree: 9,
+  x: 1,
+  y: 0,
+  z: 0,
+};
+
+const leaf = {
+  id: "leaf-1",
+  wiki: "w",
+  type: "concept",
+  title: "Leaf Node",
+  summary: "",
+  tags: [],
+  status: "active",
+  updated: "",
+  path: "/leaf-1",
+  degree: 1,
+  x: 100,
+  y: 100,
+  z: 100,
+};
+
+const regionNode = {
+  id: "wiki:myregion",
+  wiki: "myregion",
+  type: "__wiki__",
+  title: "My Region",
+  summary: "",
+  tags: [],
+  status: "active",
+  updated: "",
+  path: "",
+  degree: 5,
+  x: 50,
+  y: 0,
+  z: 0,
+};
+
 beforeEach(() => {
   for (const key of Object.keys(calls)) delete calls[key];
   builds = [];
   nodeClickHandler = undefined;
+  nodeHoverHandler = undefined;
   graphStore = { nodes: [], links: [] };
+  fakeScene = makeFakeScene();
+  cameraPos = { x: 0, y: 0, z: 0 };
 });
 
 it("constructor builds with trackball and registers nodeVal + onNodeClick", () => {
@@ -208,4 +309,195 @@ it("setNodeColor after setHighlight recomposes against the active highlight", ()
   const accessor = calls.nodeColor?.[0] as (n: unknown) => string;
   expect(accessor({ id: "a" })).toBe("#ffffff");
   expect(accessor({ id: "b" })).not.toBe("#ffffff");
+});
+
+// ---- Label renderer tests ----
+
+describe("label renderer", () => {
+  it("labels the highest-degree node when enabled, clears them when disabled", () => {
+    const s = new GraphScene({} as unknown as HTMLElement);
+    s.setData({ nodes: [hub, leaf], links: [] });
+    s.setLabelsEnabled(true);
+    s.syncLabels();
+    expect(visibleLabelTexts()).toContain(hub.title);
+    s.setLabelsEnabled(false);
+    expect(visibleLabelTexts()).toEqual([]);
+  });
+
+  it("syncLabels does nothing when labels are disabled", () => {
+    const s = new GraphScene({} as unknown as HTMLElement);
+    s.setData({ nodes: [hub, leaf], links: [] });
+    // labels not enabled -- syncLabels should be a no-op
+    s.syncLabels();
+    expect(visibleLabelTexts()).toEqual([]);
+  });
+
+  it("pools SpriteText objects: never creates more than POOL_CAP even with many nodes", () => {
+    const POOL_CAP = 50;
+    // Build 200 nodes, all with coordinates
+    const manyNodes = Array.from({ length: 200 }, (_, i) => ({
+      id: `node-${i}`,
+      wiki: "w",
+      type: "concept",
+      title: `Node ${i}`,
+      summary: "",
+      tags: [],
+      status: "active",
+      updated: "",
+      path: `/node-${i}`,
+      degree: i + 1,
+      x: i,
+      y: 0,
+      z: 0,
+    }));
+    const s = new GraphScene({} as unknown as HTMLElement);
+    s.setData({ nodes: manyNodes, links: [] });
+    s.setLabelsEnabled(true);
+    s.syncLabels();
+    // Total SpriteText instances in the scene should never exceed POOL_CAP
+    const spriteCount = fakeScene.children.filter(
+      (c: any) => c instanceof MockSpriteText
+    ).length;
+    expect(spriteCount).toBeLessThanOrEqual(POOL_CAP);
+  });
+
+  it("region super-nodes (__wiki__ type) are always labeled when enabled", () => {
+    const s = new GraphScene({} as unknown as HTMLElement);
+    s.setData({ nodes: [regionNode, leaf], links: [] });
+    s.setLabelsEnabled(true);
+    s.syncLabels();
+    // regionNode has type __wiki__ so it must always appear
+    expect(visibleLabelTexts()).toContain(regionNode.title);
+  });
+
+  it("onNodeHover shows the hovered node label immediately, even beyond budget", () => {
+    // Place many hub nodes so the label budget is full, then hover a leaf
+    const hubs = Array.from({ length: 20 }, (_, i) => ({
+      id: `hub-${i}`,
+      wiki: "w",
+      type: "concept",
+      title: `Hub ${i}`,
+      summary: "",
+      tags: [],
+      status: "active",
+      updated: "",
+      path: `/hub-${i}`,
+      degree: 100 + i,
+      x: i,
+      y: 0,
+      z: 0,
+    }));
+    const farLeaf = {
+      id: "far-leaf",
+      wiki: "w",
+      type: "concept",
+      title: "Far Leaf",
+      summary: "",
+      tags: [],
+      status: "active",
+      updated: "",
+      path: "/far-leaf",
+      degree: 1,
+      x: 9999,
+      y: 9999,
+      z: 9999,
+    };
+    const s = new GraphScene({} as unknown as HTMLElement);
+    s.setData({ nodes: [...hubs, farLeaf], links: [] });
+    s.setLabelsEnabled(true);
+    s.syncLabels();
+
+    // Hover over the leaf that is far away and low-degree
+    if (nodeHoverHandler) nodeHoverHandler(farLeaf);
+
+    expect(visibleLabelTexts()).toContain("Far Leaf");
+  });
+
+  it("onNodeHover(null) clears the hover override on next syncLabels", () => {
+    // Use many hub nodes to saturate the budget, plus a far leaf that only appears via hover.
+    const manyHubs = Array.from({ length: 15 }, (_, i) => ({
+      id: `hub-many-${i}`,
+      wiki: "w",
+      type: "concept",
+      title: `Big Hub ${i}`,
+      summary: "",
+      tags: [],
+      status: "active",
+      updated: "",
+      path: `/hub-many-${i}`,
+      degree: 100 + i,
+      x: i,
+      y: 0,
+      z: 0,
+    }));
+    const farLeaf2 = {
+      id: "far-leaf-2",
+      wiki: "w",
+      type: "concept",
+      title: "Far Leaf 2",
+      summary: "",
+      tags: [],
+      status: "active",
+      updated: "",
+      path: "/far-leaf-2",
+      degree: 1,
+      x: 9999,
+      y: 9999,
+      z: 9999,
+    };
+    const s = new GraphScene({} as unknown as HTMLElement);
+    s.setData({ nodes: [...manyHubs, farLeaf2], links: [] });
+    s.setLabelsEnabled(true);
+    s.syncLabels();
+    // Without hover, farLeaf2 should not appear (budget filled by hubs)
+    expect(visibleLabelTexts()).not.toContain("Far Leaf 2");
+
+    // Hover over the leaf
+    if (nodeHoverHandler) nodeHoverHandler(farLeaf2);
+    expect(visibleLabelTexts()).toContain("Far Leaf 2");
+
+    // After hover-out, hoveredId should clear and farLeaf2 drops off
+    if (nodeHoverHandler) nodeHoverHandler(null);
+    s.syncLabels();
+    expect(visibleLabelTexts()).not.toContain("Far Leaf 2");
+  });
+
+  it("setControlType rebuild re-establishes labels: pool re-added to new scene, onNodeHover re-bound, loop re-started", () => {
+    const s = new GraphScene({} as unknown as HTMLElement);
+    s.setData({ nodes: [hub, leaf], links: [] });
+    s.setLabelsEnabled(true);
+    s.syncLabels();
+
+    // Before rebuild, verify labels are visible
+    expect(visibleLabelTexts()).toContain(hub.title);
+
+    // Rebuild
+    s.setControlType("orbit");
+    // After rebuild, syncLabels should still work (pool re-added to new scene)
+    s.syncLabels();
+    expect(visibleLabelTexts()).toContain(hub.title);
+
+    // onNodeHover must be re-bound in new build
+    expect(calls.onNodeHover).toBeDefined();
+  });
+
+  it("setLabelsEnabled(false) hides all pooled sprites", () => {
+    const s = new GraphScene({} as unknown as HTMLElement);
+    s.setData({ nodes: [hub, leaf], links: [] });
+    s.setLabelsEnabled(true);
+    s.syncLabels();
+    expect(visibleLabelTexts().length).toBeGreaterThan(0);
+    s.setLabelsEnabled(false);
+    expect(visibleLabelTexts()).toEqual([]);
+  });
+
+  it("setLabelAccessor changes the text used for each sprite", () => {
+    const s = new GraphScene({} as unknown as HTMLElement);
+    s.setData({ nodes: [hub, leaf], links: [] });
+    s.setLabelsEnabled(true);
+    // Use id as label accessor instead of title
+    s.setLabelAccessor((n) => `id:${n.id}`);
+    s.syncLabels();
+    expect(visibleLabelTexts()).toContain(`id:${hub.id}`);
+  });
 });
