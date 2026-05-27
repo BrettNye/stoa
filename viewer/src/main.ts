@@ -11,11 +11,13 @@ import {
   WIKI_ID_PREFIX,
   type ViewState,
 } from "./nav/visible-graph.js";
+import { hasActiveFilter } from "./nav/filter-options.js";
 import { loadServed, loadStatic, IndexUnavailableError } from "./data/load.js";
 import { el } from "./ui/dom.js";
 import { createLegend } from "./ui/legend.js";
 import { createPanel } from "./ui/panel.js";
 import { createSearch } from "./ui/search.js";
+import { createFilters } from "./ui/filters.js";
 
 // ---------------------------------------------------------------------------
 // Module-scope state
@@ -150,6 +152,17 @@ document.body.appendChild(search.element);
 
 const legend = createLegend();
 document.body.appendChild(legend.element);
+
+// Filters apply only in "All" mode, so activating one auto-switches to All to
+// make the effect visible. (toFilters already normalizes empty dims away.)
+const filters = createFilters({
+  onChange: (f) => {
+    view.filters = f;
+    if (hasActiveFilter(f) && view.mode !== "all") setMode("all");
+    else rerender();
+  },
+});
+document.body.appendChild(filters.element);
 
 const panel = createPanel({
   onSelect: (id) => selectNode(id),
@@ -352,6 +365,7 @@ async function boot(): Promise<void> {
     wiki: hueScale(graph.nodes.map((n) => n.wiki)),
     type: hueScale(graph.nodes.map((n) => n.type)),
   };
+  filters.populate(graph.nodes);
 
   await loadThemes();
 
