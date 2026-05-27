@@ -20,6 +20,19 @@ const FLY_DISTANCE = 120;
 /** Camera fly animation duration (ms). */
 const FLY_DURATION_MS = 1500;
 
+// --- Force-simulation tuning (the vault graph is ~1.2k nodes) ---------------
+/**
+ * Ticks to run the layout OFF-screen before the first paint, so the violent
+ * high-alpha "explosion" from the origin doesn't animate on-screen on every
+ * (re)layout. 3d-force-graph defaults this to 0 (whole explosion is visible).
+ */
+const WARMUP_TICKS = 60;
+/**
+ * Cap on the on-screen simulation ticks so a large graph stops settling
+ * promptly, instead of re-rendering every tick for the default ~15s cooldown.
+ */
+const COOLDOWN_TICKS = 200;
+
 const HUB_COUNT = 3;
 const LABEL_BUDGET = 12;
 const POOL_CAP = 50;
@@ -187,6 +200,9 @@ export class GraphScene {
         this.hoveredId = n ? (n as GraphNode).id : null;
         this.syncLabels();
       });
+    // Bound the force sim so large (re)layouts settle off-screen and stop
+    // promptly, rather than exploding on-screen and animating for ~15s.
+    fg.warmupTicks(WARMUP_TICKS).cooldownTicks(COOLDOWN_TICKS);
     fg.graphData({ nodes: this.data.nodes, links: this.data.links });
     fg.linkDirectionalParticles(this.particles ? 2 : 0);
     this.applyColors();

@@ -71,6 +71,8 @@ const inst: any = {
   nodeColor(fn: unknown) { calls.nodeColor = [fn]; return inst; },
   linkColor(fn: unknown) { calls.linkColor = [fn]; return inst; },
   linkDirectionalParticles(n: unknown) { calls.linkDirectionalParticles = [n]; return inst; },
+  warmupTicks(n: unknown) { calls.warmupTicks = [n]; return inst; },
+  cooldownTicks(n: unknown) { calls.cooldownTicks = [n]; return inst; },
   graphData(d?: any) {
     if (d === undefined) return graphStore;
     calls.graphData = [d];
@@ -175,6 +177,14 @@ it("setControlType rebuilds the instance with the new control type", () => {
   // fly path proves the rebuilt instance is wired (no thrown "not a function").
   s.setControlType("fly");
   expect(builds[builds.length - 1]).toEqual({ controlType: "fly" });
+});
+
+it("tunes the force sim for large graphs: warms up off-screen and caps cooldown", () => {
+  // The vault graph is ~1.2k nodes; without these the default sim explodes
+  // on-screen and re-renders every tick for ~15s ("blow-up" lag).
+  new GraphScene({} as unknown as HTMLElement);
+  expect((calls.warmupTicks?.[0] as number) ?? 0).toBeGreaterThan(0);
+  expect((calls.cooldownTicks?.[0] as number) ?? 0).toBeGreaterThan(0);
 });
 
 it("does not re-render a sprite's texture when its label is unchanged across passes", () => {
