@@ -41,6 +41,7 @@ let knownIds: Set<string> = new Set();
 let scales: ColorScales = { wiki: new Map(), type: new Map() };
 let activeTheme: Theme = DEFAULT_THEME;
 let controlType: ControlType = "trackball";
+let labelsEnabled = true;
 
 const view: ViewState = {
   mode: "region",
@@ -125,6 +126,14 @@ particlesBox.addEventListener("change", () => {
   scene.setDirectionalParticles(particlesBox.checked);
 });
 themeGroup.appendChild(particlesLabel);
+
+const labelsBtn = el("button", { type: "button" }, "Labels");
+labelsBtn.addEventListener("click", () => {
+  labelsEnabled = !labelsEnabled;
+  scene.setLabelsEnabled(labelsEnabled);
+  syncControlsUI();
+});
+themeGroup.appendChild(labelsBtn);
 controls.appendChild(themeGroup);
 
 document.body.appendChild(controls);
@@ -243,6 +252,7 @@ function syncControlsUI(): void {
   });
   ctrlBtn.textContent = controlType === "orbit" ? "Orbit" : "Trackball";
   byBtn.textContent = activeTheme.defaultBy === "type" ? "By type" : "By wiki";
+  labelsBtn.classList.toggle("active", labelsEnabled);
 }
 
 // ---------------------------------------------------------------------------
@@ -323,6 +333,8 @@ async function loadGraph(): Promise<Graph | null> {
 async function boot(): Promise<void> {
   scene = new GraphScene(container as HTMLElement, { onNodeClick });
   scene.setControlType(controlType);
+  scene.setLabelAccessor((n) => n.title || n.id);
+  scene.setLabelsEnabled(labelsEnabled);
 
   const graph = await loadGraph();
   if (graph === null) {
