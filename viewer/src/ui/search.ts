@@ -24,7 +24,7 @@ export function createSearch(deps: SearchDeps): Search {
   const element = el("div", { class: "search" });
   const input = el("input", {
     type: "search",
-    placeholder: "Search notes…",
+    placeholder: "Search… (e.g. type:decision, tag:recipe)",
   }) as HTMLInputElement;
   const results = el("div", { class: "search-results" });
   element.appendChild(input);

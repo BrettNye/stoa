@@ -1,5 +1,5 @@
 import { it, expect } from "vitest";
-import { rankNodes } from "./rank.js";
+import { rankNodes, parseQuery } from "./rank.js";
 
 const mk = (id: string, title: string, summary = "", tags: string[] = []) => ({
   id,
@@ -91,4 +91,53 @@ it("nodes with no match are excluded", () => {
   const nodes = [mk("a", "unrelated"), mk("b", "also unrelated")];
   const hits = rankNodes("xyz123", nodes);
   expect(hits).toEqual([]);
+});
+
+// --- field-scoped search ---------------------------------------------------
+
+it("parseQuery recognizes field scopes (lowercasing the value)", () => {
+  expect(parseQuery("type:Decision")).toEqual({ field: "type", value: "decision" });
+  expect(parseQuery("tag:recipe")).toEqual({ field: "tag", value: "recipe" });
+  expect(parseQuery("wiki:_meta")).toEqual({ field: "wiki", value: "_meta" });
+});
+
+it("parseQuery falls back to free text for unknown prefix or no colon", () => {
+  expect(parseQuery("foo:bar")).toEqual({ field: null, value: "foo:bar" });
+  expect(parseQuery("just text")).toEqual({ field: null, value: "just text" });
+});
+
+it("type: scopes to the type field only (ignores title/summary matches)", () => {
+  const nodes = [
+    { ...mk("a", "alpha"), type: "decision" },
+    mk("b", "a decision in the title"), // type concept; only title says 'decision'
+  ];
+  expect(rankNodes("type:decision", nodes).map((h) => h.id)).toEqual(["a"]);
+  // free-text would have matched b's title:
+  expect(rankNodes("decision", nodes).map((h) => h.id)).toContain("b");
+});
+
+it("wiki: and status: scope to their fields", () => {
+  const nodes = [
+    { ...mk("a", "x"), wiki: "_meta", status: "active" },
+    { ...mk("b", "y"), wiki: "recipes", status: "draft" },
+  ];
+  expect(rankNodes("wiki:_meta", nodes).map((h) => h.id)).toEqual(["a"]);
+  expect(rankNodes("status:draft", nodes).map((h) => h.id)).toEqual(["b"]);
+});
+
+it("tag: matches by tag, exact (100) above substring (60)", () => {
+  const nodes = [
+    mk("a", "x", "", ["recipe"]),
+    mk("b", "y", "", ["recipe-draft"]),
+    mk("c", "z", "", ["other"]),
+  ];
+  const hits = rankNodes("tag:recipe", nodes);
+  expect(hits.map((h) => h.id)).toEqual(["a", "b"]);
+  expect(hits[0].score).toBe(100);
+  expect(hits[1].score).toBe(60);
+});
+
+it("a scoped query with an empty value matches nothing", () => {
+  const nodes = [{ ...mk("a", "x"), type: "decision" }];
+  expect(rankNodes("type:", nodes)).toEqual([]);
 });
