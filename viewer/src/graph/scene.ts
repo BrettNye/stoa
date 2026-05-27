@@ -250,7 +250,11 @@ export class GraphScene {
       if (i < assigned.length) {
         const n = nodeMap.get(assigned[i]);
         if (n) {
-          sprite.text = this.labelAccessor(n);
+          // Only assign text when it changes: three-spritetext rebuilds a
+          // CanvasTexture on every `text` set, so a redundant assignment is a
+          // needless GPU upload. position.set is cheap (no regen).
+          const text = this.labelAccessor(n);
+          if (sprite.text !== text) sprite.text = text;
           sprite.position.set(n.x ?? 0, n.y ?? 0, n.z ?? 0);
           sprite.visible = true;
         } else {

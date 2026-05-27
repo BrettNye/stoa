@@ -5,7 +5,21 @@ import { it, expect, vi, beforeEach, describe } from "vitest";
 // (vi.mock is hoisted to top of file by vitest, before class declarations).
 const { MockSpriteText } = vi.hoisted(() => {
   class MockSpriteText {
-    text = "";
+    private _text = "";
+    /**
+     * Counts text assignments. Models three-spritetext, whose `text` setter
+     * calls `_genCanvas()` — rebuilding the canvas and allocating a NEW
+     * CanvasTexture (a GPU upload) on EVERY assignment. So redundant `.text`
+     * writes are expensive; this counter lets tests assert we don't do them.
+     */
+    textSetCount = 0;
+    get text() {
+      return this._text;
+    }
+    set text(v: string) {
+      this._text = v;
+      this.textSetCount++;
+    }
     visible = true;
     position = {
       set(_x: number, _y: number, _z: number) {},
@@ -161,6 +175,29 @@ it("setControlType rebuilds the instance with the new control type", () => {
   // fly path proves the rebuilt instance is wired (no thrown "not a function").
   s.setControlType("fly");
   expect(builds[builds.length - 1]).toEqual({ controlType: "fly" });
+});
+
+it("does not re-render a sprite's texture when its label is unchanged across passes", () => {
+  // Regression: assignPool used to assign sprite.text every pass, and
+  // three-spritetext rebuilds a CanvasTexture on every text set — so a static
+  // graph rebuilt ~120 textures/sec, starving the render loop. A redundant
+  // syncLabels pass must NOT re-set any visible label's text.
+  const s = new GraphScene({} as unknown as HTMLElement);
+  s.setData({ nodes: [hub, leaf], links: [] });
+  s.setLabelsEnabled(true);
+
+  s.syncLabels();
+  const sprites = fakeScene.children.filter(
+    (c: any) => c instanceof MockSpriteText,
+  );
+  const afterFirst = sprites.map((c: any) => c.textSetCount);
+  // First pass must have rendered at least one label.
+  expect(afterFirst.some((n: number) => n > 0)).toBe(true);
+
+  // Identical state (camera + nodes + hover unchanged): no texture rebuilds.
+  s.syncLabels();
+  const afterSecond = sprites.map((c: any) => c.textSetCount);
+  expect(afterSecond).toEqual(afterFirst);
 });
 
 it("setControlType is a no-op when unchanged (default trackball at boot)", () => {
