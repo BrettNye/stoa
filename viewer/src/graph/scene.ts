@@ -59,7 +59,7 @@ export class GraphScene {
    * setter, so changing it requires tearing down and rebuilding the instance.
    * We retain all state (data, colors, highlight, particles) and re-apply it.
    */
-  private controlType: ControlType = "trackball";
+  private controlType: ControlType = "orbit";
   /** Base (theme) color accessor; highlight composes on top of this. */
   private baseColor: (n: GraphNode) => string = () => "#888888";
   /** Active highlight set, or null when nothing is highlighted. */
@@ -203,6 +203,12 @@ export class GraphScene {
     // Bound the force sim so large (re)layouts settle off-screen and stop
     // promptly, rather than exploding on-screen and animating for ~15s.
     fg.warmupTicks(WARMUP_TICKS).cooldownTicks(COOLDOWN_TICKS);
+    // Cursor-centric zoom: the wheel dollies toward the point under the pointer.
+    // This is an OrbitControls feature; TrackballControls has no equivalent, so
+    // it only applies in orbit mode.
+    if (this.controlType === "orbit") {
+      (fg.controls() as { zoomToCursor?: boolean }).zoomToCursor = true;
+    }
     fg.graphData({ nodes: this.data.nodes, links: this.data.links });
     fg.linkDirectionalParticles(this.particles ? 2 : 0);
     this.applyColors();

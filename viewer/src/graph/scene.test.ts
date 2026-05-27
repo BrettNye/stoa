@@ -64,6 +64,9 @@ function makeFakeScene(): FakeScene {
 // Camera is positioned at origin by default; tests can override.
 let cameraPos = { x: 0, y: 0, z: 0 };
 
+// Fake controls object returned by inst.controls(); orbit mode sets zoomToCursor here.
+let controlsObj: { zoomToCursor?: boolean } = {};
+
 const inst: any = {
   nodeVal(fn: unknown) { calls.nodeVal = [fn]; return inst; },
   onNodeClick(fn: any) { calls.onNodeClick = [fn]; nodeClickHandler = fn; return inst; },
@@ -82,6 +85,7 @@ const inst: any = {
   cameraPosition(...a: unknown[]) { calls.cameraPosition = a; return inst; },
   camera() { return { position: cameraPos }; },
   scene() { return fakeScene; },
+  controls() { return controlsObj; },
   _destructor() { calls._destructor = []; },
 };
 
@@ -158,11 +162,12 @@ beforeEach(() => {
   graphStore = { nodes: [], links: [] };
   fakeScene = makeFakeScene();
   cameraPos = { x: 0, y: 0, z: 0 };
+  controlsObj = {};
 });
 
-it("constructor builds with trackball and registers nodeVal + onNodeClick", () => {
+it("constructor builds with orbit (default) and registers nodeVal + onNodeClick", () => {
   const s = new GraphScene({} as unknown as HTMLElement);
-  expect(builds[0]).toEqual({ controlType: "trackball" });
+  expect(builds[0]).toEqual({ controlType: "orbit" });
   expect(calls.nodeVal).toBeDefined();
   expect(calls.onNodeClick).toBeDefined();
   void s;
@@ -170,10 +175,10 @@ it("constructor builds with trackball and registers nodeVal + onNodeClick", () =
 
 it("setControlType rebuilds the instance with the new control type", () => {
   const s = new GraphScene({} as unknown as HTMLElement);
-  s.setControlType("orbit");
+  s.setControlType("trackball");
   // Old instance torn down, new one built with the requested control type.
   expect(calls._destructor).toBeDefined();
-  expect(builds[builds.length - 1]).toEqual({ controlType: "orbit" });
+  expect(builds[builds.length - 1]).toEqual({ controlType: "trackball" });
   // fly path proves the rebuilt instance is wired (no thrown "not a function").
   s.setControlType("fly");
   expect(builds[builds.length - 1]).toEqual({ controlType: "fly" });
@@ -185,6 +190,18 @@ it("tunes the force sim for large graphs: warms up off-screen and caps cooldown"
   new GraphScene({} as unknown as HTMLElement);
   expect((calls.warmupTicks?.[0] as number) ?? 0).toBeGreaterThan(0);
   expect((calls.cooldownTicks?.[0] as number) ?? 0).toBeGreaterThan(0);
+});
+
+it("enables OrbitControls zoomToCursor in orbit mode (cursor-centric zoom)", () => {
+  new GraphScene({} as unknown as HTMLElement); // default is orbit
+  expect(controlsObj.zoomToCursor).toBe(true);
+});
+
+it("does not set zoomToCursor for trackball (no such option there)", () => {
+  const s = new GraphScene({} as unknown as HTMLElement); // orbit build sets it
+  controlsObj = {}; // observe the trackball rebuild in isolation
+  s.setControlType("trackball");
+  expect(controlsObj.zoomToCursor).toBeUndefined();
 });
 
 it("does not re-render a sprite's texture when its label is unchanged across passes", () => {
@@ -210,10 +227,10 @@ it("does not re-render a sprite's texture when its label is unchanged across pas
   expect(afterSecond).toEqual(afterFirst);
 });
 
-it("setControlType is a no-op when unchanged (default trackball at boot)", () => {
+it("setControlType is a no-op when unchanged (default orbit at boot)", () => {
   const s = new GraphScene({} as unknown as HTMLElement);
   expect(builds.length).toBe(1); // constructor build only
-  s.setControlType("trackball"); // same as current -> no rebuild
+  s.setControlType("orbit"); // same as current -> no rebuild
   expect(builds.length).toBe(1);
   expect(calls._destructor).toBeUndefined();
   void s;
@@ -226,7 +243,7 @@ it("setControlType preserves the current data across the rebuild", () => {
     links: [{ source: "a", target: "b" }],
   };
   s.setData(graph);
-  s.setControlType("orbit");
+  s.setControlType("trackball");
   // The rebuild re-applied graphData with the same node/link arrays.
   const arg = calls.graphData?.[0] as { nodes: unknown[]; links: unknown[] };
   expect(arg.nodes).toBe(graph.nodes);
@@ -260,7 +277,7 @@ it("setDirectionalParticles(false) sets particles to 0", () => {
 it("directional-particle state is preserved across a control-type rebuild", () => {
   const s = new GraphScene({} as unknown as HTMLElement);
   s.setDirectionalParticles(true);
-  s.setControlType("orbit"); // rebuild
+  s.setControlType("trackball"); // rebuild (away from the orbit default)
   // The rebuilt instance re-applied particles = 2 (the last call wins).
   expect(calls.linkDirectionalParticles).toEqual([2]);
 });
@@ -536,7 +553,7 @@ describe("label renderer", () => {
 
       // Rebuild: setControlType tears down old instance and calls build(),
       // which calls startLabelLoop() again -> rAF must be called again.
-      s.setControlType("orbit");
+      s.setControlType("trackball");
       expect(rafCallCount).toBeGreaterThan(rafCountAfterEnable);
 
       // After rebuild, syncLabels should still work (pool re-added to new scene)

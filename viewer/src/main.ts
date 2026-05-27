@@ -40,7 +40,7 @@ let knownIds: Set<string> = new Set();
 /** Distinct color scales (by wiki / by type), built once from the full graph. */
 let scales: ColorScales = { wiki: new Map(), type: new Map() };
 let activeTheme: Theme = DEFAULT_THEME;
-let controlType: ControlType = "trackball";
+let controlType: ControlType = "orbit";
 /** Mirrors the scene's label visibility; default-on so labels render on first load. */
 let labelsEnabled = true;
 
@@ -94,7 +94,7 @@ controls.appendChild(modeGroup);
 
 // Control-type toggle: trackball <-> orbit
 const ctrlGroup = el("div", { class: "group" });
-const ctrlBtn = el("button", { type: "button" }, "Trackball");
+const ctrlBtn = el("button", { type: "button" }, "Orbit");
 ctrlBtn.addEventListener("click", () => {
   controlType = nextControlType(controlType);
   scene.setControlType(controlType);
