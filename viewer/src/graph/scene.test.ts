@@ -463,22 +463,44 @@ describe("label renderer", () => {
   });
 
   it("setControlType rebuild re-establishes labels: pool re-added to new scene, onNodeHover re-bound, loop re-started", () => {
-    const s = new GraphScene({} as unknown as HTMLElement);
-    s.setData({ nodes: [hub, leaf], links: [] });
-    s.setLabelsEnabled(true);
-    s.syncLabels();
+    // Stub rAF so it returns a fake id and does NOT invoke the callback,
+    // allowing us to assert the loop actually re-started after the rebuild.
+    let rafCallCount = 0;
+    const FAKE_RAF_ID = 99;
+    vi.stubGlobal("requestAnimationFrame", (_cb: FrameRequestCallback) => {
+      rafCallCount++;
+      return FAKE_RAF_ID;
+    });
+    vi.stubGlobal("cancelAnimationFrame", (_id: number) => { /* no-op */ });
 
-    // Before rebuild, verify labels are visible
-    expect(visibleLabelTexts()).toContain(hub.title);
+    try {
+      const s = new GraphScene({} as unknown as HTMLElement);
+      s.setData({ nodes: [hub, leaf], links: [] });
 
-    // Rebuild
-    s.setControlType("orbit");
-    // After rebuild, syncLabels should still work (pool re-added to new scene)
-    s.syncLabels();
-    expect(visibleLabelTexts()).toContain(hub.title);
+      // Enable labels -> startLabelLoop calls rAF once
+      s.setLabelsEnabled(true);
+      const rafCountAfterEnable = rafCallCount;
+      expect(rafCountAfterEnable).toBeGreaterThan(0);
 
-    // onNodeHover must be re-bound in new build
-    expect(calls.onNodeHover).toBeDefined();
+      s.syncLabels();
+
+      // Before rebuild, verify labels are visible
+      expect(visibleLabelTexts()).toContain(hub.title);
+
+      // Rebuild: setControlType tears down old instance and calls build(),
+      // which calls startLabelLoop() again -> rAF must be called again.
+      s.setControlType("orbit");
+      expect(rafCallCount).toBeGreaterThan(rafCountAfterEnable);
+
+      // After rebuild, syncLabels should still work (pool re-added to new scene)
+      s.syncLabels();
+      expect(visibleLabelTexts()).toContain(hub.title);
+
+      // onNodeHover must be re-bound in new build
+      expect(calls.onNodeHover).toBeDefined();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("setLabelsEnabled(false) hides all pooled sprites", () => {
