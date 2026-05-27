@@ -3,7 +3,9 @@
 Handoff for continuing the 3D graph viewer in a fresh session. Captures current
 state, what's done, and the prioritized backlog. Legend, node labels, the
 DRY/SRP/SoC audit, cursor-zoom, and performance/scale tuning all landed this
-round; **advanced search & filters is the recommended next item**.
+round, and **advanced search & filters** (filter panel + field-scoped search)
+followed. Remaining: full note-body search (deferred, v2) and P2 polish — the
+branch is otherwise feature-complete and ready to PR.
 
 ## Where things stand
 
@@ -106,18 +108,20 @@ Tuned for the real ~1.2k-node vault; analysed to ~10k:
   wall. The collapse-by-default region view keeps the common case fast; the real
   lever for large sets is the **filter UI** below (don't render everything at once).
 
-### P1 — Advanced search & filters  ← recommended next (also the scale lever)
-The data layer already supports filtering (`computeVisibleGraph` reads
-`view.filters = { wikis?, types?, statuses?, tag? }`) but there is **no UI**.
-Beyond UX, this is how large vaults stay usable: filtering avoids ever handing
-all N nodes to the renderer at once (see the Performance ceiling above).
-- **Filter panel for "All" mode**: checkboxes/multiselects for wiki, type,
-  status, plus a tag input. Wire to `view.filters` and `rerender()`. (Logic is
-  done — this is purely the missing UI.)
-- **Field-scoped search**: let the query target a field (e.g. `tag:recipe`,
-  `wiki:_meta`, `type:decision`) in addition to free text. Extend
-  `viewer/src/search/rank.ts` (keep it pure + unit-tested).
-- **Full note-body search (deferred in spec)**: a served-mode
+### Advanced search & filters — ✅ filter panel + field-scoped search DONE
+This was also the scale lever: filtering avoids handing all N nodes to the
+renderer at once (see the Performance ceiling above).
+- **Filter panel for "All" mode** ✅ — collapsible bottom-right panel with
+  wiki/type/status checkboxes + a tag input (`viewer/src/ui/filters.ts`), built
+  from the graph's distinct values via pure, tested
+  `viewer/src/nav/filter-options.ts`. Activating a filter auto-switches to All
+  mode. Empty dimensions normalize to `undefined` (the `applyFilters`
+  empty-Set-excludes-everything footgun is unit-tested).
+- **Field-scoped search** ✅ — `field:value` prefixes (`type:`, `tag:`, `wiki:`,
+  `status:`, `id:`, `title:`) in the search box; unknown prefixes fall back to
+  free text. Pure `viewer/src/search/rank.ts` (`parseQuery` / `rankNodes`),
+  unit-tested; drives both the results list and the canvas highlight.
+- **Full note-body search** (still deferred, v2) — a served-mode
   `GET /graph/search?q=` endpoint reusing `_index/tokens.json` (the same stemmed
   index that powers `/recall`); the viewer falls back to metadata search in
   static mode. See spec §7 "Deferred".
@@ -179,13 +183,14 @@ Today only a By-wiki↔By-type toggle exists.
 
 ## How to resume
 
-Point a new session at this file + the specs/plans, then pick a P1 item. The
-recommended next is the **filter UI** (the data layer already filters; it's also
-the scale lever). Suggested first prompt:
+All P1 items are done. The branch is feature-complete; the natural next move is
+to **open the PR** (it's branch `feat/3d-graph-viewer`). Remaining backlog is
+deferred/P2: full note-body search, the theming UI, control-toggle camera reset,
+bundle code-splitting, and (for true scale) instanced node rendering. Point a
+new session at this file + the specs/plans and pick one, e.g.:
 
 > Continue the 3D graph viewer on branch `feat/3d-graph-viewer`. Read
-> `docs/graph-viewer-followups.md`, then build the **filter panel** for "All"
-> mode (P1): wiki / type / status multiselects + a tag input, wired to
-> `view.filters` and `rerender()` (`computeVisibleGraph` already applies them).
-> Build with `npm run build:viewer`; smoke-test served at
-> http://127.0.0.1:8443/graph.
+> `docs/graph-viewer-followups.md`, then add **full note-body search**: a
+> served-mode `GET /graph/search?q=` endpoint over `_index/tokens.json`, with the
+> viewer falling back to metadata search in static mode (spec §7 "Deferred").
+> Build with `npm run build:viewer`; smoke-test at http://127.0.0.1:8443/graph.
