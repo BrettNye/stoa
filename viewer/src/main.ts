@@ -5,12 +5,17 @@ import type { Theme } from "@stoa/types/theme";
 
 import { GraphScene } from "./graph/scene.js";
 import { nextControlType, type ControlType } from "./graph/encoding.js";
-import { resolveNodeColor, hueScale, type ColorScales } from "./theme/resolve.js";
-import { computeLegend } from "./theme/legend.js";
-import { computeVisibleGraph, type ViewState } from "./nav/visible-graph.js";
-import { rankNodes } from "./search/rank.js";
-import { renderNoteBody } from "./panel/render.js";
+import { nodeColor, hueScale, type ColorScales } from "./theme/resolve.js";
+import {
+  computeVisibleGraph,
+  WIKI_ID_PREFIX,
+  type ViewState,
+} from "./nav/visible-graph.js";
 import { loadServed, loadStatic, IndexUnavailableError } from "./data/load.js";
+import { el } from "./ui/dom.js";
+import { createLegend } from "./ui/legend.js";
+import { createPanel } from "./ui/panel.js";
+import { createSearch } from "./ui/search.js";
 
 // ---------------------------------------------------------------------------
 // Module-scope state
@@ -24,12 +29,11 @@ const DEFAULT_THEME: Theme = {
   perWiki: {},
 };
 
-// Region super-node sentinels. These MUST match the values produced by
-// computeVisibleGraph in ./nav/visible-graph.ts, which generates `wiki:${name}`
-// ids and `type: "__wiki__"` for collapsed-wiki super-nodes. (Exporting these
-// from visible-graph.ts to dedupe is a deferred cross-file follow-up.)
-const WIKI_NODE_TYPE = "__wiki__";
-const WIKI_ID_PREFIX = "wiki:";
+/** View modes, in display order. Single-sourced for the buttons and sync loop. */
+const MODES = ["region", "all", "focus"] as const;
+
+/** Max search hits shown in the results dropdown. */
+const SEARCH_LIMIT = 20;
 
 let fullGraph: Graph = { nodes: [], links: [] };
 let knownIds: Set<string> = new Set();
@@ -50,23 +54,12 @@ let scene: GraphScene;
 let servedMode = false;
 
 // ---------------------------------------------------------------------------
-// DOM construction
+// DOM construction (control bar lives here; self-contained widgets are in ui/)
 // ---------------------------------------------------------------------------
 
 const container = document.getElementById("graph");
 if (!container) {
   throw new Error("Missing #graph container");
-}
-
-function el<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  attrs: Record<string, string> = {},
-  text?: string,
-): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
-  if (text !== undefined) node.textContent = text;
-  return node;
 }
 
 // --- Reindex banner (hidden until needed) ----------------------------------
@@ -90,7 +83,7 @@ const modeButtons: Record<ViewState["mode"], HTMLButtonElement> = {
   all: el("button", { type: "button" }, "All"),
   focus: el("button", { type: "button" }, "Focus"),
 };
-(["region", "all", "focus"] as const).forEach((m) => {
+MODES.forEach((m) => {
   const btn = modeButtons[m];
   btn.addEventListener("click", () => setMode(m));
   modeGroup.appendChild(btn);
@@ -108,7 +101,7 @@ ctrlBtn.addEventListener("click", () => {
 ctrlGroup.appendChild(ctrlBtn);
 controls.appendChild(ctrlGroup);
 
-// Theme group: by-wiki/by-type flip + directional particles
+// Theme group: by-wiki/by-type flip + theme switcher + directional particles
 const themeGroup = el("div", { class: "group" });
 const byBtn = el("button", { type: "button" }, "By wiki");
 byBtn.addEventListener("click", () => {
@@ -136,62 +129,24 @@ controls.appendChild(themeGroup);
 
 document.body.appendChild(controls);
 
-// --- Search -----------------------------------------------------------------
-const search = el("div", { class: "search" });
-const searchInput = el("input", {
-  type: "search",
-  placeholder: "Search notes…",
-}) as HTMLInputElement;
-const searchResults = el("div", { class: "search-results" });
-search.appendChild(searchInput);
-search.appendChild(searchResults);
-document.body.appendChild(search);
-
-searchInput.addEventListener("input", () => renderSearch(searchInput.value));
-
-// --- Legend -----------------------------------------------------------------
-// Maps swatch colors -> wiki/type. Hidden until the first render (boot) so an
-// empty box never floats over the canvas (e.g. the reindex-banner path).
-const legend = el("div", { class: "legend", style: "display:none" });
-const legendHeader = el("div", { class: "legend-header" });
-const legendTitle = el("span", { class: "legend-title" }, "Legend");
-const legendToggle = el("button", { class: "legend-toggle", type: "button" }, "−");
-legendHeader.appendChild(legendTitle);
-legendHeader.appendChild(legendToggle);
-const legendBody = el("div", { class: "legend-body" });
-legend.appendChild(legendHeader);
-legend.appendChild(legendBody);
-document.body.appendChild(legend);
-
-let legendCollapsed = false;
-// One listener on the header covers clicks on the toggle button too (it bubbles).
-legendHeader.addEventListener("click", () => {
-  legendCollapsed = !legendCollapsed;
-  legend.classList.toggle("collapsed", legendCollapsed);
-  legendToggle.textContent = legendCollapsed ? "+" : "−";
+// --- Widgets (search / legend / detail panel) -------------------------------
+const search = createSearch({
+  getNodes: () => fullGraph.nodes,
+  onHighlight: (ids) => scene.setHighlight(ids),
+  onSelect: (id) => selectNode(id),
+  limit: SEARCH_LIMIT,
 });
+document.body.appendChild(search.element);
 
-// --- Detail panel -----------------------------------------------------------
-const panel = el("div", { class: "panel" });
-const panelClose = el("button", { class: "panel-close", type: "button" }, "×");
-panelClose.addEventListener("click", () => panel.classList.remove("open"));
-const panelTitle = el("h1");
-const panelMeta = el("div", { class: "panel-meta" });
-const panelBody = el("div", { class: "panel-body" });
-panel.appendChild(panelClose);
-panel.appendChild(panelTitle);
-panel.appendChild(panelMeta);
-panel.appendChild(panelBody);
-document.body.appendChild(panel);
+const legend = createLegend();
+document.body.appendChild(legend.element);
 
-// Delegate wikilink clicks inside the panel body to re-select that node.
-panelBody.addEventListener("click", (ev) => {
-  const target = (ev.target as HTMLElement).closest(".wikilink[data-target]");
-  if (!target) return;
-  ev.preventDefault();
-  const id = target.getAttribute("data-target");
-  if (id) selectNode(id);
+const panel = createPanel({
+  onSelect: (id) => selectNode(id),
+  getKnownIds: () => knownIds,
+  fetchBody: fetchNoteBody,
 });
+document.body.appendChild(panel.element);
 
 // ---------------------------------------------------------------------------
 // Themes
@@ -246,26 +201,18 @@ function populateThemeSelect(): void {
 // ---------------------------------------------------------------------------
 
 function applyColors(): void {
-  scene.setNodeColor((n: GraphNode) =>
-    // Region super-nodes represent a wiki, so always color them by wiki
-    // (their synthetic `__wiki__` type is meaningless for by-type coloring).
-    n.type === WIKI_NODE_TYPE
-      ? scales.wiki.get(n.wiki) ?? "#888888"
-      : resolveNodeColor(n, activeTheme, scales),
-  );
+  // nodeColor is the single source of truth shared with the legend (it handles
+  // region super-nodes -> wiki color, real nodes -> rules/scale).
+  scene.setNodeColor((n) => nodeColor(n, activeTheme, scales));
   renderLegend();
 }
 
 /**
- * Nodes the legend should describe: the visible graph, but with collapsed-wiki
- * super-nodes expanded back into the real nodes they stand for. Without this,
- * any view that shows super-nodes (region mode, or focus mode before a focus
- * node is chosen) would leave the legend empty — the canvas has bubbles but no
- * real nodes to color-key.
+ * Nodes the legend should describe: exactly what's drawn. `computeLegend` turns
+ * region super-nodes into by-wiki rows and groups real nodes by the active
+ * dimension, so the visible graph is passed through as-is.
  */
 function legendNodes(): GraphNode[] {
-  // Describe exactly what's drawn: region super-nodes become by-wiki rows and
-  // real nodes group by the active dimension (no super-node expansion).
   return computeVisibleGraph(fullGraph, view).nodes;
 }
 
@@ -274,26 +221,7 @@ function renderLegend(): void {
   // title even when the by-type toggle is set, since super-nodes ignore it.
   const collapsedRegion = view.mode === "region" && view.expandedWikis.size === 0;
   const dim = collapsedRegion ? "wiki" : activeTheme.defaultBy;
-  legendTitle.textContent = `Legend · by ${dim}`;
-  const entries = computeLegend(legendNodes(), activeTheme, scales);
-  legendBody.innerHTML = "";
-  legend.style.display = "";
-  if (entries.length === 0) {
-    legendBody.appendChild(el("div", { class: "legend-empty" }, "No nodes to show"));
-    return;
-  }
-  for (const e of entries) {
-    const text = e.sublabel ? `${e.label} · ${e.sublabel}` : e.label;
-    const row = el("div", { class: "legend-row" });
-    const swatch = el("span", { class: "legend-swatch" });
-    swatch.style.background = e.color;
-    row.appendChild(swatch);
-    const label = el("span", { class: "legend-label" }, text);
-    label.title = text;
-    row.appendChild(label);
-    row.appendChild(el("span", { class: "legend-count" }, String(e.count)));
-    legendBody.appendChild(row);
-  }
+  legend.render(legendNodes(), activeTheme, scales, dim);
 }
 
 function rerender(): void {
@@ -310,7 +238,7 @@ function setMode(mode: ViewState["mode"]): void {
 }
 
 function syncControlsUI(): void {
-  (["region", "all", "focus"] as const).forEach((m) => {
+  MODES.forEach((m) => {
     modeButtons[m].classList.toggle("active", view.mode === m);
   });
   ctrlBtn.textContent = controlType === "orbit" ? "Orbit" : "Trackball";
@@ -336,7 +264,8 @@ function onNodeClick(id: string): void {
     return;
   }
   // A real node: open the detail panel.
-  void openPanel(id);
+  const node = fullGraph.nodes.find((n) => n.id === id);
+  if (node) void panel.open(node);
 }
 
 /** Programmatic selection (search result or wikilink click). */
@@ -349,37 +278,7 @@ function selectNode(id: string): void {
     rerender();
   }
   scene.flyToNode(id);
-  void openPanel(id);
-}
-
-async function openPanel(id: string): Promise<void> {
-  const node = fullGraph.nodes.find((n) => n.id === id);
-  if (!node || node.type === WIKI_NODE_TYPE) return;
-
-  panelTitle.textContent = node.title || node.id;
-  panelMeta.innerHTML = "";
-  panelMeta.appendChild(
-    document.createTextNode(
-      `${node.type} · ${node.wiki} · ${node.status}` +
-        (node.updated ? ` · ${node.updated}` : ""),
-    ),
-  );
-  if (node.tags.length) {
-    const tagWrap = el("div");
-    for (const t of node.tags) tagWrap.appendChild(el("span", { class: "tag" }, t));
-    panelMeta.appendChild(tagWrap);
-  }
-
-  panel.classList.add("open");
-
-  const body = await fetchNoteBody(node);
-  if (body !== null) {
-    panelBody.innerHTML = renderNoteBody(body, undefined, knownIds);
-  } else {
-    // Could not load the markdown: show summary metadata only.
-    panelBody.innerHTML = "";
-    panelBody.appendChild(el("p", {}, node.summary || "(no body available)"));
-  }
+  void panel.open(node);
 }
 
 async function fetchNoteBody(node: GraphNode): Promise<string | null> {
@@ -391,38 +290,6 @@ async function fetchNoteBody(node: GraphNode): Promise<string | null> {
     return await r.text();
   } catch {
     return null;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Search
-// ---------------------------------------------------------------------------
-
-function renderSearch(query: string): void {
-  searchResults.innerHTML = "";
-  const q = query.trim();
-  if (!q) {
-    // Cleared query: drop the canvas highlight so all nodes return to normal.
-    scene.setHighlight(null);
-    return;
-  }
-  const hits = rankNodes(q, fullGraph.nodes, 20);
-  // Light up every matching node on the canvas; dim the rest.
-  scene.setHighlight(new Set(hits.map((h) => h.id)));
-  for (const hit of hits) {
-    const node = fullGraph.nodes.find((n) => n.id === hit.id);
-    if (!node) continue;
-    const row = el("div", { class: "hit" });
-    row.appendChild(el("div", {}, node.title || node.id));
-    row.appendChild(el("div", { class: "meta" }, `${node.type} · ${node.wiki}`));
-    row.addEventListener("click", () => {
-      selectNode(node.id);
-      searchResults.innerHTML = "";
-      searchInput.value = "";
-      // Input is now empty: drop the highlight so the canvas is undimmed.
-      scene.setHighlight(null);
-    });
-    searchResults.appendChild(row);
   }
 }
 

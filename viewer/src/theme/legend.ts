@@ -1,6 +1,7 @@
 import type { GraphNode } from "@stoa/types/graph";
 import type { Theme } from "@stoa/types/theme";
-import { resolveNodeColor, type ColorScales } from "./resolve.js";
+import { nodeColor, type ColorScales } from "./resolve.js";
+import { WIKI_NODE_TYPE } from "../nav/visible-graph.js";
 
 /** One row in the legend: a swatch color and what it means. */
 export interface LegendEntry {
@@ -19,20 +20,18 @@ export interface LegendEntry {
   count: number;
 }
 
-/** Region super-node sentinel emitted by computeVisibleGraph for collapsed wikis. */
-const WIKI_NODE_TYPE = "__wiki__";
-const NEUTRAL = "#888888";
-
 /**
  * Build legend rows from the VISIBLE nodes so the legend always matches the
  * canvas exactly:
  *
  * - Region super-nodes (`__wiki__`) are colored by their wiki on the canvas, so
- *   each becomes a by-wiki row (color via `scales.wiki`, count = the wiki's page
- *   count, carried on the super-node's `degree`).
- * - Real nodes group by `theme.defaultBy` (wiki or type), colored through the
- *   SAME `resolveNodeColor` the scene uses — including rule overrides, which
- *   surface as extra rows with a `sublabel` naming the secondary dimension.
+ *   each becomes a by-wiki row (count = the wiki's page count, carried on the
+ *   super-node's `degree`).
+ * - Real nodes group by `theme.defaultBy` (wiki or type), with rule overrides
+ *   surfacing as extra rows whose `sublabel` names the secondary dimension.
+ *
+ * Every swatch comes from the SAME `nodeColor` the scene uses, so the two can
+ * never disagree.
  */
 export function computeLegend(
   nodes: GraphNode[],
@@ -48,21 +47,20 @@ export function computeLegend(
   >();
 
   for (const node of nodes) {
+    // Color always matches the canvas (super-node -> wiki; real -> rules/scale).
+    const color = nodeColor(node, theme, scales);
     let key: string;
-    let color: string;
     let secondary: string | undefined;
     let weight = 1;
 
     if (node.type === WIKI_NODE_TYPE) {
-      // Super-node: described as its wiki, matching the canvas color.
+      // Super-node: described as its wiki.
       key = node.wiki;
       if (!key) continue;
-      color = scales.wiki.get(node.wiki) ?? NEUTRAL;
       weight = node.degree || 1; // degree carries the wiki's page count
     } else {
       key = byType ? node.type : node.wiki;
       if (!key) continue;
-      color = resolveNodeColor(node, theme, scales);
       secondary = byType ? node.wiki : node.type;
     }
 

@@ -1,5 +1,6 @@
 import type { GraphNode } from "@stoa/types/graph";
 import type { Theme, ColorRule } from "@stoa/types/theme";
+import { WIKI_NODE_TYPE } from "../nav/visible-graph.js";
 
 export const PALETTES: Record<string, string[]> = {
   default: ["#61afef", "#98c379", "#c678dd", "#e5c07b", "#e06c75", "#56b6c2", "#d19a66", "#abb2bf"],
@@ -9,7 +10,7 @@ export const PALETTES: Record<string, string[]> = {
 };
 
 /** Neutral grey used when no rule, scale, or palette resolves a color. */
-const NEUTRAL = "#888888";
+export const NEUTRAL = "#888888";
 
 /**
  * Per-dimension color scales: each distinct wiki/type maps to its own color.
@@ -94,4 +95,16 @@ export function resolveNodeColor(node: GraphNode, theme: Theme, scales: ColorSca
     return hashHue(key, PALETTES[theme.palette]);
   }
   return (byType ? scales.type : scales.wiki).get(key) ?? NEUTRAL;
+}
+
+/**
+ * Single source of truth for how the canvas AND the legend color a node.
+ * A region super-node (`__wiki__`) is always colored by its wiki — its
+ * synthetic type is meaningless for by-type coloring — and every real node
+ * goes through `resolveNodeColor`. Use this everywhere a node needs a color so
+ * the scene and legend can never disagree.
+ */
+export function nodeColor(node: GraphNode, theme: Theme, scales: ColorScales): string {
+  if (node.type === WIKI_NODE_TYPE) return scales.wiki.get(node.wiki) ?? NEUTRAL;
+  return resolveNodeColor(node, theme, scales);
 }
