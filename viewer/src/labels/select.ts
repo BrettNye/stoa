@@ -12,7 +12,10 @@ export interface LabelParams {
   hoveredId?: string | null;
 }
 
-/** Ordered list of node ids to label: regions first, then hubs, then nearest. */
+/**
+ * Ordered list of node ids to label: regions first, then hubs, then nearest.
+ * `hubCount` and `budget` are assumed >= 0 (a negative `hubCount` is clamped to 0).
+ */
 export function selectLabeledIds(
   candidates: LabelCandidate[],
   params: LabelParams,

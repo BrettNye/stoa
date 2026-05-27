@@ -41,6 +41,7 @@ let knownIds: Set<string> = new Set();
 let scales: ColorScales = { wiki: new Map(), type: new Map() };
 let activeTheme: Theme = DEFAULT_THEME;
 let controlType: ControlType = "trackball";
+/** Mirrors the scene's label visibility; default-on so labels render on first load. */
 let labelsEnabled = true;
 
 const view: ViewState = {

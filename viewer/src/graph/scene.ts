@@ -23,6 +23,8 @@ const FLY_DURATION_MS = 1500;
 const HUB_COUNT = 3;
 const LABEL_BUDGET = 12;
 const POOL_CAP = 50;
+/** Min ms between label LOD passes in the rAF loop (~10 fps). */
+const LABEL_INTERVAL_MS = 100;
 
 /**
  * The subset of SpriteText / THREE.Object3D surface we actually use.
@@ -95,7 +97,7 @@ export class GraphScene {
     this.stopLabelLoop();
     this.fg._destructor?.();
     this.el.innerHTML = "";
-    // Clear pool so sprites are re-added to the new scene in build().
+    // Drop the pool; fresh sprites are created lazily on the next syncLabels().
     this.labelPool = [];
     this.build();
   }
@@ -285,8 +287,6 @@ export class GraphScene {
     if (typeof requestAnimationFrame === "undefined") return;
 
     let lastSync = 0;
-    const LABEL_INTERVAL_MS = 100;
-
     const tick = (now: number) => {
       if (now - lastSync >= LABEL_INTERVAL_MS) {
         lastSync = now;
