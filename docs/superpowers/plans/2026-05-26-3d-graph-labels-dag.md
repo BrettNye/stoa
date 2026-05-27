@@ -5,10 +5,10 @@ created: 2026-05-26
 
 ```mermaid
 flowchart TD
-    task-label-select["task-label-select: pure selectLabeledIds<br/>files: viewer/src/labels/select.ts +1 more"]
-    task-spritetext-dep["task-spritetext-dep: add three-spritetext<br/>files: package.json"]
-    task-scene-labels["task-scene-labels: render labels in scene<br/>files: viewer/src/graph/scene.ts +1 more"]
-    task-labels-toggle["task-labels-toggle: Labels control toggle<br/>files: viewer/src/main.ts"]
+    task-label-select["task-label-select: pure selectLabeledIds<br/>files: viewer/src/labels/select.ts +1 more"]:::done
+    task-spritetext-dep["task-spritetext-dep: add three-spritetext<br/>files: package.json +1 more"]:::done
+    task-scene-labels["task-scene-labels: render labels in scene<br/>files: viewer/src/graph/scene.ts +1 more"]:::done
+    task-labels-toggle["task-labels-toggle: Labels control toggle<br/>files: viewer/src/main.ts"]:::done
 
     task-label-select --> task-scene-labels
     task-spritetext-dep --> task-scene-labels
@@ -59,7 +59,7 @@ depends_on: []
 files:
   - viewer/src/labels/select.ts
   - viewer/src/labels/select.test.ts
-status: pending
+status: done
 ```
 
 Pure function deciding which node ids get a label, given each node's degree,
@@ -168,7 +168,8 @@ id: task-spritetext-dep
 depends_on: []
 files:
   - package.json
-status: pending
+  - package-lock.json
+status: done
 is_wiring_task: true
 ```
 
@@ -198,7 +199,7 @@ depends_on: [task-label-select, task-spritetext-dep]
 files:
   - viewer/src/graph/scene.ts
   - viewer/src/graph/scene.test.ts
-status: pending
+status: done
 ```
 
 Add the label renderer to `GraphScene`: a lazily-grown, reused pool of
@@ -302,7 +303,7 @@ id: task-labels-toggle
 depends_on: [task-scene-labels]
 files:
   - viewer/src/main.ts
-status: pending
+status: done
 is_wiring_task: true
 ```
 
