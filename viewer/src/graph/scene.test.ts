@@ -500,4 +500,40 @@ describe("label renderer", () => {
     s.syncLabels();
     expect(visibleLabelTexts()).toContain(`id:${hub.id}`);
   });
+
+  it("rAF loop lifecycle: setLabelsEnabled(false) cancels the frame; re-enabling restarts it", () => {
+    // Stub rAF so it returns a deterministic id and NEVER invokes the callback
+    // (avoids recursion and gives us a stable id to assert against).
+    let rafCallCount = 0;
+    let cancelledId: number | undefined;
+    const FAKE_RAF_ID = 42;
+
+    vi.stubGlobal("requestAnimationFrame", (_cb: FrameRequestCallback) => {
+      rafCallCount++;
+      return FAKE_RAF_ID;
+    });
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => {
+      cancelledId = id;
+    });
+
+    try {
+      const s = new GraphScene({} as unknown as HTMLElement);
+      s.setData({ nodes: [hub, leaf], links: [] });
+
+      // Enable labels -> loop must start (rAF called once)
+      s.setLabelsEnabled(true);
+      expect(rafCallCount).toBe(1);
+
+      // Disable labels -> cancelAnimationFrame must be called with the active rafId
+      s.setLabelsEnabled(false);
+      expect(cancelledId).toBe(FAKE_RAF_ID);
+
+      // Re-enable -> rAF must be called again (loop re-starts)
+      const rafCountBeforeRestart = rafCallCount;
+      s.setLabelsEnabled(true);
+      expect(rafCallCount).toBeGreaterThan(rafCountBeforeRestart);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });
