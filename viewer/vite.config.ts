@@ -1,0 +1,8 @@
+import { defineConfig } from "vite";
+import { resolve } from "node:path";
+
+export default defineConfig({
+  root: resolve(__dirname),
+  build: { outDir: resolve(__dirname, "../dist/viewer"), emptyOutDir: true },
+  resolve: { alias: { "@stoa": resolve(__dirname, "../src") } },
+});

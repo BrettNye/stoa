@@ -44,6 +44,7 @@ import { registerOrient } from "./commands/orient.js";
 // v0.4 server-mode
 import { registerServeCommand } from "./commands/serve.js";
 import { registerMintTokenCommand } from "./commands/mint-token.js";
+import { registerGraph } from "./commands/graph.js";
 
 export function buildCli(): Command {
   const program = new Command()
@@ -94,6 +95,7 @@ export function buildCli(): Command {
   // v0.4 server-mode
   registerServeCommand(program);
   registerMintTokenCommand(program);
+  registerGraph(program);
 
   return program;
 }
