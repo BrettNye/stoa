@@ -38,7 +38,7 @@ function makeIdx(
 const DRAFT_AGENT_PATH = "wikis/alpha/idea/idea-bot-draft.md";
 const ACTIVE_HUMAN_PATH = "wikis/alpha/concept/concept-foo.md";
 const ACCEPTED_PATH = "wikis/alpha/spec/spec-stable.md";
-const OPEN_QUESTION_PATH = "wikis/alpha/question/question-open.md";
+const ACTIVE_QUESTION_PATH = "wikis/alpha/question/question-active.md";
 const MALFORMED_PATH = "wikis/alpha/idea/idea-bad.md";
 const MISSING_PATH = "wikis/alpha/idea/idea-missing.md";
 const OTHER_WIKI_PATH = "wikis/beta/concept/concept-beta.md";
@@ -85,13 +85,13 @@ describe("loadCandidates", () => {
       created: "2026-01-01",
     });
 
-    // open question
-    writePage(vault, OPEN_QUESTION_PATH, {
-      id: "question-open",
-      title: "Open Question",
+    // active question — verifies question-typed pages are included when active
+    writePage(vault, ACTIVE_QUESTION_PATH, {
+      id: "question-active",
+      title: "Active Question",
       type: "question",
       wiki: "alpha",
-      status: "open",
+      status: "active",
       created: "2026-01-03",
     });
 
@@ -114,20 +114,22 @@ describe("loadCandidates", () => {
     rmSync(vault, { recursive: true, force: true });
   });
 
-  it("includes only draft/active/open pages — excludes accepted", () => {
+  it("includes only draft/active pages — excludes accepted; question type included when active", () => {
     const idx = makeIdx([
       { id: "idea-bot-draft", wiki: "alpha", type: "idea", status: "draft", path: DRAFT_AGENT_PATH, title: "", summary: "", tags: [], updated: "", created: "" },
       { id: "concept-foo", wiki: "alpha", type: "concept", status: "active", path: ACTIVE_HUMAN_PATH, title: "", summary: "", tags: [], updated: "", created: "" },
       { id: "spec-stable", wiki: "alpha", type: "spec", status: "accepted", path: ACCEPTED_PATH, title: "", summary: "", tags: [], updated: "", created: "" },
-      { id: "question-open", wiki: "alpha", type: "question", status: "open", path: OPEN_QUESTION_PATH, title: "", summary: "", tags: [], updated: "", created: "" },
+      { id: "question-active", wiki: "alpha", type: "question", status: "active", path: ACTIVE_QUESTION_PATH, title: "", summary: "", tags: [], updated: "", created: "" },
     ]);
     const cands = loadCandidates(vault, idx);
     const statuses = cands.map(c => c.status);
     expect(statuses).not.toContain("accepted");
-    expect(statuses.every(s => ["draft", "active", "open"].includes(s))).toBe(true);
+    expect(statuses.every(s => ["draft", "active"].includes(s))).toBe(true);
     expect(cands.map(c => c.page_id)).toContain("idea-bot-draft");
     expect(cands.map(c => c.page_id)).toContain("concept-foo");
-    expect(cands.map(c => c.page_id)).toContain("question-open");
+    expect(cands.map(c => c.page_id)).toContain("question-active");
+    // question type IS included when status is active
+    expect(cands.find(c => c.page_id === "question-active")?.type).toBe("question");
   });
 
   it("classifies agent author correctly", () => {

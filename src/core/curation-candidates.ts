@@ -5,7 +5,7 @@ import type { VaultIndex } from "./index.js";
 import type { CandidatePage } from "./curation-rule.js";
 import type { NoteType } from "./frontmatter.js";
 
-const ELIGIBLE = new Set(["draft", "active", "open"]); // open = question lifecycle
+const ELIGIBLE = new Set(["draft", "active"]); // questions are curated via their real draft/active status
 
 /**
  * Walk `idx.pages` for curation-eligible statuses (draft/active/open), read
