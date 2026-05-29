@@ -102,6 +102,24 @@ export function getCurationConfig(rawConfig: unknown): CurationConfig {
   return top.curation;
 }
 
+/**
+ * Read `.stoa/config.json` from the given vault path and return the effective
+ * `CurationConfig`. Defensive: missing file or malformed JSON falls back to
+ * all spec §4.5 defaults — no throw. This is the single shared implementation
+ * of the raw-config-reading pattern, eliminating duplication across
+ * `core/curate.ts` and `core/curation-count.ts`.
+ */
+export function getCurationConfigForVault(vaultPath: string): CurationConfig {
+  const configPath = join(vaultPath, ".stoa", "config.json");
+  if (!existsSync(configPath)) return getCurationConfig({});
+  try {
+    const raw = JSON.parse(readFileSync(configPath, "utf8"));
+    return getCurationConfig(raw);
+  } catch {
+    return getCurationConfig({});
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Source-type weights (T5 of the specialist-agent-substrate DAG; spec
 // `wikis/_meta/specs/2026-05-19-specialist-agent-substrate-design.md` §5.4)

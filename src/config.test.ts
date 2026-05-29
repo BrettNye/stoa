@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { mkdirSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadVaultStoaConfig, getCurationConfig } from "./config.js";
+import { loadVaultStoaConfig, getCurationConfig, getCurationConfigForVault } from "./config.js";
 
 describe("loadVaultStoaConfig", () => {
   it("returns full defaults when .stoa/config.json is missing", () => {
@@ -114,5 +114,93 @@ describe("getCurationConfig", () => {
       auto_archive_human: false,
       auto_commit: true,
     });
+  });
+});
+
+describe("getCurationConfigForVault", () => {
+  it("returns all defaults when .stoa/config.json is missing", () => {
+    const vault = mkdtempSync(join(tmpdir(), "stoa-curvault-"));
+    try {
+      const cfg = getCurationConfigForVault(vault);
+      expect(cfg).toEqual({
+        archive_stale_days: 60,
+        promote_active_recent_days: 14,
+        confidence_floor: "medium",
+        auto_archive_human: false,
+        auto_commit: true,
+      });
+    } finally {
+      rmSync(vault, { recursive: true, force: true });
+    }
+  });
+
+  it("returns all defaults when .stoa/config.json has no curation block", () => {
+    const vault = mkdtempSync(join(tmpdir(), "stoa-curvault-"));
+    try {
+      mkdirSync(join(vault, ".stoa"));
+      writeFileSync(join(vault, ".stoa", "config.json"), JSON.stringify({ theme: "plain" }));
+      const cfg = getCurationConfigForVault(vault);
+      expect(cfg).toEqual({
+        archive_stale_days: 60,
+        promote_active_recent_days: 14,
+        confidence_floor: "medium",
+        auto_archive_human: false,
+        auto_commit: true,
+      });
+    } finally {
+      rmSync(vault, { recursive: true, force: true });
+    }
+  });
+
+  it("returns defaults on malformed JSON", () => {
+    const vault = mkdtempSync(join(tmpdir(), "stoa-curvault-"));
+    try {
+      mkdirSync(join(vault, ".stoa"));
+      writeFileSync(join(vault, ".stoa", "config.json"), "{ not valid json");
+      const cfg = getCurationConfigForVault(vault);
+      expect(cfg).toEqual({
+        archive_stale_days: 60,
+        promote_active_recent_days: 14,
+        confidence_floor: "medium",
+        auto_archive_human: false,
+        auto_commit: true,
+      });
+    } finally {
+      rmSync(vault, { recursive: true, force: true });
+    }
+  });
+
+  it("merges partial curation overrides from .stoa/config.json", () => {
+    const vault = mkdtempSync(join(tmpdir(), "stoa-curvault-"));
+    try {
+      mkdirSync(join(vault, ".stoa"));
+      writeFileSync(
+        join(vault, ".stoa", "config.json"),
+        JSON.stringify({ curation: { archive_stale_days: 30, confidence_floor: "high" } }),
+      );
+      const cfg = getCurationConfigForVault(vault);
+      expect(cfg.archive_stale_days).toBe(30);
+      expect(cfg.confidence_floor).toBe("high");
+      expect(cfg.promote_active_recent_days).toBe(14);
+      expect(cfg.auto_archive_human).toBe(false);
+      expect(cfg.auto_commit).toBe(true);
+    } finally {
+      rmSync(vault, { recursive: true, force: true });
+    }
+  });
+
+  it("ignores non-curation keys and still returns curation defaults", () => {
+    const vault = mkdtempSync(join(tmpdir(), "stoa-curvault-"));
+    try {
+      mkdirSync(join(vault, ".stoa"));
+      writeFileSync(
+        join(vault, ".stoa", "config.json"),
+        JSON.stringify({ claims: { half_life_days: 30 }, theme: "plain" }),
+      );
+      const cfg = getCurationConfigForVault(vault);
+      expect(cfg.archive_stale_days).toBe(60);
+    } finally {
+      rmSync(vault, { recursive: true, force: true });
+    }
   });
 });

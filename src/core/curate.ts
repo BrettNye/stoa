@@ -14,8 +14,6 @@
 //
 // dry_run: skips all writes; returns the would-apply set without journal_id.
 
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import { loadIndex, upsertPage } from "./index.js";
 import { readPage, writePage } from "./pages.js";
 import { loadCandidates } from "./curation-candidates.js";
@@ -23,7 +21,7 @@ import { runRegisteredRules } from "./curation-rule.js";
 import { gateActions } from "./curation-gate.js";
 import { writeCurationDigest } from "./curate-journal.js";
 import { verifyPrMerged, type Runner } from "./curate-git.js";
-import { getCurationConfig } from "../config.js";
+import { getCurationConfigForVault } from "../config.js";
 import "./curation-rules/registration.js";
 import type { CurationAction } from "./curation-rule.js";
 
@@ -40,21 +38,6 @@ export interface CurateResult {
   journal_id?: string;
 }
 
-/**
- * Load the raw `.stoa/config.json` as an unknown object for `getCurationConfig`.
- * Falls back to an empty object (all curation defaults) on missing file or
- * malformed JSON — mirrors `loadVaultStoaConfig`'s defensive pattern.
- */
-function loadRawVaultConfig(vaultPath: string): unknown {
-  const path = join(vaultPath, ".stoa", "config.json");
-  if (!existsSync(path)) return {};
-  try {
-    return JSON.parse(readFileSync(path, "utf8"));
-  } catch {
-    return {};
-  }
-}
-
 export async function curate(
   vaultPath: string,
   agentId: string,
@@ -63,8 +46,7 @@ export async function curate(
 ): Promise<CurateResult> {
   // ── 1. Index + config ───────────────────────────────────────────────────────
   const idx = loadIndex(vaultPath);
-  const rawConfig = loadRawVaultConfig(vaultPath);
-  const base = getCurationConfig(rawConfig);
+  const base = getCurationConfigForVault(vaultPath);
   const config = {
     ...base,
     confidence_floor: input.confidence_floor ?? base.confidence_floor,
