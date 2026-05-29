@@ -16,9 +16,10 @@ export type Runner = (cmd: string, args: string[]) => { code: number; stdout: st
  *   - gh returns an unrecognised state string
  */
 export function verifyPrMerged(ref: string, run: Runner): PrMergeState {
-  const m = ref.match(/\/pull\/(\d+)/);
+  const m = ref.match(/github\.com\/([\w./-]+\/[\w.-]+)\/pull\/(\d+)/);
   if (!m) return "unknown";
-  const res = run("gh", ["pr", "view", m[1], "--json", "state", "-q", ".state"]);
+  const [, repo, prNum] = m;
+  const res = run("gh", ["pr", "view", prNum, "--repo", repo, "--json", "state", "-q", ".state"]);
   if (res.code !== 0) return "unknown";
   const state = res.stdout.trim().toUpperCase();
   if (state === "MERGED") return "merged";
