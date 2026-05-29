@@ -74,6 +74,7 @@ Restart Claude Code. You now have `vault_recall`, `vault_inbox`, `vault_synthesi
 
 **Write — system:**
 - `vault_reindex` — regenerate `_index/` files and per-wiki `index.md`
+- `vault_curate` — advance page status on checkable evidence (promote drafts, archive stale agent pages, resolve supersedes); writes a digest journal for audit; all changes are plain git-reversible edits; admin-scoped over HTTP (`admin:*`), unrestricted over stdio. CLI: `stoa curate [--wiki] [--dry-run] [--confidence-floor]`
 
 **Coordination:**
 - `vault_channel-post` — post to a coordination channel (cross-instance comms)
