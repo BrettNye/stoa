@@ -16,7 +16,7 @@ export interface CurationAction {
   evidence: string; confidence: Confidence;
   author_class: "agent" | "human";
   field_patch?: Record<string, unknown>;
-  applies: boolean;          // set by the gate, never the rule
+  applies?: boolean;         // gate sets the final value; rules may leave unset (treated as not-yet-decided)
   flag_reason?: string;
 }
 
