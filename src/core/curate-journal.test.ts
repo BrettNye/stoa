@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { mkdtempSync, rmSync, existsSync, readFileSync, mkdirSync } from "node:fs";
+import { mkdtempSync, rmSync, existsSync, readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { composeCurationDigest, writeCurationDigest } from "./curate-journal.js";
@@ -86,7 +86,6 @@ describe("writeCurationDigest", () => {
     const tokens: Record<string, any> = {};
     const wikis: Record<string, any> = {};
     const links: Record<string, any> = {};
-    const { writeFileSync } = require("node:fs");
     writeFileSync(join(indexDir, "pages.json"), JSON.stringify(pages));
     writeFileSync(join(indexDir, "tokens.json"), JSON.stringify(tokens));
     writeFileSync(join(indexDir, "wikis.json"), JSON.stringify(wikis));
