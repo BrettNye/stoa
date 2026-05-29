@@ -5,26 +5,26 @@ created: 2026-05-27
 
 ```mermaid
 flowchart TD
-    task-config["task-config: CurationConfig<br/>files: src/config.ts +1 more"]
-    task-git-helper["task-git-helper: verifyPrMerged<br/>files: src/core/curate-git.ts +1 more"]
-    task-registry["task-registry: contracts + rule registry<br/>files: src/core/curation-rule.ts +1 more"]
-    task-candidates["task-candidates: loadCandidates<br/>files: src/core/curation-candidates.ts +1 more"]
-    task-rule-promote-landed["task-rule-promote-landed<br/>files: src/core/curation-rules/promote-landed.ts +1 more"]
-    task-rule-promote-active["task-rule-promote-active<br/>files: src/core/curation-rules/promote-active.ts +1 more"]
-    task-rule-archive-stale["task-rule-archive-stale<br/>files: src/core/curation-rules/archive-stale.ts +1 more"]
-    task-rule-resolve-supersede["task-rule-resolve-supersede<br/>files: src/core/curation-rules/resolve-supersede.ts +1 more"]
-    task-gate["task-gate: gateActions<br/>files: src/core/curation-gate.ts +1 more"]
-    task-digest-journal["task-digest-journal: composeCurationDigest<br/>files: src/core/curate-journal.ts +1 more"]
-    task-rules-barrel["task-rules-barrel: registration<br/>files: src/core/curation-rules/registration.ts"]
-    task-nudge-count["task-nudge-count: countCuratable<br/>files: src/core/curation-count.ts +1 more"]
-    task-orchestrator["task-orchestrator: curate()<br/>files: src/core/curate.ts +1 more"]
-    task-tool["task-tool: vault_curate tool<br/>files: src/tools/curate.ts +1 more"]
-    task-tool-register["task-tool-register<br/>files: src/tools/index.ts"]
-    task-cli["task-cli: stoa curate<br/>files: src/cli/commands/curate.ts"]
-    task-cli-register["task-cli-register<br/>files: src/cli/index.ts"]
-    task-orient-nudge["task-orient-nudge<br/>files: src/core/orient-core.ts"]
-    task-integration-test["task-integration-test<br/>files: tests/integration/curate.test.ts"]
-    task-docs["task-docs: README tool list<br/>files: README.md"]
+    task-config["task-config: CurationConfig<br/>files: src/config.ts +1 more"]:::done
+    task-git-helper["task-git-helper: verifyPrMerged<br/>files: src/core/curate-git.ts +1 more"]:::done
+    task-registry["task-registry: contracts + rule registry<br/>files: src/core/curation-rule.ts +1 more"]:::done
+    task-candidates["task-candidates: loadCandidates<br/>files: src/core/curation-candidates.ts +1 more"]:::done
+    task-rule-promote-landed["task-rule-promote-landed<br/>files: src/core/curation-rules/promote-landed.ts +1 more"]:::done
+    task-rule-promote-active["task-rule-promote-active<br/>files: src/core/curation-rules/promote-active.ts +1 more"]:::done
+    task-rule-archive-stale["task-rule-archive-stale<br/>files: src/core/curation-rules/archive-stale.ts +1 more"]:::done
+    task-rule-resolve-supersede["task-rule-resolve-supersede<br/>files: src/core/curation-rules/resolve-supersede.ts +1 more"]:::done
+    task-gate["task-gate: gateActions<br/>files: src/core/curation-gate.ts +1 more"]:::done
+    task-digest-journal["task-digest-journal: composeCurationDigest<br/>files: src/core/curate-journal.ts +1 more"]:::done
+    task-rules-barrel["task-rules-barrel: registration<br/>files: src/core/curation-rules/registration.ts"]:::done
+    task-nudge-count["task-nudge-count: countCuratable<br/>files: src/core/curation-count.ts +1 more"]:::done
+    task-orchestrator["task-orchestrator: curate()<br/>files: src/core/curate.ts +1 more"]:::done
+    task-tool["task-tool: vault_curate tool<br/>files: src/tools/curate.ts +1 more"]:::done
+    task-tool-register["task-tool-register<br/>files: src/tools/index.ts"]:::done
+    task-cli["task-cli: stoa curate<br/>files: src/cli/commands/curate.ts"]:::done
+    task-cli-register["task-cli-register<br/>files: src/cli/index.ts"]:::done
+    task-orient-nudge["task-orient-nudge<br/>files: src/core/orient-core.ts"]:::done
+    task-integration-test["task-integration-test<br/>files: tests/integration/curate.test.ts"]:::done
+    task-docs["task-docs: README tool list<br/>files: README.md"]:::done
 
     task-config --> task-registry
     task-config --> task-gate
@@ -119,7 +119,7 @@ depends_on: []
 files:
   - src/config.ts
   - src/config.test.ts
-status: pending
+status: done
 ```
 
 Add the optional `curation` block to `.stoa/config.json` handling, mirroring
@@ -181,7 +181,7 @@ depends_on: []
 files:
   - src/core/curate-git.ts
   - src/core/curate-git.test.ts
-status: pending
+status: done
 ```
 
 Isolates the only shell-out in the feature so the rules stay pure. Resolves
@@ -237,7 +237,7 @@ depends_on: [task-config]
 files:
   - src/core/curation-rule.ts
   - src/core/curation-rule.test.ts
-status: pending
+status: done
 ```
 
 The contract home and registry, mirroring `core/lint-check.ts`. Defines every
@@ -315,7 +315,7 @@ depends_on: [task-registry]
 files:
   - src/core/curation-candidates.ts
   - src/core/curation-candidates.test.ts
-status: pending
+status: done
 ```
 
 The single shared loader (DRY): walks `idx.pages` for curation-eligible
@@ -373,7 +373,7 @@ it("includes only draft/active/open pages and classifies author", () => {
 
 ## Acceptance criteria
 
-- Returns only pages whose `status` ∈ {`draft`, `active`, `open`}, optionally wiki-filtered.
+- Returns only pages whose `status` ∈ {`draft`, `active`}, optionally wiki-filtered. (`PageStatus` has no `open`; questions are curated via their real `draft`/`active` status.)
 - `author_class` is `"agent"` iff frontmatter `author` starts with `agent:`, else `"human"` (absent author → human).
 - `inbound_link_count` reflects `_index/links.json` inbound edges for the page id; missing → 0.
 - Malformed-frontmatter and missing-file pages are skipped, not thrown on.
@@ -388,14 +388,16 @@ depends_on: [task-registry]
 files:
   - src/core/curation-rules/promote-landed.ts
   - src/core/curation-rules/promote-landed.test.ts
-status: pending
+status: done
 ```
 
 Pure rule (spec §4.2). `plan`/`spec` candidate whose `implementation:` PR is
 merged (`ctx.verifyPrMerged` → `"merged"`) → high-confidence; or whose `related:`
 task pages are all done → medium. Targets `accepted` only when the tier is
 satisfiable (`tags` + `related` present; `decision` has `confidence`), else
-**downgrades to `active`** with `flag_reason` naming the missing fields. Never
+**downgrades to `active` (APPLIED)** with the missing fields named in `evidence`
+as an advisory — NOT in `flag_reason` (the gate treats any `flag_reason` as a
+hold-back), so landed work auto-advances to active per the 2026-05-29 decision. Never
 fabricates fields; unverifiable PR evidence → flag, never promote.
 
 ## Implementation
@@ -456,7 +458,7 @@ it("merged-PR plan missing tags → active with flag_reason", () => {
 ## Acceptance criteria
 
 - Merged PR + `accepted`-tier fields present → action `to_status: "accepted"`, `confidence: "high"`.
-- Merged PR + missing `tags`/`related` (or decision `confidence`) → `to_status: "active"`, `flag_reason` lists the missing fields.
+- Merged PR + missing `tags`/`related` (or decision `confidence`) → `to_status: "active"`, APPLIED (NOT held back); the missing-accepted-fields advisory is carried in `evidence`, and `flag_reason` is NOT set (so the gate applies the active promotion).
 - No PR but all `related:` task candidates are `done`/`completed` → `confidence: "medium"`.
 - `verifyPrMerged` returning `"open"`/`"unknown"` and no all-tasks-done → no action for that page.
 - Only `plan` and `spec` types considered.
@@ -471,7 +473,7 @@ depends_on: [task-registry]
 files:
   - src/core/curation-rules/promote-active.ts
   - src/core/curation-rules/promote-active.test.ts
-status: pending
+status: done
 ```
 
 Pure rule (spec §4.2). A `draft` with ≥1 inbound link OR edited within
@@ -537,7 +539,7 @@ depends_on: [task-registry]
 files:
   - src/core/curation-rules/archive-stale.ts
   - src/core/curation-rules/archive-stale.test.ts
-status: pending
+status: done
 ```
 
 Pure rule (spec §4.2). A `draft` untouched ≥ `config.archive_stale_days`, with
@@ -605,14 +607,16 @@ depends_on: [task-registry]
 files:
   - src/core/curation-rules/resolve-supersede.ts
   - src/core/curation-rules/resolve-supersede.test.ts
-status: pending
+status: done
 ```
 
 Pure rule (spec §4.2), explicit-link signals only. If some candidate Y carries
 `supersedes: [[X]]` and X is not yet `superseded` → mark X `superseded` +
 `superseded_by`. If a `question` has an explicit `resolved_by:` link but status
-≠ `resolved` → mark `resolved`. No fuzzy inference (deferred to the
-resolution-lifecycle spec).
+≠ `archived` → mark `archived` with `field_patch: { resolved_at: <today> }`.
+(`PageStatus` has no `resolved` value; an answered question is a closed thread →
+`archived` per the 2026-05-29 controller decision.) No fuzzy inference (deferred
+to the resolution-lifecycle spec).
 
 ## Implementation
 
@@ -661,8 +665,8 @@ it("page targeted by a supersedes: link → superseded action", () => {
 ## Acceptance criteria
 
 - A candidate referenced by another's `supersedes:` link and not already `superseded` → action `to_status: "superseded"` with `field_patch.superseded_by`.
-- A `question` with `resolved_by:` set and status ≠ `resolved` → action `to_status: "resolved"`.
-- Already-`superseded`/`resolved` pages → no action (idempotent).
+- A `question` with `resolved_by:` set and status ≠ `archived` → action `to_status: "archived"` with `field_patch.resolved_at` = today.
+- Already-`superseded` pages (supersede path) and already-`archived` resolved questions → no action (idempotent).
 - No action is produced from mere `related:` adjacency (no fuzzy inference).
 
 Test file: `src/core/curation-rules/resolve-supersede.test.ts`.
@@ -675,7 +679,7 @@ depends_on: [task-registry, task-config]
 files:
   - src/core/curation-gate.ts
   - src/core/curation-gate.test.ts
-status: pending
+status: done
 ```
 
 The single policy chokepoint (spec §4.3). Pure function setting `applies` +
@@ -738,7 +742,7 @@ depends_on: [task-registry]
 files:
   - src/core/curate-journal.ts
   - src/core/curate-journal.test.ts
-status: pending
+status: done
 ```
 
 The audit surface (spec §4.4 step 5). A pure `composeCurationDigest` builds the
@@ -812,7 +816,7 @@ id: task-rules-barrel
 depends_on: [task-rule-promote-landed, task-rule-promote-active, task-rule-archive-stale, task-rule-resolve-supersede]
 files:
   - src/core/curation-rules/registration.ts
-status: pending
+status: done
 is_wiring_task: true
 ```
 
@@ -841,7 +845,7 @@ Test file: `src/core/curate.test.ts` (asserts registry membership after barrel i
 ```yaml
 id: task-nudge-count
 depends_on: [task-candidates, task-rules-barrel, task-gate]
-status: pending
+status: done
 files:
   - src/core/curation-count.ts
   - src/core/curation-count.test.ts
@@ -897,7 +901,7 @@ Test file: `src/core/curation-count.test.ts`.
 ```yaml
 id: task-orchestrator
 depends_on: [task-candidates, task-rules-barrel, task-gate, task-digest-journal, task-git-helper, task-config]
-status: pending
+status: done
 files:
   - src/core/curate.ts
   - src/core/curate.test.ts
@@ -980,7 +984,7 @@ Test file: `src/core/curate.test.ts`.
 ```yaml
 id: task-tool
 depends_on: [task-orchestrator]
-status: pending
+status: done
 files:
   - src/tools/curate.ts
   - src/tools/curate.test.ts
@@ -1051,7 +1055,7 @@ Test file: `src/tools/curate.test.ts`.
 ```yaml
 id: task-tool-register
 depends_on: [task-tool]
-status: pending
+status: done
 files:
   - src/tools/index.ts
 is_wiring_task: true
@@ -1080,7 +1084,7 @@ Test file: `tests/integration/curate.test.ts` (asserts the tool is registered an
 ```yaml
 id: task-cli
 depends_on: [task-orchestrator]
-status: pending
+status: done
 files:
   - src/cli/commands/curate.ts
 is_wiring_task: true
@@ -1128,7 +1132,7 @@ Test file: `tests/integration/curate.test.ts` (CLI path exercised via the shared
 ```yaml
 id: task-cli-register
 depends_on: [task-cli]
-status: pending
+status: done
 files:
   - src/cli/index.ts
 is_wiring_task: true
@@ -1155,7 +1159,7 @@ Test file: `tests/integration/curate.test.ts`.
 ```yaml
 id: task-orient-nudge
 depends_on: [task-nudge-count]
-status: pending
+status: done
 files:
   - src/core/orient-core.ts
 is_wiring_task: true
@@ -1179,7 +1183,7 @@ Test file: `src/core/orient-core.test.ts`.
 ```yaml
 id: task-integration-test
 depends_on: [task-tool, task-orchestrator]
-status: pending
+status: done
 files:
   - tests/integration/curate.test.ts
 ```
@@ -1214,7 +1218,7 @@ it("second run is a no-op (idempotent)", async () => {
 
 ## Acceptance criteria
 
-- A merged-PR plan missing `accepted` fields ends at `status: active` with a flagged gap.
+- A merged-PR plan/spec missing `accepted` fields is promoted to `status: active` (APPLIED — disk status becomes active), with the accepted-gap noted in the digest's Applied entry (not the Flagged section).
 - An agent-authored stale orphan draft ends at `status: archived` with `archived_at`; a human-authored stale orphan is flagged, not archived.
 - A page targeted by a `supersedes:` link ends `superseded`.
 - Exactly one `…-curation-run` journal is written containing applied + flagged sections.
@@ -1228,7 +1232,7 @@ Test file: `tests/integration/curate.test.ts`.
 ```yaml
 id: task-docs
 depends_on: [task-tool-register]
-status: pending
+status: done
 files:
   - README.md
 is_wiring_task: true
