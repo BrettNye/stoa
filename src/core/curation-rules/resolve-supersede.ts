@@ -69,17 +69,18 @@ registerCurationRule({
         continue;
       }
 
-      // Check if this question has an explicit resolved_by: link but is not yet resolved
-      if (c.type === "question" && c.status !== "resolved" && c.frontmatter.resolved_by) {
+      // Check if this question has an explicit resolved_by: link but is not yet archived
+      if (c.type === "question" && c.status !== "archived" && c.frontmatter.resolved_by) {
         out.push({
           code: "RESOLVE_SUPERSEDE",
           page_id: c.page_id,
           wiki: c.wiki,
           from_status: c.status,
-          to_status: "resolved",
+          to_status: "archived",
           evidence: `resolved_by ${String(c.frontmatter.resolved_by)}`,
           confidence: "high",
           author_class: c.author_class,
+          field_patch: { resolved_at: ctx.today.toISOString().slice(0, 10) },
           applies: false,
         });
       }

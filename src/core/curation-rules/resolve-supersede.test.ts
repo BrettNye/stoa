@@ -98,8 +98,8 @@ it("already superseded page → no action", () => {
   expect(actions.find((x) => x.page_id === "decision-old")).toBeUndefined();
 });
 
-// AC2: question with resolved_by: set and status ≠ resolved → resolved action
-it("question with resolved_by: set → resolved action", () => {
+// AC2: question with resolved_by: set and status ≠ archived → archived action with resolved_at
+it("question with resolved_by: set → archived action with resolved_at", () => {
   const cands = [
     candidate({
       page_id: "question-foo",
@@ -112,19 +112,20 @@ it("question with resolved_by: set → resolved action", () => {
   expect(actions).toHaveLength(1);
   expect(actions[0]).toMatchObject({
     page_id: "question-foo",
-    to_status: "resolved",
+    to_status: "archived",
     code: "RESOLVE_SUPERSEDE",
     confidence: "high",
   });
+  expect(actions[0].field_patch?.resolved_at).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 });
 
-// AC3: already-resolved question → no action (idempotent)
-it("already resolved question → no action", () => {
+// AC3: already-archived question → no action (idempotent)
+it("already archived question → no action", () => {
   const cands = [
     candidate({
       page_id: "question-foo",
       type: "question",
-      status: "resolved",
+      status: "archived",
       frontmatter: { resolved_by: "[[decision-bar]]" },
     }),
   ];
