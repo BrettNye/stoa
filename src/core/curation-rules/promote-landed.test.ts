@@ -112,7 +112,7 @@ it("merged-PR plan with tags+related → accepted, high confidence", () => {
   expect(a).toMatchObject({ to_status: "accepted", confidence: "high" });
 });
 
-it("merged-PR spec missing tags → active with flag_reason listing 'tags'", () => {
+it("merged-PR spec missing tags → active, no flag_reason, advisory in evidence", () => {
   const c = candidate({
     type: "spec",
     frontmatter: {
@@ -122,10 +122,12 @@ it("merged-PR spec missing tags → active with flag_reason listing 'tags'", () 
   });
   const a = run1([c], () => "merged");
   expect(a.to_status).toBe("active");
-  expect(a.flag_reason).toMatch(/tags/);
+  expect(a.flag_reason).toBeUndefined();
+  expect(a.evidence).toMatch(/tags/);
+  expect(a.evidence).toMatch(/eligible for accepted/);
 });
 
-it("merged-PR spec missing related → active with flag_reason listing 'related'", () => {
+it("merged-PR spec missing related → active, no flag_reason, advisory in evidence", () => {
   const c = candidate({
     type: "spec",
     frontmatter: {
@@ -135,10 +137,12 @@ it("merged-PR spec missing related → active with flag_reason listing 'related'
   });
   const a = run1([c], () => "merged");
   expect(a.to_status).toBe("active");
-  expect(a.flag_reason).toMatch(/related/);
+  expect(a.flag_reason).toBeUndefined();
+  expect(a.evidence).toMatch(/related/);
+  expect(a.evidence).toMatch(/eligible for accepted/);
 });
 
-it("merged-PR spec with tags+related missing both → flag_reason lists both", () => {
+it("merged-PR spec missing both tags and related → active, no flag_reason, advisory in evidence lists both", () => {
   const c = candidate({
     type: "spec",
     frontmatter: {
@@ -147,11 +151,13 @@ it("merged-PR spec with tags+related missing both → flag_reason lists both", (
   });
   const a = run1([c], () => "merged");
   expect(a.to_status).toBe("active");
-  expect(a.flag_reason).toMatch(/tags/);
-  expect(a.flag_reason).toMatch(/related/);
+  expect(a.flag_reason).toBeUndefined();
+  expect(a.evidence).toMatch(/tags/);
+  expect(a.evidence).toMatch(/related/);
+  expect(a.evidence).toMatch(/eligible for accepted/);
 });
 
-it("merged-PR decision missing confidence → active with flag_reason listing 'confidence'", () => {
+it("merged-PR decision missing confidence → active, no flag_reason, advisory in evidence", () => {
   const c = candidate({
     type: "decision",
     frontmatter: {
@@ -162,7 +168,9 @@ it("merged-PR decision missing confidence → active with flag_reason listing 'c
   });
   const a = run1([c], () => "merged");
   expect(a.to_status).toBe("active");
-  expect(a.flag_reason).toMatch(/confidence/);
+  expect(a.flag_reason).toBeUndefined();
+  expect(a.evidence).toMatch(/confidence/);
+  expect(a.evidence).toMatch(/eligible for accepted/);
 });
 
 it("verifyPrMerged returning open → no action", () => {

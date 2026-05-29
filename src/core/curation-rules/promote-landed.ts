@@ -125,21 +125,22 @@ registerCurationRule({
       const missing = acceptedReady(c);
       const toStatus = missing.length === 0 ? "accepted" : "active";
 
+      const finalEvidence =
+        missing.length > 0
+          ? `${evidence}; eligible for accepted once ${missing.join(", ")} added`
+          : evidence;
+
       const action: CurationAction = {
         code: "PROMOTE_LANDED",
         page_id: c.page_id,
         wiki: c.wiki,
         from_status: c.status,
         to_status: toStatus,
-        evidence,
+        evidence: finalEvidence,
         confidence,
         author_class: c.author_class,
         applies: false, // gate sets the final value
       };
-
-      if (toStatus === "active" && missing.length > 0) {
-        action.flag_reason = `eligible for accepted — needs ${missing.join(", ")}`;
-      }
 
       out.push(action);
     }
