@@ -1,16 +1,15 @@
 import type { Hono, Env } from "hono";
 import { readFileSync, writeFileSync, renameSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import type { VaultConfig } from "../config.js";
 import { buildGraph } from "../core/graph.js";
 import { PagesIndex, LinksIndex } from "../types/graph.js";
 import { ThemesFile } from "../types/theme.js";
 
-// Accepts a Hono app with any env bindings (e.g. startHttp's app carries a
-// `principal` Variable) — these routes are public and read no context state.
-export function registerGraphRoutes<E extends Env>(app: Hono<E>, config: VaultConfig): void {
-  const idxDir = join(config.vaultPath, "_index");
-  const themesPath = join(config.vaultPath, "graph-themes.json");
+// Accepts a Hono app with any env bindings (e.g. the ui server's app) — these
+// routes are public and read no context state beyond the vault path.
+export function registerGraphRoutes<E extends Env>(app: Hono<E>, vaultPath: string): void {
+  const idxDir = join(vaultPath, "_index");
+  const themesPath = join(vaultPath, "graph-themes.json");
 
   app.get("/graph/data", (c) => {
     const pages = PagesIndex.parse(

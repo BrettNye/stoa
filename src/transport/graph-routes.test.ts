@@ -24,7 +24,7 @@ function makeVault(): string {
 it("GET /graph/data returns a normalized graph from the index", async () => {
   const vault = makeVault();
   const app = new Hono();
-  registerGraphRoutes(app, { vaultPath: vault } as any);
+  registerGraphRoutes(app, vault);
   const res = await app.request("/graph/data");
   expect(res.status).toBe(200);
   const body = await res.json();
@@ -36,7 +36,7 @@ it("GET /graph/data returns a normalized graph from the index", async () => {
 it("GET /graph/themes returns { themes: [] } when file is absent", async () => {
   const vault = makeVault();
   const app = new Hono();
-  registerGraphRoutes(app, { vaultPath: vault } as any);
+  registerGraphRoutes(app, vault);
   const res = await app.request("/graph/themes");
   expect(res.status).toBe(200);
   const body = await res.json();
@@ -46,7 +46,7 @@ it("GET /graph/themes returns { themes: [] } when file is absent", async () => {
 it("PUT /graph/themes round-trip: valid body persists and GET returns it", async () => {
   const vault = makeVault();
   const app = new Hono();
-  registerGraphRoutes(app, { vaultPath: vault } as any);
+  registerGraphRoutes(app, vault);
 
   const payload = {
     themes: [
@@ -81,7 +81,7 @@ it("PUT /graph/themes round-trip: valid body persists and GET returns it", async
 it("PUT /graph/themes rejects a malformed theme (bad color) and does NOT persist", async () => {
   const vault = makeVault();
   const app = new Hono();
-  registerGraphRoutes(app, { vaultPath: vault } as any);
+  registerGraphRoutes(app, vault);
 
   const badPayload = {
     themes: [

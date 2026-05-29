@@ -14,6 +14,7 @@ import { csrfMiddleware } from "./csrf.js";
 import { mountReadRoutes } from "./routes-read.js";
 import { mountSpriteRoute } from "./routes-sprites.js";
 import { mountWriteRoutes } from "./routes-write.js";
+import { registerGraphRoutes } from "../graph-routes.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -79,6 +80,11 @@ export async function startUiServer(opts: StartUiServerOpts): Promise<UiServerHa
   mountSpriteRoute(app, { vaultPath, fetcher });
   mountWriteRoutes(app, { vaultPath, fetcher, defaultWiki: opts.defaultWiki });
 
+  // Knowledge-graph viewer data/theme routes (public, read the index).
+  // Registered BEFORE the /graph/* static catch-all below so GET /graph/data
+  // and /graph/themes hit these handlers, not the static bundle.
+  registerGraphRoutes(app, vaultPath);
+
   // ------------------------------------------------------------------
   // Static file serving: GET /static/*
   // The serveStatic root is relative to the process CWD, so we resolve
@@ -96,6 +102,16 @@ export async function startUiServer(opts: StartUiServerOpts): Promise<UiServerHa
   // would double up (/static/static/index.html → 404).
   const relRoot = relative(process.cwd(), staticParent).replace(/\\/g, "/") || ".";
   app.use("/static/*", serveStatic({ root: relRoot }));
+
+  // ------------------------------------------------------------------
+  // Knowledge-graph viewer static bundle (built to dist/viewer).
+  // CWD-relative, mirroring the posture this mount had on the MCP server
+  // before it moved here; 404 (not 500) if the viewer isn't built.
+  // ------------------------------------------------------------------
+  app.get("/graph", serveStatic({ path: "./dist/viewer/index.html" }));
+  app.use("/graph/*", serveStatic({ root: "./dist/viewer" }));
+  // Vite emits root-absolute /assets/... references, so serve those at root too.
+  app.use("/assets/*", serveStatic({ root: "./dist/viewer" }));
 
   // ------------------------------------------------------------------
   // Start the HTTP server

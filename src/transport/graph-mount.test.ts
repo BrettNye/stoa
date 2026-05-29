@@ -1,16 +1,19 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
+import { startUiServer, type UiServerHandle } from "./ui/index.js";
 import { startHttp } from "./http.js";
 
-const SECRET = "test-secret-32-bytes-minimum-please-yes";
+// The graph viewer routes moved from the `stoa serve` MCP server onto the
+// `stoa ui` dashboard server (decision-2026-05-29-graph-viewer-served-by-stoa-ui).
+// This suite verifies both halves: the routes ARE on the ui server, and are
+// NOT on the serve server.
 
-let serverInstance: Server | undefined;
-let port: number;
-let vault: string;
+const SECRET = "test-secret-32-bytes-minimum-please-yes";
+const UI_PORT = 4393; // sits below the transport-ui-bootstrap fixed ports (4394+)
 
 const MINIMAL_PAGES = {
   pages: [
@@ -29,91 +32,101 @@ const MINIMAL_PAGES = {
     },
   ],
 };
+const MINIMAL_LINKS = { "concept-foo": { outbound: [], inbound: [] } };
 
-const MINIMAL_LINKS = {
-  "concept-foo": { outbound: [], inbound: [] },
-};
+let vault: string;
+let uiHandle: UiServerHandle;
+
+function seedVault(): string {
+  const v = mkdtempSync(join(tmpdir(), "stoa-graph-mount-"));
+  mkdirSync(join(v, "wikis"), { recursive: true });
+  mkdirSync(join(v, "_index"), { recursive: true });
+  writeFileSync(join(v, "_index", "pages.json"), JSON.stringify(MINIMAL_PAGES));
+  writeFileSync(join(v, "_index", "links.json"), JSON.stringify(MINIMAL_LINKS));
+  return v;
+}
 
 beforeAll(async () => {
-  vault = mkdtempSync(join(tmpdir(), "stoa-graph-mount-"));
-  mkdirSync(join(vault, "wikis"), { recursive: true });
-  mkdirSync(join(vault, "_index"), { recursive: true });
-  writeFileSync(join(vault, "_index", "pages.json"), JSON.stringify(MINIMAL_PAGES));
-  writeFileSync(join(vault, "_index", "links.json"), JSON.stringify(MINIMAL_LINKS));
-
-  process.env.STOA_TOKEN_SIGNING_SECRET = SECRET;
-
-  serverInstance = (await startHttp(
-    { vaultPath: vault, mcpMode: false } as any,
-    { bindOverride: "127.0.0.1:0" },
-  )) as Server;
-
-  // Wait for the listening callback to fire so address() is populated.
-  await new Promise<void>((resolve) => {
-    if (serverInstance!.listening) return resolve();
-    serverInstance!.once("listening", () => resolve());
+  vault = seedVault();
+  uiHandle = await startUiServer({
+    vaultPath: vault,
+    port: UI_PORT,
+    bind: "127.0.0.1",
+    open: false,
   });
-
-  const addr = serverInstance!.address() as AddressInfo;
-  port = addr.port;
 });
 
 afterAll(async () => {
-  if (serverInstance) {
-    await new Promise<void>((resolve) => serverInstance!.close(() => resolve()));
-  }
+  await uiHandle.shutdown();
   rmSync(vault, { recursive: true, force: true });
-  delete process.env.STOA_TOKEN_SIGNING_SECRET;
 });
 
-describe("graph routes (public — no bearer required)", () => {
-  it("GET /graph/data returns 200 with nodes and links WITHOUT a bearer token", async () => {
-    const res = await fetch(`http://127.0.0.1:${port}/graph/data`);
+describe("graph routes — mounted on the stoa ui dashboard server", () => {
+  it("GET /graph/data returns 200 with nodes and links", async () => {
+    const res = await fetch(`${uiHandle.url}/graph/data`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
-    expect(body).toHaveProperty("nodes");
-    expect(body).toHaveProperty("links");
     expect(Array.isArray(body.nodes)).toBe(true);
     expect(Array.isArray(body.links)).toBe(true);
   });
 
-  it("GET /graph/themes returns 200 WITHOUT a bearer token", async () => {
-    const res = await fetch(`http://127.0.0.1:${port}/graph/themes`);
+  it("GET /graph/themes returns 200 with a themes array", async () => {
+    const res = await fetch(`${uiHandle.url}/graph/themes`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
     expect(body).toHaveProperty("themes");
   });
 
-  it("/health and /mcp behavior is unchanged", async () => {
-    // /health still public
-    const healthRes = await fetch(`http://127.0.0.1:${port}/health`);
-    expect(healthRes.status).toBe(200);
+  // Static-serve is a smoke test only — dist/viewer may not be built in CI.
+  // 200 (built) or 404 (not built) are both fine; 500 would mean the handler threw.
+  it("GET /graph does not return 500 (viewer static-serve wired)", async () => {
+    const res = await fetch(`${uiHandle.url}/graph`);
+    expect(res.status).not.toBe(500);
+  });
 
-    // /mcp still requires bearer
-    const mcpRes = await fetch(`http://127.0.0.1:${port}/mcp`, {
+  it("GET /assets/* does not return 500 (viewer bundle assets wired at root)", async () => {
+    const res = await fetch(`${uiHandle.url}/assets/index.js`);
+    expect(res.status).not.toBe(500);
+  });
+});
+
+describe("graph routes — NOT mounted on the stoa serve MCP server", () => {
+  let serveServer: Server | undefined;
+  let servePort: number;
+
+  beforeAll(async () => {
+    process.env.STOA_TOKEN_SIGNING_SECRET = SECRET;
+    serveServer = (await startHttp(
+      { vaultPath: vault, mcpMode: false } as any,
+      { bindOverride: "127.0.0.1:0" },
+    )) as Server;
+    await new Promise<void>((resolve) => {
+      if (serveServer!.listening) return resolve();
+      serveServer!.once("listening", () => resolve());
+    });
+    servePort = (serveServer!.address() as AddressInfo).port;
+  });
+
+  afterAll(async () => {
+    if (serveServer) {
+      await new Promise<void>((resolve) => serveServer!.close(() => resolve()));
+    }
+    delete process.env.STOA_TOKEN_SIGNING_SECRET;
+  });
+
+  it("GET /graph/data is 404 on the MCP server (route removed)", async () => {
+    const res = await fetch(`http://127.0.0.1:${servePort}/graph/data`);
+    expect(res.status).toBe(404);
+  });
+
+  it("/health stays public and /mcp stays bearer-gated (unchanged)", async () => {
+    const health = await fetch(`http://127.0.0.1:${servePort}/health`);
+    expect(health.status).toBe(200);
+    const mcp = await fetch(`http://127.0.0.1:${servePort}/mcp`, {
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping" }),
     });
-    expect(mcpRes.status).toBe(401);
-  });
-
-  // Static-serve for /graph is a smoke test only — dist/viewer may not exist
-  // in CI. We assert /graph/data (the load-bearing route) above; here we only
-  // check that the route doesn't crash if the viewer build is present.
-  it("GET /graph does not return 500 (static-serve wired correctly)", async () => {
-    const res = await fetch(`http://127.0.0.1:${port}/graph`);
-    // 200 (built viewer present) or 404 (dist/viewer not built yet) are both
-    // acceptable — 500 would indicate the route handler itself threw.
-    expect(res.status).not.toBe(500);
-  });
-
-  it("GET /assets/* is served publicly (viewer bundle, not bearer-gated)", async () => {
-    // The built index.html references its JS/CSS at root-absolute /assets/...,
-    // so this mount must exist and be public. 200 if built, 404 if not — but
-    // never 401 (gated) and never 500 (handler threw).
-    const res = await fetch(`http://127.0.0.1:${port}/assets/index.js`);
-    expect(res.status).not.toBe(401);
-    expect(res.status).not.toBe(500);
+    expect(mcp.status).toBe(401);
   });
 });
