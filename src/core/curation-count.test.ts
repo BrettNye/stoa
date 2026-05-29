@@ -169,4 +169,58 @@ describe("countCuratable", () => {
     expect(alphaOnly).toBeGreaterThanOrEqual(1);
     expect(betaOnly).toBeGreaterThanOrEqual(1);
   });
+
+  it("honors custom curation config from .stoa/config.json", () => {
+    // Add a RECENTLY-stale agent draft (2 days ago). Under the default
+    // archive_stale_days=60 this page is NOT archivable. Under a custom
+    // archive_stale_days=1 it IS archivable.
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const recentPath = "wikis/alpha/idea/idea-recent-stale.md";
+    writePage(vault, recentPath, {
+      id: "idea-recent-stale",
+      title: "Recent Stale Idea",
+      type: "idea",
+      wiki: "alpha",
+      status: "draft",
+      created: twoDaysAgo,
+      author: "agent:charmander",
+    });
+
+    // Add it to the index (no inbound links → orphan, archivable under low threshold)
+    const idxPath = join(vault, "_index", "pages.json");
+    const existing = JSON.parse(readFileSync(idxPath, "utf8"));
+    existing.pages.push({
+      id: "idea-recent-stale",
+      wiki: "alpha",
+      type: "idea",
+      status: "draft",
+      path: recentPath,
+      title: "Recent Stale Idea",
+      summary: "",
+      tags: [],
+      updated: "",
+      created: twoDaysAgo,
+    });
+    writeFileSync(idxPath, JSON.stringify(existing, null, 2));
+
+    // Count with DEFAULT config (archive_stale_days=60) — recent page NOT archivable
+    _clearIndexCache();
+    const defaultCount = countCuratable(vault, "alpha");
+
+    // Write a custom config with archive_stale_days=1 — recent page IS archivable
+    mkdirSync(join(vault, ".stoa"), { recursive: true });
+    writeFileSync(
+      join(vault, ".stoa", "config.json"),
+      JSON.stringify({ curation: { archive_stale_days: 1 } }),
+    );
+
+    _clearIndexCache();
+    const customCount = countCuratable(vault, "alpha");
+
+    // The custom threshold must yield a HIGHER count than the default
+    // (the recent page is archivable under days=1 but not under days=60)
+    expect(customCount).toBeGreaterThan(defaultCount);
+  });
 });
