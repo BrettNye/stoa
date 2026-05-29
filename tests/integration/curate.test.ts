@@ -388,7 +388,7 @@ describe("curate() — full fixture run (spec §6 acceptance criteria)", () => {
 });
 
 describe("curate() — idempotency (spec §6 AC5)", () => {
-  it("second consecutive run applies no ARCHIVE_STALE or RESOLVE_SUPERSEDE actions", async () => {
+  it("second consecutive run applies nothing (full idempotency)", async () => {
     // First run — applies archive + supersede + promote-landed
     const first = await curate(vault, "tester", {}, fakeMergedRunner);
     expect(first.applied.length).toBeGreaterThan(0);
@@ -396,16 +396,12 @@ describe("curate() — idempotency (spec §6 AC5)", () => {
     // Clear index cache so second run reloads from disk
     _clearIndexCache();
 
-    // Second run — previously archived and superseded pages are already at their
-    // target status. PROMOTE_LANDED may re-fire for the active spec (active→active
-    // is advisory-only), but no destructive ARCHIVE_STALE or RESOLVE_SUPERSEDE
-    // changes should be applied a second time.
+    // Second run — every page is already at its target status, so no action
+    // should be applied. PROMOTE_LANDED is idempotent (skips active→active
+    // self-transitions), ARCHIVE_STALE skips non-draft pages, and
+    // RESOLVE_SUPERSEDE skips already-superseded pages.
     const second = await curate(vault, "tester", {}, fakeMergedRunner);
-    expect(
-      second.applied.filter(
-        (a) => a.code === "ARCHIVE_STALE" || a.code === "RESOLVE_SUPERSEDE",
-      ),
-    ).toHaveLength(0);
+    expect(second.applied).toHaveLength(0);
   });
 });
 
