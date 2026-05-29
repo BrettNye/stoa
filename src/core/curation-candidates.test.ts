@@ -96,8 +96,6 @@ describe("loadCandidates", () => {
     });
 
     // malformed (no frontmatter)
-    writeFileSync(join(vault, ...MALFORMED_PATH.split("/")), "no frontmatter here\n");
-    // make the dir just in case
     mkdirSync(join(vault, "wikis/alpha/idea"), { recursive: true });
     writeFileSync(join(vault, MALFORMED_PATH), "no frontmatter here\n");
 
