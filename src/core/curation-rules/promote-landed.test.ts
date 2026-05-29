@@ -115,6 +115,7 @@ it("merged-PR plan with tags+related → accepted, high confidence", () => {
 it("merged-PR spec missing tags → active, no flag_reason, advisory in evidence", () => {
   const c = candidate({
     type: "spec",
+    status: "draft",
     frontmatter: {
       implementation: [{ pr: "github.com/o/n/pull/1" }],
       related: ["[[y]]"],
@@ -130,6 +131,7 @@ it("merged-PR spec missing tags → active, no flag_reason, advisory in evidence
 it("merged-PR spec missing related → active, no flag_reason, advisory in evidence", () => {
   const c = candidate({
     type: "spec",
+    status: "draft",
     frontmatter: {
       implementation: [{ pr: "github.com/o/n/pull/1" }],
       tags: ["x"],
@@ -145,6 +147,7 @@ it("merged-PR spec missing related → active, no flag_reason, advisory in evide
 it("merged-PR spec missing both tags and related → active, no flag_reason, advisory in evidence lists both", () => {
   const c = candidate({
     type: "spec",
+    status: "draft",
     frontmatter: {
       implementation: [{ pr: "github.com/o/n/pull/1" }],
     },
@@ -160,6 +163,7 @@ it("merged-PR spec missing both tags and related → active, no flag_reason, adv
 it("merged-PR decision missing confidence → active, no flag_reason, advisory in evidence", () => {
   const c = candidate({
     type: "decision",
+    status: "draft",
     frontmatter: {
       implementation: [{ pr: "github.com/o/n/pull/1" }],
       tags: ["x"],
@@ -386,4 +390,53 @@ it("mixed related: some task done, some task active → no action (not all done)
   });
   const actions = runAll([c, taskDone, taskActive], () => "unknown");
   expect(actions).toHaveLength(0);
+});
+
+// ── Idempotency tests ───────────────────────────────────────────────────────
+
+it("idempotency: active spec with merged PR but missing tags+related → NO action (already at target)", () => {
+  // This is the core idempotency bug: a page already at "active" that would
+  // compute to_status="active" (because accepted fields missing) must NOT
+  // re-emit the action on subsequent curate runs.
+  const c = candidate({
+    type: "spec",
+    status: "active",
+    frontmatter: {
+      implementation: [{ pr: "github.com/o/n/pull/1" }],
+      // missing tags and related → target is "active"
+    },
+  });
+  const actions = runAll([c], () => "merged");
+  expect(actions).toHaveLength(0);
+});
+
+it("idempotency: active plan/spec with merged PR but missing related → NO action", () => {
+  const c = candidate({
+    type: "spec",
+    status: "active",
+    frontmatter: {
+      implementation: [{ pr: "github.com/o/n/pull/1" }],
+      tags: ["x"],
+      // missing related → target is "active"
+    },
+  });
+  const actions = runAll([c], () => "merged");
+  expect(actions).toHaveLength(0);
+});
+
+it("idempotency: active spec with merged PR and full accepted fields → emits active→accepted (still promotes)", () => {
+  // Even though it's already active, it has all accepted fields now,
+  // so to_status="accepted" ≠ current "active" → action IS emitted.
+  const c = candidate({
+    type: "spec",
+    status: "active",
+    frontmatter: {
+      implementation: [{ pr: "github.com/o/n/pull/1" }],
+      tags: ["x"],
+      related: ["[[y]]"],
+    },
+  });
+  const a = run1([c], () => "merged");
+  expect(a.from_status).toBe("active");
+  expect(a.to_status).toBe("accepted");
 });

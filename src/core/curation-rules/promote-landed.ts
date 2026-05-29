@@ -125,6 +125,11 @@ registerCurationRule({
       const missing = acceptedReady(c);
       const toStatus = missing.length === 0 ? "accepted" : "active";
 
+      // Idempotency guard: skip self-transitions (already at the target status).
+      // Without this guard, a page already at "active" with missing accepted
+      // fields would re-emit active→active on every curate run.
+      if (c.status === toStatus) continue;
+
       const finalEvidence =
         missing.length > 0
           ? `${evidence}; eligible for accepted once ${missing.join(", ")} added`
