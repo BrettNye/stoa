@@ -65,6 +65,44 @@ export function getClaimsConfig(rawConfig: unknown): ClaimsConfig {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Curation config (vault_curate — task-config)
+//
+// Per spec §4.5 (wikis/_meta/specs/2026-05-29-vault-curate-status-curation.md),
+// a vault may tune the autonomous curation subsystem via a top-level `curation:`
+// block in `.stoa/config.json`. All keys are optional; omitted keys fall back
+// to the spec's canonical defaults. Keep the default literals here in sync
+// with §4.5. Mirrors the ClaimsConfigSchema convention exactly.
+// ─────────────────────────────────────────────────────────────────────────
+
+export const CurationConfigSchema = z
+  .object({
+    archive_stale_days: z.number().int().positive().default(60),
+    promote_active_recent_days: z.number().int().positive().default(14),
+    confidence_floor: z.enum(["high", "medium", "low"]).default("medium"),
+    auto_archive_human: z.boolean().default(false),
+    auto_commit: z.boolean().default(true),
+  })
+  .default({});
+
+export type CurationConfig = z.infer<typeof CurationConfigSchema>;
+
+/**
+ * Resolve the effective curation config from a raw vault-config object.
+ *
+ * - `null`/`undefined`/non-object → treated as empty.
+ * - Missing or empty `curation` field → all spec §4.5 defaults.
+ * - Partial overrides merge with defaults at every level.
+ * - Schema violations (negative days, invalid confidence_floor, etc.) throw a
+ *   ZodError; callers may catch and surface.
+ */
+export function getCurationConfig(rawConfig: unknown): CurationConfig {
+  const top = z
+    .object({ curation: CurationConfigSchema })
+    .parse(typeof rawConfig === "object" && rawConfig !== null ? rawConfig : {});
+  return top.curation;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Source-type weights (T5 of the specialist-agent-substrate DAG; spec
 // `wikis/_meta/specs/2026-05-19-specialist-agent-substrate-design.md` §5.4)
 //
