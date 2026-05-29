@@ -45,6 +45,9 @@ import { registerOrient } from "./commands/orient.js";
 import { registerServeCommand } from "./commands/serve.js";
 import { registerMintTokenCommand } from "./commands/mint-token.js";
 
+// vault_curate — autonomous status curation
+import { registerCurate } from "./commands/curate.js";
+
 export function buildCli(): Command {
   const program = new Command()
     .name("vault")
@@ -94,6 +97,9 @@ export function buildCli(): Command {
   // v0.4 server-mode
   registerServeCommand(program);
   registerMintTokenCommand(program);
+
+  // vault_curate — autonomous status curation
+  registerCurate(program);
 
   return program;
 }
