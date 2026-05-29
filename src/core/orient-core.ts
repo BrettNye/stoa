@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { readOnboardingState, type OnboardingState } from "./onboarding-state.js";
 import { parseFrontmatter, toIsoDate } from "./frontmatter.js";
+import { countCuratable } from "./curation-count.js";
 
 export type OrientResult = {
   next_best_action: string;
@@ -35,6 +36,15 @@ export function orient(opts: { vaultPath: string; recentUserMessage?: string }):
       reasoning: `${staleCount} synthesis page${staleCount === 1 ? "" : "s"} have not been compiled in over 60 days.`,
       tool_to_call: "vault_synthesize",
       suggestion_to_user: `${staleCount} synthesis page${staleCount === 1 ? " is" : "s are"} stale (last compiled >60 days ago). Want me to recompile ${staleCount === 1 ? "it" : "them"}?`,
+    };
+  }
+  const curatableCount = countCuratable(opts.vaultPath);
+  if (curatableCount > 0) {
+    return {
+      next_best_action: `Suggest vault_curate`,
+      reasoning: `${curatableCount} page${curatableCount === 1 ? "" : "s"} look${curatableCount === 1 ? "s" : ""} curatable.`,
+      tool_to_call: "vault_curate",
+      suggestion_to_user: `${curatableCount} page${curatableCount === 1 ? "" : "s"} look${curatableCount === 1 ? "s" : ""} curatable — run vault_curate to review.`,
     };
   }
   if (opts.recentUserMessage && /what (did|do) we (figure|know)/i.test(opts.recentUserMessage)) {

@@ -74,6 +74,7 @@ Restart Claude Code. You now have `vault_recall`, `vault_inbox`, `vault_synthesi
 
 **Write — system:**
 - `vault_reindex` — regenerate `_index/` files and per-wiki `index.md`
+- `vault_curate` — autonomously promote/archive/resolve pages on checkable evidence; one digest-journal audit trail; git-reversible; admin-scoped over HTTP
 
 **Coordination:**
 - `vault_channel-post` — post to a coordination channel (cross-instance comms)

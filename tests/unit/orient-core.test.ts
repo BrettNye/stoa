@@ -1,10 +1,11 @@
-import { describe, it, expect } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { describe, it, expect, beforeEach } from "vitest";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { orient } from "../../src/core/orient-core.js";
 import { writeOnboardingState } from "../../src/core/onboarding-state.js";
 import type { OnboardingState } from "../../src/core/onboarding-state.js";
+import { _clearIndexCache } from "../../src/core/index.js";
 
 function tempVault(): string {
   return mkdtempSync(join(tmpdir(), "orient-vault-"));
@@ -159,6 +160,216 @@ describe("orient — stale synthesis", () => {
     );
     const r = orient({ vaultPath: v, recentUserMessage: "What did we figure out about auth?" });
     expect(r.tool_to_call).toBe("vault_synthesize");
+  });
+});
+
+// ─── helpers for curation-nudge tests ────────────────────────────────────────
+
+/**
+ * Seed a vault with a single agent-authored stale-draft page that has 0 inbound
+ * links and was last updated more than 60 days ago. This satisfies the
+ * ARCHIVE_STALE rule (confidence "high" >= floor "medium", author_class "agent"
+ * bypasses the human-authored archive gate), so gateActions returns applies:true
+ * and countCuratable returns > 0.
+ */
+function seedCuratablePage(vaultPath: string): void {
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+  const staleDate = ninetyDaysAgo.toISOString().slice(0, 10);
+
+  // Physical page file
+  const pageDir = join(vaultPath, "wikis", "wiki-a", "concept");
+  mkdirSync(pageDir, { recursive: true });
+  const pageContent = [
+    "---",
+    "id: concept-stale-agent-draft",
+    'title: "Stale Agent Draft"',
+    "type: concept",
+    "wiki: wiki-a",
+    "status: draft",
+    `created: ${staleDate}`,
+    `updated: ${staleDate}`,
+    "author: agent:test-bot",
+    "---",
+    "",
+    "# Stale Agent Draft",
+    "",
+    "This page is stale and orphaned.",
+  ].join("\n");
+  writeFileSync(join(pageDir, "concept-stale-agent-draft.md"), pageContent, "utf8");
+
+  // _index/pages.json with the page entry
+  const indexDir = join(vaultPath, "_index");
+  mkdirSync(indexDir, { recursive: true });
+  const pagesJson = {
+    pages: [
+      {
+        id: "concept-stale-agent-draft",
+        type: "concept",
+        wiki: "wiki-a",
+        title: "Stale Agent Draft",
+        summary: "",
+        tags: [],
+        status: "draft",
+        updated: staleDate,
+        created: staleDate,
+        path: "wikis/wiki-a/concept/concept-stale-agent-draft.md",
+      },
+    ],
+  };
+  writeFileSync(join(indexDir, "pages.json"), JSON.stringify(pagesJson, null, 2), "utf8");
+
+  // _index/links.json — no inbound links for this page
+  const linksJson: Record<string, { outbound: string[]; inbound: string[] }> = {};
+  writeFileSync(join(indexDir, "links.json"), JSON.stringify(linksJson, null, 2), "utf8");
+}
+
+/**
+ * Seed a vault that has NO curatable pages: a single human-authored draft
+ * updated recently (within the promote_active_recent_days window but missing
+ * a summary, so PROMOTE_ACTIVE has a flag_reason and is blocked; and NOT stale
+ * enough for ARCHIVE_STALE; auto_archive_human is false anyway). countCuratable
+ * returns 0 so the curation nudge does not fire.
+ */
+function seedNoCuratablePage(vaultPath: string): void {
+  const recentDate = new Date();
+  recentDate.setDate(recentDate.getDate() - 5);
+  const recentStr = recentDate.toISOString().slice(0, 10);
+
+  const pageDir = join(vaultPath, "wikis", "wiki-a", "concept");
+  mkdirSync(pageDir, { recursive: true });
+  const pageContent = [
+    "---",
+    "id: concept-fresh-human-draft",
+    'title: "Fresh Human Draft"',
+    "type: concept",
+    "wiki: wiki-a",
+    "status: draft",
+    `created: ${recentStr}`,
+    `updated: ${recentStr}`,
+    "author: human:alice",
+    "---",
+    "",
+    "# Fresh Human Draft",
+    "",
+    "This page is new and has no summary.",
+  ].join("\n");
+  writeFileSync(join(pageDir, "concept-fresh-human-draft.md"), pageContent, "utf8");
+
+  const indexDir = join(vaultPath, "_index");
+  mkdirSync(indexDir, { recursive: true });
+  const pagesJson = {
+    pages: [
+      {
+        id: "concept-fresh-human-draft",
+        type: "concept",
+        wiki: "wiki-a",
+        title: "Fresh Human Draft",
+        summary: "",
+        tags: [],
+        status: "draft",
+        updated: recentStr,
+        created: recentStr,
+        path: "wikis/wiki-a/concept/concept-fresh-human-draft.md",
+      },
+    ],
+  };
+  writeFileSync(join(indexDir, "pages.json"), JSON.stringify(pagesJson, null, 2), "utf8");
+
+  // No inbound links
+  writeFileSync(join(indexDir, "links.json"), JSON.stringify({}, null, 2), "utf8");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("orient — curation nudge", () => {
+  beforeEach(() => {
+    // The index module caches parsed JSON by mtime+size. Each temp vault gets
+    // a unique path so cache collisions across tests are impossible, but we
+    // clear the cache before each test to be safe and consistent.
+    _clearIndexCache();
+  });
+
+  it("surfaces vault_curate when curatable pages exist (count > 0)", () => {
+    const v = tempVault();
+    writeOnboardingState(v, SAMPLE_STATE);
+    seedCuratablePage(v);
+
+    const r = orient({ vaultPath: v });
+
+    expect(r.tool_to_call).toBe("vault_curate");
+    expect(r.next_best_action).toContain("vault_curate");
+  });
+
+  it("suggestion_to_user names the curatable count", () => {
+    const v = tempVault();
+    writeOnboardingState(v, SAMPLE_STATE);
+    seedCuratablePage(v);
+
+    const r = orient({ vaultPath: v });
+
+    expect(r.tool_to_call).toBe("vault_curate");
+    // The suggestion should mention "1" (the number of curatable pages)
+    expect(r.suggestion_to_user).toMatch(/1/);
+    expect(r.suggestion_to_user).toContain("curatable");
+  });
+
+  it("reasoning names the curatable count", () => {
+    const v = tempVault();
+    writeOnboardingState(v, SAMPLE_STATE);
+    seedCuratablePage(v);
+
+    const r = orient({ vaultPath: v });
+
+    expect(r.tool_to_call).toBe("vault_curate");
+    expect(r.reasoning).toMatch(/1/);
+    expect(r.reasoning.length).toBeGreaterThan(0);
+  });
+
+  it("does NOT surface vault_curate when no curatable pages (count == 0)", () => {
+    const v = tempVault();
+    writeOnboardingState(v, SAMPLE_STATE);
+    seedNoCuratablePage(v);
+
+    const r = orient({ vaultPath: v });
+
+    expect(r.tool_to_call).not.toBe("vault_curate");
+  });
+
+  it("falls through to idle when no curatable pages and no other triggers", () => {
+    const v = tempVault();
+    writeOnboardingState(v, SAMPLE_STATE);
+    seedNoCuratablePage(v);
+
+    const r = orient({ vaultPath: v });
+
+    // Falls through to the no-action steady-state (no recall message either)
+    expect(r.next_best_action).toContain("No action");
+  });
+
+  it("curation nudge is read-only — page file is unchanged after orient()", () => {
+    const v = tempVault();
+    writeOnboardingState(v, SAMPLE_STATE);
+    seedCuratablePage(v);
+
+    const pagePath = join(v, "wikis", "wiki-a", "concept", "concept-stale-agent-draft.md");
+    const contentBefore = readFileSync(pagePath, "utf8");
+
+    orient({ vaultPath: v });
+
+    const contentAfter = readFileSync(pagePath, "utf8");
+    expect(contentAfter).toBe(contentBefore);
+  });
+
+  it("curation nudge takes priority over recall trigger", () => {
+    const v = tempVault();
+    writeOnboardingState(v, SAMPLE_STATE);
+    seedCuratablePage(v);
+
+    // Even though the message is recall-shaped, curation fires first
+    const r = orient({ vaultPath: v, recentUserMessage: "What did we figure out about auth?" });
+
+    expect(r.tool_to_call).toBe("vault_curate");
   });
 });
 

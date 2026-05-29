@@ -10,6 +10,7 @@ import { newWikiTool } from "./new-wiki.js";
 import { setActiveTool } from "./set-active.js";
 import { synthesizeTool } from "./synthesize.js";
 import { reindexTool } from "./reindex.js";
+import { curateTool } from "./curate.js";
 import { agentJournalTool } from "./agent-journal.js";
 import { channelPostTool } from "./channel-post.js";
 import { taskClaimTool } from "./task-claim.js";
@@ -109,7 +110,7 @@ import { orientTool } from "./orient.js";
 export const allTools = [
   recallTool, readTool, listWikisTool, lintTool, channelTailTool,
   inboxTool, processInboxTool, newTool, newWikiTool, setActiveTool,
-  synthesizeTool, reindexTool, agentJournalTool, channelPostTool, taskClaimTool,
+  synthesizeTool, reindexTool, curateTool, agentJournalTool, channelPostTool, taskClaimTool,
   // v1.5
   bootstrapRepoTool, syncSkillsTool, seedSubstrateTool, startTool,
   taskCreateTool, taskListTool, taskUpdateTool, profileStatsTool, evolveProfileTool, refreshProfileMemoryTool, suggestPokemonTool,

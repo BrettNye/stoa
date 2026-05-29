@@ -46,6 +46,9 @@ import { registerServeCommand } from "./commands/serve.js";
 import { registerMintTokenCommand } from "./commands/mint-token.js";
 import { registerGraph } from "./commands/graph.js";
 
+// vault_curate — autonomous status curation
+import { registerCurate } from "./commands/curate.js";
+
 export function buildCli(): Command {
   const program = new Command()
     .name("vault")
@@ -96,6 +99,9 @@ export function buildCli(): Command {
   registerServeCommand(program);
   registerMintTokenCommand(program);
   registerGraph(program);
+
+  // vault_curate — autonomous status curation
+  registerCurate(program);
 
   return program;
 }
