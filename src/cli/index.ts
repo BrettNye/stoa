@@ -52,7 +52,8 @@ import { registerCurate } from "./commands/curate.js";
 export function buildCli(): Command {
   const program = new Command()
     .name("vault")
-    .description("Vault CLI — manage the knowledge vault from any directory");
+    .description("Vault CLI — manage the knowledge vault from any directory")
+    .version("0.4.0");
 
   registerRecall(program);
   registerRead(program);

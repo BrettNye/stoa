@@ -16,11 +16,13 @@ async function main() {
   // - `mint-token` only needs STOA_TOKEN_SIGNING_SECRET; no vault required.
   const rawArgs = process.argv.slice(2);
   const firstSubcommand = rawArgs.find(a => !a.startsWith("-"));
+  const topLevelInfoFlags = new Set(["--help", "-h", "--version", "-V"]);
+  const isTopLevelInfoRequest = firstSubcommand === undefined && rawArgs.some(a => topLevelInfoFlags.has(a));
   const SELF_CONFIGURING_SUBCOMMANDS = new Set(["init", "serve", "mint-token"]);
   const isSelfConfiguring = firstSubcommand !== undefined && SELF_CONFIGURING_SUBCOMMANDS.has(firstSubcommand);
 
   let config;
-  if (!isSelfConfiguring) {
+  if (!isSelfConfiguring && !isTopLevelInfoRequest) {
     try {
       config = parseConfig(rawArgs);
     } catch (e) {
