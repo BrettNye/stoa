@@ -17,7 +17,8 @@ async function main() {
   const rawArgs = process.argv.slice(2);
   const firstSubcommand = rawArgs.find(a => !a.startsWith("-"));
   const SELF_CONFIGURING_SUBCOMMANDS = new Set(["init", "serve", "mint-token"]);
-  const isSelfConfiguring = firstSubcommand !== undefined && SELF_CONFIGURING_SUBCOMMANDS.has(firstSubcommand);
+  const isHelpOrVersion = rawArgs.some(a => ["--help", "-h", "--version", "-V"].includes(a));
+  const isSelfConfiguring = (firstSubcommand !== undefined && SELF_CONFIGURING_SUBCOMMANDS.has(firstSubcommand)) || isHelpOrVersion;
 
   let config;
   if (!isSelfConfiguring) {
