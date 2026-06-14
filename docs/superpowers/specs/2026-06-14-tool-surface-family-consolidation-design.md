@@ -7,7 +7,9 @@
 
 ## Goal
 
-Reduce the advertised MCP tool surface from **55 → 49 `vault_*` tools (−6)** by collapsing four name-families into `mode`-parametrized tools. This is the cheap, transport-independent, principal-independent lever the governing decision puts **first**, because the dominant harm is now tool-**selection accuracy / audience mismatch** (which lazy-loading does not fix), not schema token cost.
+Reduce the advertised MCP tool surface from **55 → 43 `vault_*` tools (−12)** by collapsing eight name-families into `mode`-parametrized tools. This is the cheap, transport-independent, principal-independent lever the governing decision puts **first**, because the dominant harm is now tool-**selection accuracy / audience mismatch** (which lazy-loading does not fix), not schema token cost.
+
+The decision named four families (§1–§4). Brainstorming on 2026-06-14 added four more cohesive within-cluster families (§6) to push the surface lower. The stopping rule held throughout: consolidate a family only when it is **one cohesive cluster/noun with similar payloads**; do not merge unlike operations into a "god tool" (which relocates the selection problem into a conditional-field schema). The trainer lifecycle and the `profile-*` lifecycle were considered and **rejected** on that rule.
 
 Non-goals (explicitly out of scope this pass):
 - Splitting the server (rejected by the decision — one server stays).
@@ -124,15 +126,107 @@ vault_stadium-list { mode: "invites" | "platform-profiles", ... }
 
 Delete `list-invites.ts`, `list-platform-profiles.ts`; add `stadium-list.ts`.
 
+## 5. Additional within-cluster families (added 2026-06-14)
+
+### 5.1 task (4 → 1) — `vault_task`
+
+The textbook mode-param case: CRUD on a single resource, all in the coordination cluster.
+
+```
+vault_task {
+  mode: "create" | "list" | "update" | "claim",
+  // create:
+  title?: string, wiki?: string, description?: string, segregation?: string[],
+  blocking?: string[], channel?: string, required_pokemon_type?: string,
+  estimate_minutes?: number,
+  // list:
+  status?: enum, claimed_by?: string, pokemon_type?: string, limit?: number,
+  // update:
+  task_id?: string, expected_updated?: string, notes?: string,
+  // claim:
+  force?: boolean
+  // (task_id/wiki/expected_updated shared by update+claim; status shared create-less)
+}
+```
+
+- `mode: create` (was `vault_task-create`): `title` + `wiki` required. Delegates to `createTask` + `upsertPage`.
+- `mode: list` (was `vault_task-list`): all-optional filters; alias-aware `claimed_by` expansion preserved.
+- `mode: update` (was `vault_task-update`): `task_id` + `wiki` + `expected_updated` required; mtime OCC; `agent_id` stamped from `ctx.principal` (never a tool arg).
+- `mode: claim` (was `vault_task-claim`): `task_id` + `expected_updated` required; preserves `TaskNotReadyError` → `TASK_NOT_READY` mapping; `agent_id` from principal.
+
+**Mode-aware `scope.axis`** — the only structural wrinkle: `create`/`list` resolve `wikis/${wiki ?? "*"}`; `update`/`claim` resolve `tasks/${task_id}`. The axis function switches on `mode`. Handler validates required fields per mode.
+
+Delete `task-create.ts`, `task-list.ts`, `task-update.ts`, `task-claim.ts`.
+
+### 5.2 channel (2 → 1) — `vault_channel`
+
+```
+vault_channel {
+  mode: "post" | "tail",
+  channel: string,              // shared (kebab-case regex)
+  content?: string,             // post
+  session_id?: string,          // post
+  since?: string, limit?: number,// tail
+  wiki?: string                 // shared
+}
+```
+
+- `mode: post` (was `vault_channel-post`): `channel` + `content` required; `agent_id` from principal; delegates to `postToChannel`.
+- `mode: tail` (was `vault_channel-tail`): `channel` required; delegates to `tailChannel`.
+- `scope.axis` identical for both: `channels/${channel}`.
+
+Delete `channel-post.ts`, `channel-tail.ts`.
+
+### 5.3 real-skill (2 → 1) — `vault_real-skill`
+
+The cleanest merge of all: **identical** input schemas (`skill_id: /^move-/`, `wiki?`) and identical scope (`stadium`, `adminOnly`).
+
+```
+vault_real-skill { mode: "register" | "refresh", skill_id: string, wiki?: string }
+```
+
+- `mode: register` (was `-register`): reads `move-*/SKILL.md`, `StadiumClient.registerRealSkill`, persists `real_skill_id` + advisory `combat`.
+- `mode: refresh` (was `-refresh`): requires existing `real_skill_id` (else the "register first" error), `StadiumClient.refreshRealSkill`, rewrites `combat`.
+
+Delete `real-skill-register.ts`, `real-skill-refresh.ts`.
+
+### 5.4 sync (2 → 1) — `vault_sync`
+
+Both deploy a Pokémon's artifacts into a target repo; the v1.7 design already frames `sync-agents` as "the recommended primary surface" with `sync-skills` as the moveset-only fallback — i.e. conceptually one feature, two surfaces.
+
+**Discriminator-name collision (important):** both tools already carry a field named `mode` (`"copy" | "symlink"`). The new discriminator therefore **must not** be called `mode`. Use **`surface: "skills" | "agents"`**, keeping each surface's existing `mode: copy|symlink` field intact.
+
+```
+vault_sync {
+  surface: "skills" | "agents",
+  // shared: target/repo_path, pokemon?, all?, exclude?, pokemon_type?,
+  //         mode (copy|symlink), continue_on_error?, wiki?
+  // skills-only: reverify?, fix?
+  // agents-only: runtime?, overwrite?, include_moveset?
+}
+```
+
+- `surface: skills` (was `vault_sync-skills`): full existing schema incl. `reverify`/`fix`/`all` deploy paths. Note `sync-skills` uses `repo_path`; `sync-agents` uses `target`. Normalize to one field name (`target`, alias `repo_path` in the handler) so the combined schema isn't doubled.
+- `surface: agents` (was `vault_sync-agents`): full existing schema incl. `runtime`/`overwrite`/`include_moveset`.
+- Both retain `scope { axis: "*", httpForbidden: true }`.
+
+This is the heaviest of the eight (largest combined schema). It stays under the god-tool line because the two surfaces share most fields and the same verb ("deploy to repo"), but the spec flags it as the one to re-split first if the combined schema proves confusing in practice.
+
+Delete `sync-skills.ts`, `sync-agents.ts` (keep `core/skills.ts`, `core/subagent-intent.ts`, adapters).
+
 ## Final surface
 
-| Family | Before | After | Δ |
-|---|---|---|---|
-| wait-for | 4 | 1 | −3 |
-| trainer-submit | 2 | 1 | −1 |
-| merge | 2 | 1 | −1 |
-| stadium list | 2 | 1 | −1 |
-| **total surface** | **55** | **49** | **−6** |
+| Family | Before | After | Δ | Discriminator |
+|---|---|---|---|---|
+| wait-for | 4 | 1 | −3 | `mode: next\|any\|all\|many` |
+| trainer-submit | 2 | 1 | −1 | `mode: draft\|move` |
+| merge | 2 | 1 | −1 | `mode: queue\|record` |
+| stadium list | 2 | 1 | −1 | `mode: invites\|platform-profiles` |
+| task | 4 | 1 | −3 | `mode: create\|list\|update\|claim` |
+| channel | 2 | 1 | −1 | `mode: post\|tail` |
+| real-skill | 2 | 1 | −1 | `mode: register\|refresh` |
+| sync | 2 | 1 | −1 | `surface: skills\|agents` |
+| **total surface** | **55** | **43** | **−12** | |
 
 ## Error handling (all consolidated tools)
 
@@ -152,14 +246,14 @@ For each consolidated tool, write tests **before** collapsing:
 
 ## Blast radius (in-tree callers to update)
 
-- **Tool layer:** `src/tools/index.ts` (registry + comments), the rewritten/deleted tool files above.
-- **Tests:** the per-tool unit + integration tests for all four families, `tools-index.test.ts`, the scope tests, `e2e/mcp-client.test.ts`.
+- **Tool layer:** `src/tools/index.ts` (registry + comments), the rewritten/deleted tool files for all eight families.
+- **Tests:** the per-tool unit + integration tests for all eight families, `tools-index.test.ts`, the scope tests (`wait-for-scopes`, `stadium-scopes`, `read-tools-scope`, `creator-scopes`), `e2e/mcp-client.test.ts`, plus the task/channel/sync/real-skill integration tests (e.g. `channel.test.ts`, `channel-tail-alias.test.ts`, `skills-sync.test.ts`, `draft-submit-happy-path.test.ts`, the task-coordination tests).
 - **Docs:** `docs/tool-reference.md`, `docs/wait-for.md`, `README.md`, `CHANGELOG.md` (BREAKING), and mentions in `docs/claims.md`, `docs/task-coordination.md`, `docs/training-program.md`, `docs/quickstart.md`.
 - **Version:** `package.json` minor bump + `stdio.ts` server-version string.
 
 ## Verification before done
 
-- `grep` the repo for any remaining old tool names (`vault_wait-for-any|...|vault_list-invites|vault_list-platform-profiles`) outside CHANGELOG history.
+- `grep` the repo for every old tool name (`vault_wait-for-any|-all|-many`, `vault_trainer-submit-draft|-move`, `vault_merge-queue|-record`, `vault_list-invites|-platform-profiles`, `vault_task-create|-list|-update|-claim`, `vault_channel-post|-tail`, `vault_real-skill-register|-refresh`, `vault_sync-skills|-agents`) outside CHANGELOG history.
 - Note for follow-up (outside this repo): the parent Knowledge vault may carry slash-command skills / agent definitions that reference the old MCP tool names; those live in the private monorepo, not in `stoa`, and must be swept separately.
 - Full test suite green; typecheck clean.
 
