@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { taskListTool } from "../../src/tools/task-list.js";
+import { taskTool } from "../../src/tools/task.js";
 import { createTask } from "../../src/core/tasks.js";
 import { recordRename } from "../../src/core/aliases.js";
 
@@ -20,7 +20,7 @@ describe("vault_task-list", () => {
 
   it("returns tasks filtered by wiki", async () => {
     createTask(vaultPath, { title: "task one", wiki: "alpha" });
-    const r = await taskListTool.handler({ wiki: "alpha" }, { vaultPath });
+    const r = await taskTool.handler({ mode: "list", wiki: "alpha" }, { vaultPath });
     expect(r.tasks).toHaveLength(1);
     expect(r.tasks[0].title).toBe("task one");
   });
@@ -50,8 +50,8 @@ describe("vault_task-list", () => {
       recordRename(vaultPath, "profile-charmander", "profile-charmeleon");
 
       // Query for the CURRENT id charmeleon — should surface both historical tasks
-      const r = await taskListTool.handler(
-        { claimed_by: "agent:charmeleon" },
+      const r = await taskTool.handler(
+        { mode: "list", claimed_by: "agent:charmeleon" },
         { vaultPath }
       );
       const titles = r.tasks.map(t => t.title).sort();
@@ -64,8 +64,8 @@ describe("vault_task-list", () => {
 
       recordRename(vaultPath, "profile-charmander", "profile-charmeleon");
 
-      const r = await taskListTool.handler(
-        { claimed_by: "agent:charmeleon" },
+      const r = await taskTool.handler(
+        { mode: "list", claimed_by: "agent:charmeleon" },
         { vaultPath }
       );
       expect(r.tasks).toHaveLength(0);
@@ -82,8 +82,8 @@ describe("vault_task-list", () => {
       recordRename(vaultPath, "profile-charmander", "profile-charmeleon");
       recordRename(vaultPath, "profile-charmeleon", "profile-charizard");
 
-      const r = await taskListTool.handler(
-        { claimed_by: "agent:charizard" },
+      const r = await taskTool.handler(
+        { mode: "list", claimed_by: "agent:charizard" },
         { vaultPath }
       );
       const titles = r.tasks.map(t => t.title).sort();

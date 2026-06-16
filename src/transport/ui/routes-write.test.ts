@@ -6,15 +6,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Hono } from "hono";
 
-import * as taskClaimModule from "../../tools/task-claim.js";
-import * as channelPostModule from "../../tools/channel-post.js";
+import * as taskModule from "../../tools/task.js";
+import * as channelModule from "../../tools/channel.js";
 
 describe("POST /api/tasks/:id/claim — v0.4 principal calling convention", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let claimHandlerSpy: any;
 
   beforeEach(() => {
-    claimHandlerSpy = vi.spyOn(taskClaimModule.taskClaimTool, "handler").mockResolvedValue({
+    claimHandlerSpy = vi.spyOn(taskModule.taskTool, "handler").mockResolvedValue({
       task_id: "task-abc",
       claimed_by: "agent:worker",
       claimed_at: "2026-05-21T00:00:00.000Z",
@@ -71,7 +71,7 @@ describe("POST /api/channels/:name/posts — v0.4 principal calling convention",
   let postHandlerSpy: any;
 
   beforeEach(() => {
-    postHandlerSpy = vi.spyOn(channelPostModule.channelPostTool, "handler").mockResolvedValue({
+    postHandlerSpy = vi.spyOn(channelModule.channelTool, "handler").mockResolvedValue({
       id: "journal-2026-05-21-0000-ops-1",
       channel: "ops",
       created: "2026-05-21T00:00:00.000Z",

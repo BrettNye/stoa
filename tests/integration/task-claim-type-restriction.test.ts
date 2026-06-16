@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { taskClaimTool } from "../../src/tools/task-claim.js";
+import { taskTool } from "../../src/tools/task.js";
 import { createTask } from "../../src/core/tasks.js";
 import { reindex } from "../../src/core/reindex.js";
 
@@ -61,8 +61,8 @@ applies_to: [claude-code]
       wiki: "alpha",
       required_pokemon_type: "fire"
     });
-    const r = await taskClaimTool.handler(
-      { task_id: created.id, expected_updated: created.updated, wiki: "alpha" },
+    const r = await taskTool.handler(
+      { mode: "claim", task_id: created.id, expected_updated: created.updated, wiki: "alpha" },
       { vaultPath, principal: { agent_id: "charmander" } }
     );
     expect(r.claimed_by).toBe("agent:charmander");
@@ -76,8 +76,8 @@ applies_to: [claude-code]
       required_pokemon_type: "fire"
     });
     await expect(
-      taskClaimTool.handler(
-        { task_id: created.id, expected_updated: created.updated, wiki: "alpha" },
+      taskTool.handler(
+        { mode: "claim", task_id: created.id, expected_updated: created.updated, wiki: "alpha" },
         { vaultPath, principal: { agent_id: "squirtle" } }
       )
     ).rejects.toThrow(/WRONG_TYPE/);
@@ -85,8 +85,8 @@ applies_to: [claude-code]
 
   it("allows any agent to claim a task with no required_pokemon_type", async () => {
     const created = createTask(vaultPath, { title: "feat-x: anything", wiki: "alpha" });
-    const r = await taskClaimTool.handler(
-      { task_id: created.id, expected_updated: created.updated, wiki: "alpha" },
+    const r = await taskTool.handler(
+      { mode: "claim", task_id: created.id, expected_updated: created.updated, wiki: "alpha" },
       { vaultPath, principal: { agent_id: "squirtle" } }
     );
     expect(r.claimed_by).toBe("agent:squirtle");
@@ -96,8 +96,8 @@ applies_to: [claude-code]
     // Set up a non-alpha wiki to defeat the hardcoded fallback
     mkdirSync(join(vaultPath, "wikis", "gamma", "tasks"), { recursive: true });
     const created = createTask(vaultPath, { title: "ambient-wiki test", wiki: "gamma" });
-    const r = await taskClaimTool.handler(
-      { task_id: created.id, expected_updated: created.updated },
+    const r = await taskTool.handler(
+      { mode: "claim", task_id: created.id, expected_updated: created.updated },
       { vaultPath, defaultWiki: "gamma", principal: { agent_id: "charmander" } }
     );
     expect(r.claimed_by).toBe("agent:charmander");

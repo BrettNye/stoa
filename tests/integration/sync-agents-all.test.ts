@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { syncAgentsTool } from "../../src/tools/sync-agents.js";
+import { syncTool } from "../../src/tools/sync.js";
 
 function writeProfile(vaultPath: string, id: string, pokemon_type: string) {
   const profilesDir = join(vaultPath, "wikis", "_agents", "profiles");
@@ -25,7 +25,7 @@ applies_to: [claude-code]
 `);
 }
 
-describe("sync-agents --all integration", () => {
+describe("vault_sync surface=agents --all integration", () => {
   let vaultPath: string;
   let target: string;
   beforeEach(() => {
@@ -44,8 +44,8 @@ describe("sync-agents --all integration", () => {
     writeProfile(vaultPath, "profile-squirtle", "water");
     writeProfile(vaultPath, "profile-charmander", "fire");
 
-    const result = await syncAgentsTool.handler(
-      { all: true, target, runtime: "claude-code", mode: "copy", overwrite: true, exclude: [], pokemon_type: [], include_moveset: false } as any,
+    const result = await syncTool.handler(
+      { surface: "agents", all: true, repo_path: target, runtime: "claude-code", mode: "copy", overwrite: true, exclude: [], pokemon_type: [], include_moveset: false } as any,
       { vaultPath }
     );
 
@@ -59,8 +59,8 @@ describe("sync-agents --all integration", () => {
     writeProfile(vaultPath, "profile-squirtle", "water");
     writeProfile(vaultPath, "profile-charmander", "fire");
 
-    const result = await syncAgentsTool.handler(
-      { all: true, target, runtime: "claude-code", mode: "copy", overwrite: true, exclude: ["charmander"], pokemon_type: [], include_moveset: false } as any,
+    const result = await syncTool.handler(
+      { surface: "agents", all: true, repo_path: target, runtime: "claude-code", mode: "copy", overwrite: true, exclude: ["charmander"], pokemon_type: [], include_moveset: false } as any,
       { vaultPath }
     );
 
@@ -70,8 +70,8 @@ describe("sync-agents --all integration", () => {
   });
 
   it("returns empty success when --all matches no profiles", async () => {
-    const result = await syncAgentsTool.handler(
-      { all: true, target, runtime: "claude-code", mode: "copy", overwrite: true, exclude: [], pokemon_type: ["dragon"], include_moveset: false } as any,
+    const result = await syncTool.handler(
+      { surface: "agents", all: true, repo_path: target, runtime: "claude-code", mode: "copy", overwrite: true, exclude: [], pokemon_type: ["dragon"], include_moveset: false } as any,
       { vaultPath }
     );
 
@@ -86,8 +86,8 @@ describe("sync-agents --all integration", () => {
     writeFileSync(join(profilesDir, "profile-broken.md"),
       `---\nid: profile-broken\ntype: profile\ntitle: profile-broken\ncreated: 2026-05-12\nwiki: _agents\nstatus: active\nsummary: x\npokemon_type: fire\nevolution_stage: basic\nmoveset: []\napplies_to: []\n---\n`);
 
-    const result = await syncAgentsTool.handler(
-      { all: true, target, runtime: "claude-code", mode: "copy", overwrite: true, exclude: [], pokemon_type: [], include_moveset: false, continue_on_error: true } as any,
+    const result = await syncTool.handler(
+      { surface: "agents", all: true, repo_path: target, runtime: "claude-code", mode: "copy", overwrite: true, exclude: [], pokemon_type: [], include_moveset: false, continue_on_error: true } as any,
       { vaultPath }
     );
 

@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { syncAgentsTool } from "../../tools/sync-agents.js";
+import { syncTool } from "../../tools/sync.js";
 import { getCtx } from "../_ctx.js";
 
 export function registerSyncAgents(p: Command) {
@@ -30,8 +30,9 @@ export function registerSyncAgents(p: Command) {
 
       const input: any = opts.all
         ? {
+            surface: "agents",
             all: true,
-            target,
+            repo_path: target,
             runtime: opts.runtime,
             mode: opts.mode,
             overwrite: opts.overwrite,
@@ -41,8 +42,9 @@ export function registerSyncAgents(p: Command) {
             continue_on_error: continueOnError,
           }
         : {
+            surface: "agents",
             pokemon: opts.pokemon.split(",").map((s: string) => s.trim()),
-            target,
+            repo_path: target,
             runtime: opts.runtime,
             mode: opts.mode,
             overwrite: opts.overwrite,
@@ -50,7 +52,7 @@ export function registerSyncAgents(p: Command) {
             continue_on_error: continueOnError,
           };
 
-      const result = await syncAgentsTool.handler(input, { vaultPath: ctx.vaultPath });
+      const result = await syncTool.handler(input, { vaultPath: ctx.vaultPath });
       console.log(JSON.stringify(result, null, 2));
       process.exit(result.summary.failed > 0 ? 1 : 0);
     });

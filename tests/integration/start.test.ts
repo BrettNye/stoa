@@ -3,8 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { startTool } from "../../src/tools/start.js";
-import { taskCreateTool } from "../../src/tools/task-create.js";
-import { taskClaimTool } from "../../src/tools/task-claim.js";
+import { taskTool } from "../../src/tools/task.js";
 
 describe("integration — start surfaces map + active + tasks", () => {
   let vaultPath: string;
@@ -56,16 +55,19 @@ moveset: []
   });
 
   it("with --pokemon includes pokemon_state with active tasks", async () => {
-    const t = await taskCreateTool.handler({
+    const t = await taskTool.handler({
+      mode: "create",
       title: "feat-x: API", wiki: "alpha", required_pokemon_type: "fire"
     }, { vaultPath });
-    const claim = await taskClaimTool.handler({
+    const claim = await taskTool.handler({
+      mode: "claim",
       task_id: t.id,
       expected_updated: t.updated, wiki: "alpha"
     }, { vaultPath, principal: { agent_id: "charmander" } });
     // Move to in_progress for the start to see it
-    const { taskUpdateTool } = await import("../../src/tools/task-update.js");
-    await taskUpdateTool.handler({
+    const { taskTool: taskToolDynamic } = await import("../../src/tools/task.js");
+    await taskToolDynamic.handler({
+      mode: "update",
       task_id: t.id, wiki: "alpha",
       expected_updated: claim.updated,
       status: "in_progress",

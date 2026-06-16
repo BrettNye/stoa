@@ -11,7 +11,7 @@ import { synthesizeTool } from "./synthesize.js";
 import { newProfileTool } from "./new-profile.js";
 import { newMoveTool } from "./new-move.js";
 import { rewriteLinksTool } from "./rewrite-links.js";
-import { mergeRecordTool } from "./merge-record.js";
+import { mergeTool } from "./merge.js";
 
 describe("creator tools scope declarations", () => {
 
@@ -224,29 +224,34 @@ describe("creator tools scope declarations", () => {
     });
   });
 
-  // ---- vault_merge-record ----------------------------------------------
+  // ---- vault_merge (consolidated: queue | record) ----------------------
 
-  describe("vault_merge-record", () => {
+  describe("vault_merge", () => {
     it("has a scope field", () => {
-      expect(mergeRecordTool.scope).toBeDefined();
+      expect(mergeTool.scope).toBeDefined();
     });
 
     it("scope.axis is a function", () => {
-      expect(typeof mergeRecordTool.scope!.axis).toBe("function");
+      expect(typeof mergeTool.scope!.axis).toBe("function");
+    });
+
+    it("vault_merge record path is admin/creator scoped", () => {
+      expect(mergeTool.name).toBe("vault_merge");
+      expect(mergeTool.scope!.axis({ mode: "record", wiki: "w" })).toBe("wikis/w");
     });
 
     it("scope.axis returns wikis/<wiki> when wiki present", () => {
-      expect(mergeRecordTool.scope!.axis({ wiki: "proj", pr_number: 1, channel: "main", agent_id: "x", status: "merged" }))
+      expect(mergeTool.scope!.axis({ wiki: "proj", mode: "record", channel: "main" }))
         .toBe("wikis/proj");
     });
 
-    it("scope.axis defaults wiki to '*' when absent (merge-record has no wiki in schema)", () => {
-      expect(mergeRecordTool.scope!.axis({ pr_number: 1, channel: "main", agent_id: "x", status: "merged" }))
+    it("scope.axis defaults wiki to '*' when absent", () => {
+      expect(mergeTool.scope!.axis({ mode: "record", channel: "main" }))
         .toBe("wikis/*");
     });
 
     it("does not have adminOnly", () => {
-      expect(mergeRecordTool.scope!.adminOnly).toBeUndefined();
+      expect(mergeTool.scope!.adminOnly).toBeUndefined();
     });
   });
 

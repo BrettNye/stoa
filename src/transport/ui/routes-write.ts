@@ -19,8 +19,8 @@ import type {
   ReleaseResponse,
   ReleaseConflictResponse,
 } from "./types.js";
-import { taskClaimTool } from "../../tools/task-claim.js";
-import { channelPostTool } from "../../tools/channel-post.js";
+import { taskTool } from "../../tools/task.js";
+import { channelTool } from "../../tools/channel.js";
 import { profileRegisterTool } from "../../tools/profile-register.js";
 import { newTool } from "../../tools/new.js";
 import { AlreadyClaimedError, TaskNotReadyError, releaseTask, NotClaimedError } from "../../core/tasks.js";
@@ -99,10 +99,10 @@ export function mountWriteRoutes(app: Hono, ctx: WriteRoutesCtx): void {
     const { agent_id, expected_updated, wiki } = parsed.data;
 
     try {
-      const result = await taskClaimTool.handler(
-        { task_id: taskId, expected_updated, wiki },
+      const result = await taskTool.handler(
+        taskTool.inputSchema.parse({ mode: "claim", task_id: taskId, expected_updated, wiki }),
         { ...toolCtx, principal: { agent_id } }
-      );
+      ) as { task_id: string; claimed_by: string; claimed_at: string; updated: string };
 
       // Build ApiTask from ClaimResult
       const task = {
@@ -214,15 +214,16 @@ export function mountWriteRoutes(app: Hono, ctx: WriteRoutesCtx): void {
 
     try {
       // agent_id is always set server-side; the dashboard posts as human:dashboard
-      const result = await channelPostTool.handler(
-        {
+      const result = await channelTool.handler(
+        channelTool.inputSchema.parse({
+          mode: "post",
           channel: channelName,
           content,
           wiki,
           session_id,
-        },
+        }),
         { ...toolCtx, principal: { agent_id: "human:dashboard" } }
-      );
+      ) as { id: string; channel: string; created: string };
 
       // channelPostTool returns { id, path, created, channel }
       // Map to ApiChannelEntry for the response

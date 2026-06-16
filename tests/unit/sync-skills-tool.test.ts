@@ -2,9 +2,9 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { syncSkillsTool } from "../../src/tools/sync-skills.js";
+import { syncTool } from "../../src/tools/sync.js";
 
-describe("vault_sync-skills", () => {
+describe("vault_sync surface=skills", () => {
   let vaultPath: string;
   let repoPath: string;
 
@@ -55,8 +55,8 @@ applies_to: [claude-code]
   });
 
   it("syncs Pokemon's moveset to claude-code skills dir", async () => {
-    const result = await syncSkillsTool.handler(
-      { repo_path: repoPath, pokemon: "profile-charmander", target: "claude-code", mode: "copy" },
+    const result = await syncTool.handler(
+      { surface: "skills", repo_path: repoPath, pokemon: "profile-charmander", runtime: "claude-code", mode: "copy" },
       { vaultPath }
     );
     expect(result.moves_synced).toEqual(["move-tdd-cycle"]);

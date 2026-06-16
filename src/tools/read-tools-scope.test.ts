@@ -3,11 +3,10 @@ import { recallTool } from "./recall.js";
 import { readTool } from "./read.js";
 import { listWikisTool } from "./list-wikis.js";
 import { listClaimsTool } from "./list-claims.js";
-import { listPlatformProfilesTool } from "./list-platform-profiles.js";
-import { listInvitesTool } from "./list-invites.js";
-import { channelTailTool } from "./channel-tail.js";
-import { taskListTool } from "./task-list.js";
-import { mergeQueueTool } from "./merge-queue.js";
+import { stadiumListTool } from "./stadium-list.js";
+import { channelTool } from "./channel.js";
+import { taskTool } from "./task.js";
+import { mergeTool } from "./merge.js";
 import { profileStatsTool } from "./profile-stats.js";
 import { orientTool } from "./orient.js";
 import { startTool } from "./start.js";
@@ -15,17 +14,16 @@ import { refreshProfileMemoryTool } from "./refresh-profile-memory.js";
 import { suggestPokemonTool } from "./suggest-pokemon.js";
 
 describe("read tools scope axis declarations", () => {
-  it("all 14 tools have a scope field", () => {
+  it("all 13 consolidated tools have a scope field", () => {
     const tools = [
       recallTool,
       readTool,
       listWikisTool,
       listClaimsTool,
-      listPlatformProfilesTool,
-      listInvitesTool,
-      channelTailTool,
-      taskListTool,
-      mergeQueueTool,
+      stadiumListTool,
+      channelTool,
+      taskTool,
+      mergeTool,
       profileStatsTool,
       orientTool,
       startTool,
@@ -57,27 +55,24 @@ describe("read tools scope axis declarations", () => {
     expect(listClaimsTool.scope!.axis({})).toBe("wikis/*/claim");
   });
 
-  it("list-platform-profiles derives axis from wiki input", () => {
-    expect(listPlatformProfilesTool.scope!.axis({ wiki: "someWiki" })).toBe("wikis/someWiki");
-    expect(listPlatformProfilesTool.scope!.axis({})).toBe("wikis/*");
+  it("stadium-list derives axis from wiki input (covers both invites and platform-profiles modes)", () => {
+    expect(stadiumListTool.scope!.axis({ wiki: "someWiki" })).toBe("wikis/someWiki");
+    expect(stadiumListTool.scope!.axis({})).toBe("wikis/*");
+    expect(stadiumListTool.scope!.axis({ mode: "invites" })).toBe("wikis/*");
   });
 
-  it("list-invites has wildcard axis (no wiki field in schema)", () => {
-    expect(listInvitesTool.scope!.axis({})).toBe("wikis/*");
+  it("channel derives axis from channel input (covers both post and tail modes)", () => {
+    expect(channelTool.scope!.axis({ channel: "dev" })).toBe("channels/dev");
   });
 
-  it("channel-tail derives axis from channel input", () => {
-    expect(channelTailTool.scope!.axis({ channel: "dev" })).toBe("channels/dev");
+  it("task derives axis from wiki input for list mode", () => {
+    expect(taskTool.scope!.axis({ mode: "list", wiki: "proj" })).toBe("wikis/proj");
+    expect(taskTool.scope!.axis({ mode: "list" })).toBe("wikis/*");
   });
 
-  it("task-list derives axis from wiki input", () => {
-    expect(taskListTool.scope!.axis({ wiki: "proj" })).toBe("wikis/proj");
-    expect(taskListTool.scope!.axis({})).toBe("wikis/*");
-  });
-
-  it("merge-queue derives axis from wiki input", () => {
-    expect(mergeQueueTool.scope!.axis({ wiki: "proj", channel: "main" })).toBe("wikis/proj");
-    expect(mergeQueueTool.scope!.axis({ channel: "main" })).toBe("wikis/*");
+  it("merge derives axis from wiki input (covers queue and record modes)", () => {
+    expect(mergeTool.scope!.axis({ wiki: "proj", channel: "main" })).toBe("wikis/proj");
+    expect(mergeTool.scope!.axis({ channel: "main" })).toBe("wikis/*");
   });
 
   it("profile-stats derives axis from wiki and pokemon_id", () => {

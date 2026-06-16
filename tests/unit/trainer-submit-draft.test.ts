@@ -12,7 +12,7 @@ const VALID_ULIDS = [
 
 beforeEach(() => { vi.resetModules(); vi.unstubAllGlobals(); });
 
-describe('vault_trainer-submit-draft', () => {
+describe('vault_trainer-submit { mode: "draft" }', () => {
   beforeEach(() => {
     process.env.STADIUM_API_KEY = 'sk';
     process.env.STADIUM_BASE_URL = 'https://api.test';
@@ -25,9 +25,9 @@ describe('vault_trainer-submit-draft', () => {
     vi.doMock('../../src/core/resolve-trainer-context.js', () => ({
       resolveTrainerContext: () => ({ trainerSlug: 'brett', trainerId: 'trn_brett', wiki: 'default' })
     }));
-    const { trainerSubmitDraftTool } = await import('../../src/tools/trainer-submit-draft.js');
+    const { trainerSubmitTool } = await import('../../src/tools/trainer-submit.js');
     await expect(
-      trainerSubmitDraftTool.handler({ match_id: '01KQT6ST8AHV2XG9JN6QX7H5EX', picks: VALID_ULIDS.slice(0, 2) } as any)
+      trainerSubmitTool.handler({ mode: 'draft', match_id: '01KQT6ST8AHV2XG9JN6QX7H5EX', picks: VALID_ULIDS.slice(0, 2) } as any)
     ).rejects.toBeDefined();
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -38,10 +38,11 @@ describe('vault_trainer-submit-draft', () => {
     vi.doMock('../../src/core/resolve-trainer-context.js', () => ({
       resolveTrainerContext: () => ({ trainerSlug: 'brett', trainerId: 'trn_brett', wiki: 'default' })
     }));
-    const { trainerSubmitDraftTool } = await import('../../src/tools/trainer-submit-draft.js');
+    const { trainerSubmitTool } = await import('../../src/tools/trainer-submit.js');
     let caught: unknown;
     try {
-      await trainerSubmitDraftTool.handler({
+      await trainerSubmitTool.handler({
+        mode: 'draft',
         match_id: 'not-a-ulid',
         picks: VALID_ULIDS,
       } as any);
@@ -61,10 +62,11 @@ describe('vault_trainer-submit-draft', () => {
     vi.doMock('../../src/core/resolve-trainer-context.js', () => ({
       resolveTrainerContext: () => ({ trainerSlug: 'brett', trainerId: 'trn_brett', wiki: 'default' })
     }));
-    const { trainerSubmitDraftTool } = await import('../../src/tools/trainer-submit-draft.js');
+    const { trainerSubmitTool } = await import('../../src/tools/trainer-submit.js');
     let caught: unknown;
     try {
-      await trainerSubmitDraftTool.handler({
+      await trainerSubmitTool.handler({
+        mode: 'draft',
         match_id: '01KQT6ST8AHV2XG9JN6QX7H5EX',
         picks: ['pf_aerodactyl', 'pf_charmeleon', 'pf_squirtle', 'pf_bulbasaur', 'pf_gastly', 'pf_mewtwo'],
       } as any);
@@ -82,9 +84,10 @@ describe('vault_trainer-submit-draft', () => {
     vi.doMock('../../src/core/resolve-trainer-context.js', () => ({
       resolveTrainerContext: () => ({ trainerSlug: 'brett', trainerId: 'trn_brett', wiki: 'default' })
     }));
-    const { trainerSubmitDraftTool } = await import('../../src/tools/trainer-submit-draft.js');
+    const { trainerSubmitTool } = await import('../../src/tools/trainer-submit.js');
     await expect(
-      trainerSubmitDraftTool.handler({
+      trainerSubmitTool.handler({
+        mode: 'draft',
         match_id: '01KQT6ST8AHV2XG9JN6QX7H5EX',
         picks: [...VALID_ULIDS.slice(0, 5), 'bad_id']
       } as any)
@@ -102,8 +105,9 @@ describe('vault_trainer-submit-draft', () => {
     vi.doMock('../../src/core/resolve-trainer-context.js', () => ({
       resolveTrainerContext: () => ({ trainerSlug: 'brett', trainerId: 'trn_brett_42', wiki: 'default' })
     }));
-    const { trainerSubmitDraftTool } = await import('../../src/tools/trainer-submit-draft.js');
-    const out = await trainerSubmitDraftTool.handler({
+    const { trainerSubmitTool } = await import('../../src/tools/trainer-submit.js');
+    const out = await trainerSubmitTool.handler({
+      mode: 'draft',
       match_id: '01KQT6ST8AHV2XG9JN6QX7H5EX',
       picks: VALID_ULIDS,
     });
@@ -126,9 +130,9 @@ describe('vault_trainer-submit-draft', () => {
     vi.doMock('../../src/core/resolve-trainer-context.js', () => ({
       resolveTrainerContext: () => ({ trainerSlug: 'brett', trainerId: 'trn_brett', wiki: 'default' })
     }));
-    const { trainerSubmitDraftTool } = await import('../../src/tools/trainer-submit-draft.js');
+    const { trainerSubmitTool } = await import('../../src/tools/trainer-submit.js');
     await expect(
-      trainerSubmitDraftTool.handler({ match_id: '01KQT6ST8AHV2XG9JN6QX7H5EX', picks: VALID_ULIDS })
+      trainerSubmitTool.handler({ mode: 'draft', match_id: '01KQT6ST8AHV2XG9JN6QX7H5EX', picks: VALID_ULIDS })
     ).rejects.toThrow('submitDraft: unexpected non-object response from platform');
   });
 
@@ -142,9 +146,9 @@ describe('vault_trainer-submit-draft', () => {
     vi.doMock('../../src/core/resolve-trainer-context.js', () => ({
       resolveTrainerContext: () => ({ trainerSlug: 'brett', trainerId: 'trn_brett', wiki: 'default' })
     }));
-    const { trainerSubmitDraftTool } = await import('../../src/tools/trainer-submit-draft.js');
+    const { trainerSubmitTool } = await import('../../src/tools/trainer-submit.js');
     await expect(
-      trainerSubmitDraftTool.handler({ match_id: '01KQT6ST8AHV2XG9JN6QX7H5EX', picks: VALID_ULIDS })
+      trainerSubmitTool.handler({ mode: 'draft', match_id: '01KQT6ST8AHV2XG9JN6QX7H5EX', picks: VALID_ULIDS })
     ).rejects.toThrow('submitDraft: unexpected non-object response from platform');
   });
 
@@ -158,8 +162,9 @@ describe('vault_trainer-submit-draft', () => {
     vi.doMock('../../src/core/resolve-trainer-context.js', () => ({
       resolveTrainerContext: () => ({ trainerSlug: 'brett', trainerId: 'trn_brett_99', wiki: 'default' })
     }));
-    const { trainerSubmitDraftTool } = await import('../../src/tools/trainer-submit-draft.js');
-    const out = await trainerSubmitDraftTool.handler({
+    const { trainerSubmitTool } = await import('../../src/tools/trainer-submit.js');
+    const out = await trainerSubmitTool.handler({
+      mode: 'draft',
       match_id: '01KQT6ST8AHV2XG9JN6QX7H5EX',
       picks: VALID_ULIDS,
     });
@@ -179,11 +184,12 @@ describe('vault_trainer-submit-draft', () => {
     vi.doMock('../../src/core/resolve-trainer-context.js', () => ({
       resolveTrainerContext: () => ({ trainerSlug: 'brett', trainerId: 'trn_brett', wiki: 'default' })
     }));
-    const { trainerSubmitDraftTool } = await import('../../src/tools/trainer-submit-draft.js');
+    const { trainerSubmitTool } = await import('../../src/tools/trainer-submit.js');
     const { StadiumApiError } = await import('../../src/core/stadium-client.js');
     let caught: unknown;
     try {
-      await trainerSubmitDraftTool.handler({
+      await trainerSubmitTool.handler({
+        mode: 'draft',
         match_id: '01KQT6ST8AHV2XG9JN6QX7H5EX',
         picks: VALID_ULIDS,
       });
@@ -207,11 +213,12 @@ describe('vault_trainer-submit-draft', () => {
     vi.doMock('../../src/core/resolve-trainer-context.js', () => ({
       resolveTrainerContext: () => ({ trainerSlug: 'brett', trainerId: 'trn_brett', wiki: 'default' })
     }));
-    const { trainerSubmitDraftTool } = await import('../../src/tools/trainer-submit-draft.js');
+    const { trainerSubmitTool } = await import('../../src/tools/trainer-submit.js');
     const { StadiumApiError } = await import('../../src/core/stadium-client.js');
     let caught: unknown;
     try {
-      await trainerSubmitDraftTool.handler({
+      await trainerSubmitTool.handler({
+        mode: 'draft',
         match_id: '01KQT6ST8AHV2XG9JN6QX7H5EX',
         picks: VALID_ULIDS,
       });
@@ -228,10 +235,11 @@ describe('trainerSubmitDraftInput schema (unit)', () => {
     vi.doMock('../../src/core/resolve-trainer-context.js', () => ({
       resolveTrainerContext: () => ({ trainerSlug: 'brett', trainerId: 'trn_brett', wiki: 'default' })
     }));
-    const { trainerSubmitDraftTool } = await import('../../src/tools/trainer-submit-draft.js');
+    const { trainerSubmitTool } = await import('../../src/tools/trainer-submit.js');
     let caught: unknown;
     try {
-      await trainerSubmitDraftTool.handler({
+      await trainerSubmitTool.handler({
+        mode: 'draft',
         match_id: '01KQT6ST8AHV2XG9JN6QX7H5EX',
         picks: ['pf_aerodactyl', 'pf_charmeleon', 'pf_squirtle', 'pf_bulbasaur', 'pf_gastly', 'pf_mewtwo'],
       } as any);
@@ -243,7 +251,7 @@ describe('trainerSubmitDraftInput schema (unit)', () => {
   });
 
   it('accepts 6 ULID-shaped picks and a ULID match_id', async () => {
-    const { trainerSubmitDraftInput } = await import('../../src/tools/trainer-submit-draft.js');
+    const { trainerSubmitDraftInput } = await import('../../src/tools/trainer-submit.js');
     const result = trainerSubmitDraftInput.safeParse({
       match_id: '01KQT6ST8AHV2XG9JN6QX7H5EX',
       picks: VALID_ULIDS,
@@ -252,7 +260,7 @@ describe('trainerSubmitDraftInput schema (unit)', () => {
   });
 
   it('rejects picks array of length != 6', async () => {
-    const { trainerSubmitDraftInput } = await import('../../src/tools/trainer-submit-draft.js');
+    const { trainerSubmitDraftInput } = await import('../../src/tools/trainer-submit.js');
     const result = trainerSubmitDraftInput.safeParse({
       match_id: '01KQT6ST8AHV2XG9JN6QX7H5EX',
       picks: VALID_ULIDS.slice(0, 5),

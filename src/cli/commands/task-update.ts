@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { taskUpdateTool } from "../../tools/task-update.js";
+import { taskTool } from "../../tools/task.js";
 import { resolveWiki } from "../../tools/_resolve-wiki.js";
 import { getCtx } from "../_ctx.js";
 
@@ -16,15 +16,16 @@ export function registerTaskUpdate(p: Command) {
       const ctx = getCtx();
       const wiki = resolveWiki(opts.wiki, ctx.defaultWiki, ctx.vaultPath);
       const principal = opts.agentId ? { agent_id: opts.agentId as string } : undefined;
-      const r = await taskUpdateTool.handler(
-        {
+      const r = await taskTool.handler(
+        taskTool.inputSchema.parse({
+          mode: "update",
           task_id,
           wiki,
           expected_updated: opts.expectedUpdated,
           status: opts.status,
           notes: opts.notes,
           segregation: opts.segregation,
-        },
+        }),
         { vaultPath: ctx.vaultPath, ...(principal ? { principal } : {}) }
       );
       console.log(JSON.stringify(r, null, 2));

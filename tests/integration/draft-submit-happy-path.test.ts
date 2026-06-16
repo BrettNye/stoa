@@ -34,7 +34,7 @@ const VALID_ULIDS = [
 // ─── Schema regression (always runs) ─────────────────────────────────────────
 // Catches the original A1 blocker without needing a real platform.
 
-describe("trainer-submit-draft schema — A1 regression (always runs)", () => {
+describe("trainer-submit { mode: 'draft' } schema — A1 regression (always runs)", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.unstubAllGlobals();
@@ -69,10 +69,11 @@ describe("trainer-submit-draft schema — A1 regression (always runs)", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const { trainerSubmitDraftTool } = await import(
-      "../../src/tools/trainer-submit-draft.js"
+    const { trainerSubmitTool } = await import(
+      "../../src/tools/trainer-submit.js"
     );
-    const out = await trainerSubmitDraftTool.handler({
+    const out = await trainerSubmitTool.handler({
+      mode: "draft",
       match_id: "01KQT6ST8AHV2XG9JN6QX7H5EX",
       picks: VALID_ULIDS,
     });
@@ -94,12 +95,13 @@ describe("trainer-submit-draft schema — A1 regression (always runs)", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const { trainerSubmitDraftTool } = await import(
-      "../../src/tools/trainer-submit-draft.js"
+    const { trainerSubmitTool } = await import(
+      "../../src/tools/trainer-submit.js"
     );
     let caught: unknown;
     try {
-      await trainerSubmitDraftTool.handler({
+      await trainerSubmitTool.handler({
+        mode: "draft",
         match_id: "01KQT6ST8AHV2XG9JN6QX7H5EX",
         picks: [
           "pf_aerodactyl",
@@ -139,7 +141,7 @@ describe("trainer-submit-draft schema — A1 regression (always runs)", () => {
 //      verifies: status === "drafting", available_profiles present,
 //      caller_trainer_id === trainer1.trainerId, caller_side set.
 //   4. Both trainers submit 6 picks (the registered platform_profile_ids) via
-//      vault_trainer-submit-draft.
+//      vault_trainer-submit { mode: "draft" }.
 //   5. Calls vault_trainer-get-state as trainer1; expects status !== "drafting"
 //      and available_profiles absent.
 //   6. Calls vault_trainer-get-state as trainer2; validates caller_side.
@@ -356,10 +358,11 @@ describe.skipIf(!PLATFORM_TESTS)(
         // ── Step 4: trainer1 submits draft ────────────────────────────────────
         process.env.STADIUM_HOME = homeT1;
         vi.resetModules();
-        const { trainerSubmitDraftTool: submitT1 } = await import(
-          "../../src/tools/trainer-submit-draft.js"
+        const { trainerSubmitTool: submitT1 } = await import(
+          "../../src/tools/trainer-submit.js"
         );
         const draftResult1 = await submitT1.handler({
+          mode: "draft",
           match_id: matchId,
           picks: picks1,
         });
@@ -368,10 +371,11 @@ describe.skipIf(!PLATFORM_TESTS)(
         // ── Step 5: trainer2 submits draft ────────────────────────────────────
         process.env.STADIUM_HOME = homeT2;
         vi.resetModules();
-        const { trainerSubmitDraftTool: submitT2 } = await import(
-          "../../src/tools/trainer-submit-draft.js"
+        const { trainerSubmitTool: submitT2 } = await import(
+          "../../src/tools/trainer-submit.js"
         );
         const draftResult2 = await submitT2.handler({
+          mode: "draft",
           match_id: matchId,
           picks: picks2,
         });

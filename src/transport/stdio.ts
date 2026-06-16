@@ -116,7 +116,7 @@ export async function startStdio(config: VaultConfig): Promise<void> {
   const eventBundle: EventBundle = { bus, registry, watcher };
 
   const server = new Server(
-    { name: "vault-mcp", version: "0.1.0" },
+    { name: "vault-mcp", version: "0.5.0" },
     { capabilities: { tools: {} } }
   );
 
