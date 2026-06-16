@@ -48,6 +48,12 @@ flowchart TD
     classDef running fill:#87ceeb,stroke:#333
     classDef failed fill:#ffb6c1,stroke:#333
     classDef skipped fill:#d3d3d3,stroke:#333,stroke-dasharray: 5 5
+
+    class task-shared-mode-helper,task-stadium-list,task-real-skill,task-docs,task-release done
+    class task-wait-for,task-trainer-submit,task-merge,task-task,task-channel,task-sync done
+    class task-registry,task-shared-scope-tests done
+    class task-blast-radius-src,task-blast-radius-tests done
+    class task-tools-index-test,task-e2e-test done
 ```
 
 ## Context
@@ -107,7 +113,8 @@ id: task-shared-mode-helper
 depends_on: []
 files:
   - src/tools/_mode.ts
-status: pending
+status: done
+# commit ecf93df
 ```
 
 Create `src/tools/_mode.ts` exporting a single shared `requireField` guard so the
@@ -158,7 +165,8 @@ files:
   - src/tools/wait-for-all.ts
   - src/tools/wait-for-many.ts
   - src/tools/wait-for-scopes.test.ts
-status: pending
+status: done
+# commit c5788bd
 ```
 
 Rewrite `src/tools/wait-for.ts` into a single `mode`-parametrized tool and delete
@@ -226,7 +234,8 @@ files:
   - src/tools/trainer-submit.ts
   - src/tools/trainer-submit-draft.ts
   - src/tools/trainer-submit-move.ts
-status: pending
+status: done
+# commit 8edef18
 ```
 
 Create `src/tools/trainer-submit.ts` with `mode: draft|move`; delete the two
@@ -297,7 +306,8 @@ files:
   - src/tools/merge.ts
   - src/tools/merge-queue.ts
   - src/tools/merge-record.ts
-status: pending
+status: done
+# commit f6825a5
 ```
 
 Create `src/tools/merge.ts` with `mode: queue|record`; delete the two sibling
@@ -370,7 +380,8 @@ files:
   - src/tools/stadium-list.ts
   - src/tools/list-invites.ts
   - src/tools/list-platform-profiles.ts
-status: pending
+status: done
+# commit e969820 (+ deletions bundled in e5ab482 by concurrent-commit race; tree correct)
 ```
 
 Create `src/tools/stadium-list.ts` with `mode: invites|platform-profiles`; delete
@@ -432,7 +443,8 @@ files:
   - src/tools/task-list.ts
   - src/tools/task-update.ts
   - src/tools/task-claim.ts
-status: pending
+status: done
+# commit 11a7df0
 ```
 
 Create `src/tools/task.ts` with `mode: create|list|update|claim`; delete the four
@@ -500,7 +512,8 @@ files:
   - src/tools/channel.ts
   - src/tools/channel-post.ts
   - src/tools/channel-tail.ts
-status: pending
+status: done
+# commit acb4bd0
 ```
 
 Create `src/tools/channel.ts` with `mode: post|tail`; delete the two sibling tool
@@ -558,7 +571,8 @@ files:
   - src/tools/real-skill.ts
   - src/tools/real-skill-register.ts
   - src/tools/real-skill-refresh.ts
-status: pending
+status: done
+# commit e5ab482
 ```
 
 Create `src/tools/real-skill.ts` with `mode: register|refresh`; delete the two
@@ -610,7 +624,8 @@ files:
   - src/tools/sync.ts
   - src/tools/sync-skills.ts
   - src/tools/sync-agents.ts
-status: pending
+status: done
+# commit 9a37c63
 ```
 
 Create `src/tools/sync.ts` with a **`surface: skills|agents`** discriminator —
@@ -694,7 +709,8 @@ id: task-registry
 depends_on: [task-wait-for, task-trainer-submit, task-merge, task-stadium-list, task-task, task-channel, task-real-skill, task-sync]
 files:
   - src/tools/index.ts
-status: pending
+status: done
+# commit 6878359 (DONE_WITH_CONCERNS — surfaced blast-radius gap, addressed by task-blast-radius-*)
 is_wiring_task: true
 ```
 
@@ -720,7 +736,8 @@ files:
   - src/tools/stadium-scopes.test.ts
   - src/tools/creator-scopes.test.ts
   - tests/integration/channel-write-through.test.ts
-status: pending
+status: done
+# commit ace7d48 (DONE_WITH_CONCERNS — stadium-scopes load-blocked by blast-radius trainer-get-state.ts, fixed in task-blast-radius-src)
 ```
 
 Update the co-located tests that import renamed exports from more than one family:
@@ -760,14 +777,66 @@ it("vault_merge record path is admin/creator scoped", () => {
 
 Test file: `src/tools/stadium-scopes.test.ts` (+ `src/tools/creator-scopes.test.ts`, `tests/integration/channel-write-through.test.ts`).
 
+## Task: blast-radius cleanup — production source
+
+```yaml
+id: task-blast-radius-src
+depends_on: [task-registry]
+files:
+  - src/cli/commands/sync-agents.ts
+  - src/cli/commands/sync-skills.ts
+  - src/cli/commands/task-update.ts
+  - src/transport/ui/routes-write.ts
+  - src/tools/trainer-get-state.ts
+status: done
+# commit 82a9958
+```
+
+**Added 2026-06-16 (executor — plan gap).** The original decomposition missed
+the non-test production callers that import the now-deleted tool modules. tsc
+fails until these are re-pointed to the consolidated tools. CLI sync commands
+need the C1 field remap (`target`→`repo_path`, add `surface`); the rest are
+straight import + `mode`/`surface` re-points. `src/cli/index.ts` was a grep
+false-positive (it imports CLI command files, not deleted tool modules) — left
+out; tsc confirms.
+
+## Task: blast-radius cleanup — tests
+
+```yaml
+id: task-blast-radius-tests
+depends_on: [task-registry]
+files:
+  - src/tools/admin-flags.test.ts
+  - src/tools/agent-id-removal.test.ts
+  - src/tools/read-tools-scope.test.ts
+  - src/cli/commands/task-update.test.ts
+  - src/transport/ui/routes-write.test.ts
+  - tests/integration/start.test.ts
+  - tests/integration/task-claim-readiness-mcp.test.ts
+  - tests/integration/task-claim-type-restriction.test.ts
+  - tests/integration/task-lifecycle.test.ts
+  - tests/unit/task-create.test.ts
+  - tests/unit/task-list.test.ts
+  - tests/unit/task-update.test.ts
+  - tests/unit/trainer-get-state.test.ts
+status: done
+# commit 4baac85
+```
+
+**Added 2026-06-16 (executor — plan gap).** Test files importing deleted tool
+modules (incl. `read-tools-scope.test.ts`, which the Context wrongly called out
+of scope). Re-point each import to the consolidated module + `mode`/`surface`.
+
 ## Task: update tool-list assertions
 
 ```yaml
 id: task-tools-index-test
-depends_on: [task-registry]
+depends_on: [task-registry, task-blast-radius-src, task-blast-radius-tests]
 files:
   - tests/integration/tools-index.test.ts
-status: pending
+  - tests/unit/tools-registry.test.ts
+status: done
+# commit ed63f23
 ```
 
 Replace the four `vault_wait-for-*` name assertions (and any other old-name
@@ -801,10 +870,13 @@ Test file: `tests/integration/tools-index.test.ts`.
 
 ```yaml
 id: task-e2e-test
-depends_on: [task-registry]
+depends_on: [task-registry, task-blast-radius-src, task-blast-radius-tests]
 files:
   - tests/e2e/mcp-client.test.ts
-status: pending
+  - tests/e2e/server-mode.test.ts
+  - tests/integration/wait-for-multiprocess.test.ts
+status: done
+# commit 64052b4
 ```
 
 Update the end-to-end MCP client test to call the consolidated tool names (with
@@ -844,7 +916,8 @@ files:
   - docs/task-coordination.md
   - docs/training-program.md
   - docs/quickstart.md
-status: pending
+status: done
+# commit 48f8d1c
 ```
 
 Rewrite the docs that reference any of the 19 retired tool names to document the
@@ -882,12 +955,14 @@ files:
   - CHANGELOG.md
   - README.md
   - src/transport/stdio.ts
-status: pending
+status: done
+# commit e5ab482
 is_wiring_task: true
 ```
 
 Wire the breaking release across the manifest, changelog, README, and the
-hardcoded server-version string. Bump the minor version (`0.1.0 → 0.2.0`),
+hardcoded server-version string. Bump the minor version (`0.4.0 → 0.5.0` — the
+package is currently at 0.4.0, not the 0.1.0 named when this plan was drafted),
 add a **BREAKING** CHANGELOG entry enumerating the 8 consolidations, update the
 `version:` string in `stdio.ts`, and rewrite README tool-name mentions.
 
