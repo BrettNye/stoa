@@ -37,9 +37,6 @@ import { getAllGlobs } from "../../src/core/eventbus/matchers/index.js";
 import { Cursor } from "../../src/core/eventbus/types.js";
 
 import { waitForTool } from "../../src/tools/wait-for.js";
-import { waitForAnyTool } from "../../src/tools/wait-for-any.js";
-import { waitForAllTool } from "../../src/tools/wait-for-all.js";
-import { waitForManyTool } from "../../src/tools/wait-for-many.js";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -179,6 +176,7 @@ describe("E2E push — journal write resolves vault_wait-for", () => {
     // Start the wait-for promise (no prior events)
     const waitPromise = waitForTool.handler(
       waitForTool.inputSchema.parse({
+        mode: "next",
         filter: { source: "journal", channel: "push-test" },
         timeout_ms: 5000,
       }),
@@ -215,6 +213,7 @@ describe("Atomic catch-up — post before wait-for returns immediately", () => {
     // wait-for with since set before the write
     const result = await waitForTool.handler(
       waitForTool.inputSchema.parse({
+        mode: "next",
         filter: { source: "journal", channel: "catchup-chan" },
         since: Cursor.toIso(since),
         timeout_ms: 2000,
@@ -238,6 +237,7 @@ describe("Atomic catch-up — post before wait-for returns immediately", () => {
     // Should timeout because the file is before the cursor
     const result = await waitForTool.handler(
       waitForTool.inputSchema.parse({
+        mode: "next",
         filter: { source: "journal", channel: "old-chan" },
         since: Cursor.toIso(since),
         timeout_ms: 300,
@@ -298,6 +298,7 @@ describe("Subscribe-before-scan race — event delivered exactly once", () => {
 
     const result = await waitForTool.handler(
       waitForTool.inputSchema.parse({
+        mode: "next",
         filter: { source: "journal", channel: "race-chan" },
         since: beforeIso,
         timeout_ms: 3000,
@@ -368,6 +369,7 @@ describe("Idempotency — two identical wait-for calls return same payload shape
     const [r1, r2] = await Promise.all([
       waitForTool.handler(
         waitForTool.inputSchema.parse({
+          mode: "next",
           filter: { source: "journal", channel: "idem-chan" },
           since: beforeIso,
           timeout_ms: 2000,
@@ -376,6 +378,7 @@ describe("Idempotency — two identical wait-for calls return same payload shape
       ),
       waitForTool.handler(
         waitForTool.inputSchema.parse({
+          mode: "next",
           filter: { source: "journal", channel: "idem-chan" },
           since: beforeIso,
           timeout_ms: 2000,
@@ -400,11 +403,12 @@ describe("Idempotency — two identical wait-for calls return same payload shape
 // 5. vault_wait-for-any
 // ──────────────────────────────────────────────────────────────────────────────
 
-describe("vault_wait-for-any — correct matched_filter_index", () => {
+describe("vault_wait-for mode=any — correct matched_filter_index", () => {
   it("returns matched_filter_index 1 when second filter matches", async () => {
     const ctx = makeCtx(stack);
-    const waitPromise = waitForAnyTool.handler(
-      waitForAnyTool.inputSchema.parse({
+    const waitPromise = waitForTool.handler(
+      waitForTool.inputSchema.parse({
+        mode: "any",
         filters: [
           { source: "journal", channel: "any-chan-0" },
           { source: "journal", channel: "any-chan-1" },
@@ -431,8 +435,9 @@ describe("vault_wait-for-any — correct matched_filter_index", () => {
     const beforeIso = new Date(Date.now() - 5000).toISOString();
     writeJournal(vault, "alpha", "2026-01-01-1000-any0", "any-first-chan");
 
-    const result = await waitForAnyTool.handler(
-      waitForAnyTool.inputSchema.parse({
+    const result = await waitForTool.handler(
+      waitForTool.inputSchema.parse({
+        mode: "any",
         filters: [
           { source: "journal", channel: "any-first-chan" },
           { source: "journal", channel: "any-second-chan" },
@@ -450,8 +455,9 @@ describe("vault_wait-for-any — correct matched_filter_index", () => {
   });
 
   it("times out when no filters match", async () => {
-    const result = await waitForAnyTool.handler(
-      waitForAnyTool.inputSchema.parse({
+    const result = await waitForTool.handler(
+      waitForTool.inputSchema.parse({
+        mode: "any",
         filters: [
           { source: "journal", channel: "no-match-1" },
           { source: "journal", channel: "no-match-2" },
@@ -469,12 +475,13 @@ describe("vault_wait-for-any — correct matched_filter_index", () => {
 // 6. vault_wait-for-all
 // ──────────────────────────────────────────────────────────────────────────────
 
-describe("vault_wait-for-all — fan-in behavior", () => {
+describe("vault_wait-for mode=all — fan-in behavior", () => {
   it("delivers all events when all filters are satisfied", async () => {
     const ctx = makeCtx(stack);
 
-    const waitPromise = waitForAllTool.handler(
-      waitForAllTool.inputSchema.parse({
+    const waitPromise = waitForTool.handler(
+      waitForTool.inputSchema.parse({
+        mode: "all",
         filters: [
           { source: "journal", channel: "all-chan-0" },
           { source: "journal", channel: "all-chan-1" },
@@ -502,8 +509,9 @@ describe("vault_wait-for-all — fan-in behavior", () => {
   it("populates missing_filter_indices on partial timeout", async () => {
     const ctx = makeCtx(stack);
 
-    const waitPromise = waitForAllTool.handler(
-      waitForAllTool.inputSchema.parse({
+    const waitPromise = waitForTool.handler(
+      waitForTool.inputSchema.parse({
+        mode: "all",
         filters: [
           { source: "journal", channel: "partial-chan-0" },
           { source: "journal", channel: "partial-chan-1" },  // never written
@@ -527,8 +535,9 @@ describe("vault_wait-for-all — fan-in behavior", () => {
   });
 
   it("times out with all indices missing when nothing is written", async () => {
-    const result = await waitForAllTool.handler(
-      waitForAllTool.inputSchema.parse({
+    const result = await waitForTool.handler(
+      waitForTool.inputSchema.parse({
+        mode: "all",
         filters: [
           { source: "journal", channel: "none-0" },
           { source: "journal", channel: "none-1" },
@@ -549,12 +558,13 @@ describe("vault_wait-for-all — fan-in behavior", () => {
 // 7. vault_wait-for-many
 // ──────────────────────────────────────────────────────────────────────────────
 
-describe("vault_wait-for-many — bounded batch behavior", () => {
+describe("vault_wait-for mode=many — bounded batch behavior", () => {
   it("K < max: returns K events with timed_out true", async () => {
     const ctx = makeCtx(stack);
 
-    const waitPromise = waitForManyTool.handler(
-      waitForManyTool.inputSchema.parse({
+    const waitPromise = waitForTool.handler(
+      waitForTool.inputSchema.parse({
+        mode: "many",
         filter: { source: "journal", channel: "many-chan" },
         max: 3,
         timeout_ms: 1000,
@@ -579,8 +589,9 @@ describe("vault_wait-for-many — bounded batch behavior", () => {
   it("K >= max: returns exactly max events with timed_out false", async () => {
     const ctx = makeCtx(stack);
 
-    const waitPromise = waitForManyTool.handler(
-      waitForManyTool.inputSchema.parse({
+    const waitPromise = waitForTool.handler(
+      waitForTool.inputSchema.parse({
+        mode: "many",
         filter: { source: "journal", channel: "many-full-chan" },
         max: 2,
         timeout_ms: 5000,
@@ -608,8 +619,9 @@ describe("vault_wait-for-many — bounded batch behavior", () => {
     writeJournal(vault, "alpha", "2026-01-01-1001-many-pre-b", "many-pre-chan");
     writeJournal(vault, "alpha", "2026-01-01-1002-many-pre-c", "many-pre-chan");
 
-    const result = await waitForManyTool.handler(
-      waitForManyTool.inputSchema.parse({
+    const result = await waitForTool.handler(
+      waitForTool.inputSchema.parse({
+        mode: "many",
         filter: { source: "journal", channel: "many-pre-chan" },
         max: 2,
         since: beforeIso,
@@ -630,9 +642,10 @@ describe("vault_wait-for-many — bounded batch behavior", () => {
 // ──────────────────────────────────────────────────────────────────────────────
 
 describe("Timeout — no events returns timed_out true with cursor", () => {
-  it("vault_wait-for times out when no matching event arrives", async () => {
+  it("vault_wait-for mode=next times out when no matching event arrives", async () => {
     const result = await waitForTool.handler(
       waitForTool.inputSchema.parse({
+        mode: "next",
         filter: { source: "journal", channel: "timeout-chan" },
         timeout_ms: 200,
       }),
@@ -644,9 +657,10 @@ describe("Timeout — no events returns timed_out true with cursor", () => {
     expect(result.cursor.length).toBeGreaterThan(0);
   });
 
-  it("vault_wait-for-any times out when no filters match", async () => {
-    const result = await waitForAnyTool.handler(
-      waitForAnyTool.inputSchema.parse({
+  it("vault_wait-for mode=any times out when no filters match", async () => {
+    const result = await waitForTool.handler(
+      waitForTool.inputSchema.parse({
+        mode: "any",
         filters: [{ source: "journal", channel: "timeout-any" }],
         timeout_ms: 200,
       }),
@@ -657,9 +671,10 @@ describe("Timeout — no events returns timed_out true with cursor", () => {
     expect(typeof result.cursor).toBe("string");
   });
 
-  it("vault_wait-for-many times out returning empty events array", async () => {
-    const result = await waitForManyTool.handler(
-      waitForManyTool.inputSchema.parse({
+  it("vault_wait-for mode=many times out returning empty events array", async () => {
+    const result = await waitForTool.handler(
+      waitForTool.inputSchema.parse({
+        mode: "many",
         filter: { source: "journal", channel: "timeout-many" },
         max: 5,
         timeout_ms: 200,
@@ -691,6 +706,7 @@ describe("Task lifecycle — status transitions emit correct events", () => {
     // Wait for the "add" event (task creation)
     const createPromise = waitForTool.handler(
       waitForTool.inputSchema.parse({
+        mode: "next",
         filter: { source: "task", wiki: "alpha" },
         timeout_ms: 3000,
       }),
@@ -707,6 +723,7 @@ describe("Task lifecycle — status transitions emit correct events", () => {
     // Update to in_progress — write new status to the file
     const inProgressPromise = waitForTool.handler(
       waitForTool.inputSchema.parse({
+        mode: "next",
         filter: { source: "task", wiki: "alpha" },
         timeout_ms: 3000,
       }),
@@ -725,6 +742,7 @@ describe("Task lifecycle — status transitions emit correct events", () => {
     // Update to done
     const donePromise = waitForTool.handler(
       waitForTool.inputSchema.parse({
+        mode: "next",
         filter: { source: "task", wiki: "alpha" },
         timeout_ms: 3000,
       }),
