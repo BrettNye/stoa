@@ -7,9 +7,8 @@ import { reindex } from "../../src/core/reindex.js";
 import { loadIndex } from "../../src/core/index.js";
 import { agentJournalTool } from "../../src/tools/agent-journal.js";
 import { newTool } from "../../src/tools/new.js";
-import { taskCreateTool } from "../../src/tools/task-create.js";
-import { taskUpdateTool } from "../../src/tools/task-update.js";
-import { mergeRecordTool, __setNowFnForTests as setMergeRecordNowFn } from "../../src/tools/merge-record.js";
+import { taskTool } from "../../src/tools/task.js";
+import { mergeTool, __setNowFnForTests as setMergeRecordNowFn } from "../../src/tools/merge.js";
 
 describe("channel write-through (T2-1 fix)", () => {
   let vaultPath: string;
@@ -113,10 +112,10 @@ describe("vault_task-create write-through (v1.7 §5.1)", () => {
   });
 
   it("task-create makes the new task immediately visible via loadIndex — no manual reindex needed", async () => {
-    const result = await taskCreateTool.handler(
-      { title: "Write-through task create", wiki: "alpha" },
+    const result = await taskTool.handler(
+      { mode: "create", title: "Write-through task create", wiki: "alpha" },
       { vaultPath }
-    );
+    ) as any;
     const idx = loadIndex(vaultPath);
     expect(idx.pages.some(p => p.id === result.id && p.type === "task")).toBe(true);
   });
@@ -138,10 +137,10 @@ describe("vault_task-update write-through (v1.7 §5.1)", () => {
   });
 
   it("task-update makes the changed task status immediately visible via loadIndex — no manual reindex needed", async () => {
-    const created = await taskCreateTool.handler(
-      { title: "Write-through task update", wiki: "alpha" },
+    const created = await taskTool.handler(
+      { mode: "create", title: "Write-through task update", wiki: "alpha" },
       { vaultPath }
-    );
+    ) as any;
 
     // Confirm pre-update status is "pending" in the index (write-through from create).
     const idxBefore = loadIndex(vaultPath);
@@ -149,8 +148,9 @@ describe("vault_task-update write-through (v1.7 §5.1)", () => {
     expect(beforeEntry).toBeDefined();
     expect((beforeEntry as any).status).toBe("pending");
 
-    await taskUpdateTool.handler(
+    await taskTool.handler(
       {
+        mode: "update",
         task_id: created.id,
         wiki: "alpha",
         expected_updated: created.updated,
@@ -166,7 +166,7 @@ describe("vault_task-update write-through (v1.7 §5.1)", () => {
   });
 });
 
-describe("vault_merge-record write-through (v1.7 §5.1)", () => {
+describe("vault_merge write-through (v1.7 §5.1)", () => {
   let vaultPath: string;
 
   beforeEach(async () => {
@@ -204,8 +204,9 @@ Charmander profile.
   });
 
   it("merge-record makes the new journal entry immediately visible via loadIndex — no manual reindex needed", async () => {
-    const result = await mergeRecordTool.handler(
+    const result = await mergeTool.handler(
       {
+        mode: "record",
         pr_number: 42,
         channel: "feat-x",
         agent_id: "charmander",
@@ -215,6 +216,6 @@ Charmander profile.
       { vaultPath }
     );
     const idx = loadIndex(vaultPath);
-    expect(idx.pages.some(p => p.id === result.journal_id)).toBe(true);
+    expect(idx.pages.some(p => p.id === (result as any).journal_id)).toBe(true);
   });
 });
