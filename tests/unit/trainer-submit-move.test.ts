@@ -25,10 +25,10 @@ vi.mock("../../src/core/stadium-client.js", () => {
   return { StadiumClient, _submitMoveMock: submitMove };
 });
 
-import { trainerSubmitMoveTool } from "../../src/tools/trainer-submit-move.js";
+import { trainerSubmitTool } from "../../src/tools/trainer-submit.js";
 import * as stadiumClientModule from "../../src/core/stadium-client.js";
 
-describe("vault_trainer-submit-move handler", () => {
+describe("vault_trainer-submit { mode: 'move' } handler", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let submitMoveMock: ReturnType<typeof vi.fn>;
 
@@ -49,7 +49,8 @@ describe("vault_trainer-submit-move handler", () => {
       status: "waiting"
     });
 
-    const result = await trainerSubmitMoveTool.handler({
+    const result = await trainerSubmitTool.handler({
+      mode: "move",
       match_id: "match-123",
       turn: 2,
       move_id: "move-tackle"
@@ -67,7 +68,8 @@ describe("vault_trainer-submit-move handler", () => {
     submitMoveMock.mockResolvedValue(undefined);
 
     await expect(
-      trainerSubmitMoveTool.handler({
+      trainerSubmitTool.handler({
+        mode: "move",
         match_id: "match-123",
         turn: 2,
         move_id: "move-tackle"
@@ -79,7 +81,8 @@ describe("vault_trainer-submit-move handler", () => {
     submitMoveMock.mockResolvedValue(null);
 
     await expect(
-      trainerSubmitMoveTool.handler({
+      trainerSubmitTool.handler({
+        mode: "move",
         match_id: "match-123",
         turn: 2,
         move_id: "move-tackle"
@@ -91,7 +94,8 @@ describe("vault_trainer-submit-move handler", () => {
     submitMoveMock.mockResolvedValue("ok");
 
     await expect(
-      trainerSubmitMoveTool.handler({
+      trainerSubmitTool.handler({
+        mode: "move",
         match_id: "match-123",
         turn: 2,
         move_id: "move-tackle"
