@@ -10,24 +10,49 @@ import { WaiterRegistry } from "../../src/core/eventbus/registry.js";
 import { Watcher } from "../../src/core/eventbus/watcher.js";
 import { getAllGlobs } from "../../src/core/eventbus/matchers/index.js";
 
-describe("allTools — v1.7.1 wait-for tools registered", () => {
+describe("allTools — consolidated tool surface (55 → 43)", () => {
   const names = allTools.map((t) => t.name);
 
-  it("includes vault_wait-for", () => {
-    expect(names).toContain("vault_wait-for");
-  });
+  const CONSOLIDATED = [
+    "vault_wait-for",
+    "vault_trainer-submit",
+    "vault_merge",
+    "vault_stadium-list",
+    "vault_task",
+    "vault_channel",
+    "vault_real-skill",
+    "vault_sync",
+  ];
 
-  it("includes vault_wait-for-any", () => {
-    expect(names).toContain("vault_wait-for-any");
-  });
+  for (const n of CONSOLIDATED) {
+    it(`registers ${n}`, () => expect(names).toContain(n));
+  }
 
-  it("includes vault_wait-for-all", () => {
-    expect(names).toContain("vault_wait-for-all");
-  });
+  const OLD = [
+    "vault_wait-for-any",
+    "vault_wait-for-all",
+    "vault_wait-for-many",
+    "vault_trainer-submit-draft",
+    "vault_trainer-submit-move",
+    "vault_merge-queue",
+    "vault_merge-record",
+    "vault_list-invites",
+    "vault_list-platform-profiles",
+    "vault_task-create",
+    "vault_task-list",
+    "vault_task-update",
+    "vault_task-claim",
+    "vault_channel-post",
+    "vault_channel-tail",
+    "vault_real-skill-register",
+    "vault_real-skill-refresh",
+    "vault_sync-skills",
+    "vault_sync-agents",
+  ];
 
-  it("includes vault_wait-for-many", () => {
-    expect(names).toContain("vault_wait-for-many");
-  });
+  it("retires all old names", () => OLD.forEach((n) => expect(names).not.toContain(n)));
+
+  it("advertises 43 tools", () => expect(allTools.length).toBe(43));
 });
 
 describe("buildCtx — eventBundle fields threaded through (v1.7.1)", () => {
