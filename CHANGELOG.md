@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.5.0 — 2026-06-15
+## 0.5.0 — 2026-06-16
 
 Tool-surface family consolidation. 19 tool names retire; 8 consolidated names take their place. The advertised surface drops from 55 → 43 tools.
 

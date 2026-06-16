@@ -50,6 +50,8 @@ Restart Claude Code. You now have `vault_recall`, `vault_inbox`, `vault_synthesi
 
 ## Tools (quick reference)
 
+> **v0.5 consolidated 19 tool names into 8** `mode`/`surface`-parametrized tools (surface dropped 55 → 43). If you're upgrading from an older name like `vault_task-create` or `vault_channel-tail`, see the [v0.5 release notes](#v05--tool-surface-family-consolidation) for the full rename map and migration.
+
 **Read:**
 - `vault_recall` — search vault, segmented by layer; reads matching synthesis content inline
 - `vault_read` — fetch a page by id or path
@@ -179,6 +181,30 @@ Set `STOA_VAULT_PATH` to skip `--vault=` on every call.
 npm test          # unit + integration
 npm test -- e2e   # end-to-end via real MCP client
 ```
+
+## v0.5 — tool-surface family consolidation
+
+Eight families of single-purpose MCP tools collapse into eight `mode`/`surface`-parametrized tools. The advertised `vault_*` surface drops from **55 → 43**. Underlying behavior is preserved — only the tool *names* and call shape change. Solo-laptop `stoa --mcp` stdio mode and HTTP server mode both continue to work unchanged.
+
+### Changed (BREAKING) — 19 tool names retire into 8
+
+Each family now exposes a single tool that takes a `mode:` (or `surface:` for `vault_sync`) discriminator instead of a separate tool per operation.
+
+| Retired names | Consolidated | Discriminator |
+|---|---|---|
+| `vault_wait-for-any`, `vault_wait-for-all`, `vault_wait-for-many` | `vault_wait-for` | `mode: next\|any\|all\|many` |
+| `vault_trainer-submit-draft`, `vault_trainer-submit-move` | `vault_trainer-submit` | `mode: draft\|move` |
+| `vault_merge-queue`, `vault_merge-record` | `vault_merge` | `mode: queue\|record` |
+| `vault_list-invites`, `vault_list-platform-profiles` | `vault_stadium-list` | `mode: invites\|platform-profiles` |
+| `vault_task-create`, `vault_task-list`, `vault_task-update`, `vault_task-claim` | `vault_task` | `mode: create\|list\|update\|claim` |
+| `vault_channel-post`, `vault_channel-tail` | `vault_channel` | `mode: post\|tail` |
+| `vault_real-skill-register`, `vault_real-skill-refresh` | `vault_real-skill` | `mode: register\|refresh` |
+| `vault_sync-skills`, `vault_sync-agents` | `vault_sync` | `surface: skills\|agents` |
+
+**Migration.** Drop the old name, use the consolidated name, and add the appropriate `mode:`/`surface:` field — e.g. `vault_task-create { ... }` → `vault_task { mode: "create", ... }`. Two extra notes:
+
+- **`vault_sync` field rename:** the overloaded `target` is split — filesystem path is now `repo_path`, output format is now `runtime`, on both surfaces.
+- **Scope tokens** (HTTP mode) embed the tool name, so a scope like `vault_task-claim:tasks/<id>` becomes `vault_task:tasks/<id>`. Re-mint tokens issued against retired names.
 
 ## v0.4 — server mode
 
