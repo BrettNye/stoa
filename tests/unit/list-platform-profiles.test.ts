@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { listPlatformProfiles } from "../../src/tools/list-platform-profiles.js";
+import { stadiumListTool } from "../../src/tools/stadium-list.js";
 
 // ─── Fixture helpers ──────────────────────────────────────────────────────────
 
@@ -95,7 +95,7 @@ function writeWikisIndex(vaultPath: string, wikis: string[]) {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-describe("listPlatformProfiles", () => {
+describe("stadiumListTool mode=platform-profiles", () => {
   let vaultPath: string;
   const OLD_ENV = process.env;
 
@@ -147,10 +147,10 @@ describe("listPlatformProfiles", () => {
     process.env.STADIUM_TRAINER = "test-trainer";
     writeWikisIndex(vaultPath, ["_agents"]);
 
-    const result = await listPlatformProfiles({ wiki: "_agents" });
+    const result = await stadiumListTool.handler({ mode: "platform-profiles", wiki: "_agents" }, { vaultPath });
 
     expect(result.profiles).toHaveLength(2);
-    expect(result.profiles.every((p) => /^[0-9A-Z]{26}$/.test(p.platform_profile_id))).toBe(true);
+    expect(result.profiles.every((p: any) => /^[0-9A-Z]{26}$/.test(p.platform_profile_id))).toBe(true);
   });
 
   it("each row contains all required fields", async () => {
@@ -166,7 +166,7 @@ describe("listPlatformProfiles", () => {
     process.env.STADIUM_TRAINER = "t1";
     writeWikisIndex(vaultPath, ["_agents"]);
 
-    const result = await listPlatformProfiles({ wiki: "_agents" });
+    const result = await stadiumListTool.handler({ mode: "platform-profiles", wiki: "_agents" }, { vaultPath });
 
     expect(result.profiles).toHaveLength(1);
     const p = result.profiles[0];
@@ -205,7 +205,7 @@ describe("listPlatformProfiles", () => {
     process.env.STADIUM_TRAINER = "tc";
     writeWikisIndex(vaultPath, ["_agents"]);
 
-    const result = await listPlatformProfiles({ wiki: "_agents" });
+    const result = await stadiumListTool.handler({ mode: "platform-profiles", wiki: "_agents" }, { vaultPath });
     expect(result.profiles).toHaveLength(1);
     const p = result.profiles[0];
     // Key is real_skill_id (platform identifier), NOT moveId (vault concept).
@@ -230,7 +230,7 @@ describe("listPlatformProfiles", () => {
     process.env.STADIUM_TRAINER = "tm";
     writeWikisIndex(vaultPath, ["_agents"]);
 
-    const result = await listPlatformProfiles({ wiki: "_agents" });
+    const result = await stadiumListTool.handler({ mode: "platform-profiles", wiki: "_agents" }, { vaultPath });
     expect(result.profiles).toHaveLength(1);
     expect(result.profiles[0].real_skill_levels).toEqual({});
   });
@@ -260,10 +260,11 @@ describe("listPlatformProfiles", () => {
     process.env.STADIUM_TRAINER = "tfilter";
     writeWikisIndex(vaultPath, ["_agents"]);
 
-    const result = await listPlatformProfiles({
+    const result = await stadiumListTool.handler({
+      mode: "platform-profiles",
       wiki: "_agents",
       owner_trainer_id: trainerId1,
-    });
+    }, { vaultPath });
 
     expect(result.profiles).toHaveLength(1);
     expect(result.profiles[0].owner_trainer_id).toBe(trainerId1);
@@ -289,7 +290,7 @@ describe("listPlatformProfiles", () => {
     writeWikisIndex(vaultPath, ["_agents", "alpha"]);
 
     // Explicit wiki: "alpha" overrides resolved wiki "_agents"
-    const result = await listPlatformProfiles({ wiki: "alpha" });
+    const result = await stadiumListTool.handler({ mode: "platform-profiles", wiki: "alpha" }, { vaultPath });
     expect(result.profiles).toHaveLength(1);
     expect(result.profiles[0].wiki).toBe("alpha");
   });
@@ -302,7 +303,7 @@ describe("listPlatformProfiles", () => {
     process.env.STADIUM_TRAINER = "caller-trainer";
     writeWikisIndex(vaultPath, ["_agents"]);
 
-    const result = await listPlatformProfiles({ wiki: "_agents" });
+    const result = await stadiumListTool.handler({ mode: "platform-profiles", wiki: "_agents" }, { vaultPath });
     expect(result.caller_trainer_id).toBe(expectedTrainerId);
   });
 
@@ -318,7 +319,7 @@ describe("listPlatformProfiles", () => {
     mkdirSync(join(vaultPath, "wikis", "empty-wiki"), { recursive: true });
     writeWikisIndex(vaultPath, ["_agents", "empty-wiki"]);
 
-    const result = await listPlatformProfiles({ wiki: "empty-wiki" });
+    const result = await stadiumListTool.handler({ mode: "platform-profiles", wiki: "empty-wiki" }, { vaultPath });
     expect(result.profiles).toEqual([]);
   });
 
@@ -341,8 +342,18 @@ describe("listPlatformProfiles", () => {
     delete process.env.VAULT_PATH;
     process.env.STOA_VAULT_PATH = vaultPath;
 
-    const result = await listPlatformProfiles({ wiki: "_agents" });
+    const result = await stadiumListTool.handler({ mode: "platform-profiles", wiki: "_agents" }, { vaultPath });
     expect(result.profiles).toHaveLength(1);
     expect(result.profiles[0].platform_profile_id).toBe("01KQTPPPPPPPPPPPPPPPPPPPPS");
+  });
+
+  // ─── scope.axis is wiki-aware ──────────────────────────────────────────────
+
+  it("scope.axis returns wikis/* when no wiki provided", () => {
+    expect(stadiumListTool.scope.axis({ mode: "platform-profiles" })).toBe("wikis/*");
+  });
+
+  it("scope.axis returns wikis/<wiki> when wiki is provided", () => {
+    expect(stadiumListTool.scope.axis({ mode: "platform-profiles", wiki: "alpha" })).toBe("wikis/alpha");
   });
 });
