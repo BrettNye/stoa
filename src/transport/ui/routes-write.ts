@@ -100,7 +100,7 @@ export function mountWriteRoutes(app: Hono, ctx: WriteRoutesCtx): void {
 
     try {
       const result = await taskTool.handler(
-        { mode: "claim", task_id: taskId, expected_updated, wiki } as any,
+        taskTool.inputSchema.parse({ mode: "claim", task_id: taskId, expected_updated, wiki }),
         { ...toolCtx, principal: { agent_id } }
       ) as { task_id: string; claimed_by: string; claimed_at: string; updated: string };
 
@@ -215,13 +215,13 @@ export function mountWriteRoutes(app: Hono, ctx: WriteRoutesCtx): void {
     try {
       // agent_id is always set server-side; the dashboard posts as human:dashboard
       const result = await channelTool.handler(
-        {
+        channelTool.inputSchema.parse({
           mode: "post",
           channel: channelName,
           content,
           wiki,
           session_id,
-        } as any,
+        }),
         { ...toolCtx, principal: { agent_id: "human:dashboard" } }
       ) as { id: string; channel: string; created: string };
 

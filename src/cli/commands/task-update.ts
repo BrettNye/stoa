@@ -17,7 +17,7 @@ export function registerTaskUpdate(p: Command) {
       const wiki = resolveWiki(opts.wiki, ctx.defaultWiki, ctx.vaultPath);
       const principal = opts.agentId ? { agent_id: opts.agentId as string } : undefined;
       const r = await taskTool.handler(
-        {
+        taskTool.inputSchema.parse({
           mode: "update",
           task_id,
           wiki,
@@ -25,7 +25,7 @@ export function registerTaskUpdate(p: Command) {
           status: opts.status,
           notes: opts.notes,
           segregation: opts.segregation,
-        } as any,
+        }),
         { vaultPath: ctx.vaultPath, ...(principal ? { principal } : {}) }
       );
       console.log(JSON.stringify(r, null, 2));
