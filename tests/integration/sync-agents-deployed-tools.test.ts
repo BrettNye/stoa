@@ -1,6 +1,6 @@
 // tests/integration/sync-agents-deployed-tools.test.ts
 //
-// Verifies that vault_sync-agents deploys a profile-bound subagent whose
+// Verifies that vault_sync surface=agents deploys a profile-bound subagent whose
 // tools_allowlist includes both vault_agent-memory and vault_claim (the two
 // tools added to MINIMAL_COORDINATION_TOOLSET in v1.7.x per task-sync-agents-deploy).
 
@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
 import { buildIntent } from "../../src/core/subagent-intent.js";
-import { syncAgentsTool } from "../../src/tools/sync-agents.js";
+import { syncTool } from "../../src/tools/sync.js";
 
 let vault: string;
 let target: string;
@@ -66,8 +66,8 @@ describe("sync-agents deployed tools — agent-memory + claim in baseline (task-
   it("the deployed .claude/agents/<id>.md file lists the two new tools in its frontmatter", async () => {
     const { profileId } = seedRepoWithProfile("profile-pidgey");
 
-    const result = await syncAgentsTool.handler(
-      { pokemon: "pidgey", target, runtime: "claude-code" },
+    const result = await syncTool.handler(
+      { surface: "agents", pokemon: "pidgey", repo_path: target, runtime: "claude-code" },
       { vaultPath: vault }
     );
 

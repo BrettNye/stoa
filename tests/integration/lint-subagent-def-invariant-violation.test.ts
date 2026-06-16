@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
-import { syncAgentsTool } from "../../src/tools/sync-agents.js";
+import { syncTool } from "../../src/tools/sync.js";
 import { lintTool } from "../../src/tools/lint.js";
 
 let vault: string;
@@ -44,8 +44,8 @@ describe("lint — SUBAGENT_DEF_INVARIANT_VIOLATION on a real corrupted artifact
   it("clean after deploy; error after corruption; clean after re-deploy", async () => {
     seedProfile(vault, "profile-charmander");
     execSync("git add . && git commit -q -m seed", { cwd: vault });
-    await syncAgentsTool.handler(
-      { pokemon: "charmander", target, runtime: "claude-code" },
+    await syncTool.handler(
+      { surface: "agents", pokemon: "charmander", repo_path: target, runtime: "claude-code" },
       { vaultPath: vault }
     );
 
@@ -65,21 +65,19 @@ describe("lint — SUBAGENT_DEF_INVARIANT_VIOLATION on a real corrupted artifact
       d.code === "SUBAGENT_DEF_INVARIANT_VIOLATION" && d.severity === "error"
     );
     expect(errs.length).toBeGreaterThan(0);
-    expect(errs[0].suggestion).toContain("vault_sync-agents");
+    expect(errs[0].suggestion).toContain("vault_sync");
 
     // Repair via re-deploy.
-    await syncAgentsTool.handler(
-      { pokemon: "charmander", target, runtime: "claude-code", overwrite: true },
+    await syncTool.handler(
+      { surface: "agents", pokemon: "charmander", repo_path: target, runtime: "claude-code", overwrite: true },
       { vaultPath: vault }
     );
     // The re-deploy at the same source_revision returns skipped-no-change but
     // the file is the existing post-corruption file. Force re-write by
-    // deleting the file first OR bumping source_revision via a profile edit.
-    // Simpler: remove the file then re-deploy (sync-agents sees existing
-    // registry entry but file missing → falls through to write).
+    // deleting the file first then re-deploying.
     rmSync(agentPath, { force: true });
-    await syncAgentsTool.handler(
-      { pokemon: "charmander", target, runtime: "claude-code", overwrite: true },
+    await syncTool.handler(
+      { surface: "agents", pokemon: "charmander", repo_path: target, runtime: "claude-code", overwrite: true },
       { vaultPath: vault }
     );
 

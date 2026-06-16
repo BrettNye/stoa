@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
-import { syncAgentsTool } from "../../src/tools/sync-agents.js";
+import { syncTool } from "../../src/tools/sync.js";
 import { readDeployments } from "../../src/core/deployments.js";
 
 let vault: string;
@@ -35,19 +35,19 @@ afterEach(() => {
   rmSync(target, { recursive: true, force: true });
 });
 
-describe("vault_sync-agents — multi-instance concurrent dispatch (v1.7 §7.3)", () => {
+describe("vault_sync surface=agents — multi-instance concurrent dispatch (v1.7 §7.3)", () => {
   it("two concurrent calls on different Pokemon both land in the registry", async () => {
     seedProfile(vault, "profile-charmander");
     seedProfile(vault, "profile-squirtle");
     execSync("git add . && git commit -q -m seed", { cwd: vault });
 
     const [r1, r2] = await Promise.all([
-      syncAgentsTool.handler(
-        { pokemon: "charmander", target, runtime: "claude-code" },
+      syncTool.handler(
+        { surface: "agents", pokemon: "charmander", repo_path: target, runtime: "claude-code" },
         { vaultPath: vault }
       ),
-      syncAgentsTool.handler(
-        { pokemon: "squirtle", target, runtime: "claude-code" },
+      syncTool.handler(
+        { surface: "agents", pokemon: "squirtle", repo_path: target, runtime: "claude-code" },
         { vaultPath: vault }
       )
     ]);

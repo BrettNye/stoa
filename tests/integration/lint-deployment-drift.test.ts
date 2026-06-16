@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { lintTool } from "../../src/tools/lint.js";
-import { syncSkillsTool } from "../../src/tools/sync-skills.js";
+import { syncTool } from "../../src/tools/sync.js";
 
 // Wave 3 / Phase-1 T3-4d — registry-backed DEPLOYMENT_DRIFT check.
 // Walks _index/deployments.json; for each entry, derives skills_dir from
@@ -114,8 +114,8 @@ describe("DEPLOYMENT_DRIFT", () => {
 
   it("clean deployment — no diagnostic", async () => {
     seedFixture();
-    await syncSkillsTool.handler(
-      { repo_path: repoPath, pokemon: "profile-charmander", target: "claude-code", mode: "copy" },
+    await syncTool.handler(
+      { surface: "skills", repo_path: repoPath, pokemon: "profile-charmander", runtime: "claude-code", mode: "copy" },
       { vaultPath }
     );
 
@@ -126,8 +126,8 @@ describe("DEPLOYMENT_DRIFT", () => {
 
   it("tampered deployed SKILL.md — one diagnostic with kind hash-mismatch", async () => {
     seedFixture();
-    await syncSkillsTool.handler(
-      { repo_path: repoPath, pokemon: "profile-charmander", target: "claude-code", mode: "copy" },
+    await syncTool.handler(
+      { surface: "skills", repo_path: repoPath, pokemon: "profile-charmander", runtime: "claude-code", mode: "copy" },
       { vaultPath }
     );
 
@@ -145,8 +145,8 @@ describe("DEPLOYMENT_DRIFT", () => {
 
   it("deleted deployed move directory — one diagnostic with kind missing", async () => {
     seedFixture();
-    await syncSkillsTool.handler(
-      { repo_path: repoPath, pokemon: "profile-charmander", target: "claude-code", mode: "copy" },
+    await syncTool.handler(
+      { surface: "skills", repo_path: repoPath, pokemon: "profile-charmander", runtime: "claude-code", mode: "copy" },
       { vaultPath }
     );
 
@@ -163,8 +163,8 @@ describe("DEPLOYMENT_DRIFT", () => {
 
   it("missing profile but stale registry entry — swallowed (no crash, no diagnostic for that entry)", async () => {
     seedFixture();
-    await syncSkillsTool.handler(
-      { repo_path: repoPath, pokemon: "profile-charmander", target: "claude-code", mode: "copy" },
+    await syncTool.handler(
+      { surface: "skills", repo_path: repoPath, pokemon: "profile-charmander", runtime: "claude-code", mode: "copy" },
       { vaultPath }
     );
     // Operator manually deleted the profile but registry still has entry.

@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
-import { syncAgentsTool } from "../../src/tools/sync-agents.js";
+import { syncTool } from "../../src/tools/sync.js";
 
 let vault: string;
 let target: string;
@@ -34,7 +34,7 @@ afterEach(() => {
   rmSync(target, { recursive: true, force: true });
 });
 
-describe("vault_sync-agents — invariant-6 permission-conflict surfacing (v1.7 §6.4 + §7.3)", () => {
+describe("vault_sync surface=agents — invariant-6 permission-conflict surfacing (v1.7 §6.4 + §7.3)", () => {
   it("warns naming the conflicting tool but completes deploy", async () => {
     seedProfile(vault, "profile-charmander");
     execSync("git add . && git commit -q -m seed", { cwd: vault });
@@ -48,8 +48,8 @@ describe("vault_sync-agents — invariant-6 permission-conflict surfacing (v1.7 
       })
     );
 
-    const r = await syncAgentsTool.handler(
-      { pokemon: "charmander", target, runtime: "claude-code" },
+    const r = await syncTool.handler(
+      { surface: "agents", pokemon: "charmander", repo_path: target, runtime: "claude-code" },
       { vaultPath: vault }
     );
     expect(r.results[0].status).toBe("deployed");  // warning, not error
@@ -73,8 +73,8 @@ describe("vault_sync-agents — invariant-6 permission-conflict surfacing (v1.7 
       })
     );
 
-    const r = await syncAgentsTool.handler(
-      { pokemon: "charmander", target, runtime: "claude-code" },
+    const r = await syncTool.handler(
+      { surface: "agents", pokemon: "charmander", repo_path: target, runtime: "claude-code" },
       { vaultPath: vault }
     );
     expect(r.results[0].status).toBe("deployed");
@@ -90,8 +90,8 @@ describe("vault_sync-agents — invariant-6 permission-conflict surfacing (v1.7 
       JSON.stringify({ permissions: { deny: ["mcp__vault__*"] } })
     );
 
-    const r = await syncAgentsTool.handler(
-      { pokemon: "charmander", target, runtime: "claude-code" },
+    const r = await syncTool.handler(
+      { surface: "agents", pokemon: "charmander", repo_path: target, runtime: "claude-code" },
       { vaultPath: vault }
     );
     expect(r.results[0].status).toBe("deployed");
