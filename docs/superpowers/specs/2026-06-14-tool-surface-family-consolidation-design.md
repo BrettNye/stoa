@@ -1,6 +1,6 @@
 # Stoa tool-surface family consolidation — design
 
-**Date:** 2026-06-14
+**Date:** 2026-06-14 · **Amended:** 2026-06-15 (audit — §5.4 sync field-collision fix C1/H1/H2)
 **Status:** approved (brainstorming) → ready for implementation plan
 **Implements:** lever #1 of [[wikis/_meta/decisions/decision-2026-06-08-stoa-tool-surface-consolidate-families-first]]
 **Supersedes nothing; refines:** [[wikis/_meta/synthesis/synthesis-stoa-mcp-tool-surface-and-packaging]]
@@ -196,17 +196,33 @@ Both deploy a Pokémon's artifacts into a target repo; the v1.7 design already f
 
 **Discriminator-name collision (important):** both tools already carry a field named `mode` (`"copy" | "symlink"`). The new discriminator therefore **must not** be called `mode`. Use **`surface: "skills" | "agents"`**, keeping each surface's existing `mode: copy|symlink` field intact.
 
+**Field-name collision — `target` is overloaded (audit 2026-06-15, finding C1).** The two source tools use `target` for *different things*, so a naive "normalize the path to `target`" silently drops skills' format enum:
+
+| Concept | `sync-skills` field | `sync-agents` field |
+|---|---|---|
+| filesystem repo path | `repo_path` (`sync-skills.ts:14`) | `target` (`sync-agents.ts:34`) |
+| output runtime / format | `target` — `claude-code\|openclaw\|codex`, default `claude-code` (`sync-skills.ts:27`) | `runtime` — `claude-code` only, default `claude-code` (`sync-agents.ts:35`) |
+| copy strategy | `mode` — default **symlink** (`sync-skills.ts:28`) | `mode` — default **copy** (`sync-agents.ts:36`) |
+
+The correct normalization keeps the **non-colliding** name from each tool: path → `repo_path`, format → `runtime`.
+
 ```
 vault_sync {
   surface: "skills" | "agents",
-  // shared: target/repo_path, pokemon?, all?, exclude?, pokemon_type?,
-  //         mode (copy|symlink), continue_on_error?, wiki?
-  // skills-only: reverify?, fix?
-  // agents-only: runtime?, overwrite?, include_moveset?
+  repo_path: string,                              // shared (was skills.repo_path / agents.target)
+  runtime: "claude-code" | "openclaw" | "codex",  // shared, default "claude-code" (was skills.target / agents.runtime)
+  mode: "copy" | "symlink",                       // NO top-level default — applied per-surface in handler
+  pokemon?: string | string[],                    // shared (string on skills, string|string[] on agents)
+  all?, exclude?, pokemon_type?, continue_on_error?, wiki?,  // shared
+  reverify?, fix?,                                // skills-only
+  overwrite?, include_moveset?,                   // agents-only
 }
 ```
 
-- `surface: skills` (was `vault_sync-skills`): full existing schema incl. `reverify`/`fix`/`all` deploy paths. Note `sync-skills` uses `repo_path`; `sync-agents` uses `target`. Normalize to one field name (`target`, alias `repo_path` in the handler) so the combined schema isn't doubled.
+- **`mode` default is surface-dependent (finding H1):** skills defaulted `symlink`, agents defaulted `copy`. A single top-level `.default()` would flip one. Leave `mode` with **no schema default**; the handler applies `skills → symlink`, `agents → copy` when omitted.
+- **`refine`s are surface-divergent (finding H2):** skills has two (`pokemon`⊕`all`; deploy mode requires `pokemon`|`all` — `sync-skills.ts:41-47`), agents has three (adds `exclude`/`pokemon_type` only valid with `all` — `sync-agents.ts:44-53`). A top-level `.refine` fires for both surfaces, so they **cannot** be shared verbatim — enforce as surface-conditional checks in the handler, throwing the same messages.
+- **`runtime` on agents:** only `claude-code` is a registered adapter, so the handler rejects `openclaw`/`codex` on `surface: agents` with a named error — preserving agents' former one-value enum without a second schema.
+- `surface: skills` (was `vault_sync-skills`): full existing schema incl. `reverify`/`fix`/`all` deploy paths.
 - `surface: agents` (was `vault_sync-agents`): full existing schema incl. `runtime`/`overwrite`/`include_moveset`.
 - Both retain `scope { axis: "*", httpForbidden: true }`.
 
