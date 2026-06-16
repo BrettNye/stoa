@@ -1,4 +1,7 @@
 import { Command } from "commander";
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+const pkg = require("../../package.json");
 import { registerRecall } from "./commands/recall.js";
 import { registerRead } from "./commands/read.js";
 import { registerListWikis } from "./commands/list-wikis.js";
@@ -52,7 +55,8 @@ import { registerCurate } from "./commands/curate.js";
 export function buildCli(): Command {
   const program = new Command()
     .name("vault")
-    .description("Vault CLI — manage the knowledge vault from any directory");
+    .description("Vault CLI — manage the knowledge vault from any directory")
+    .version(pkg.version);
 
   registerRecall(program);
   registerRead(program);

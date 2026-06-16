@@ -11,6 +11,18 @@ describe("bin entrypoint", () => {
     expect(r.stdout + r.stderr).toMatch(/Usage:|Commands:/);
   });
 
+  it("CLI mode: prints help even if vault path is missing (regression #73)", () => {
+    const r = spawnSync("npx", ["tsx", "src/bin.ts", "--help"], { encoding: "utf8", shell: true });
+    expect(r.status).toBe(0);
+    expect(r.stdout + r.stderr).toMatch(/Usage:|Commands:/);
+  });
+
+  it("CLI mode: prints version even if vault path is missing (regression #73)", () => {
+    const r = spawnSync("npx", ["tsx", "src/bin.ts", "--version"], { encoding: "utf8", shell: true });
+    expect(r.status).toBe(0);
+    expect(r.stdout + r.stderr).toMatch(/[0-9]+\.[0-9]+\.[0-9]+/);
+  });
+
   it("CLI mode: list-wikis prints the fixture wikis", () => {
     const r = spawnSync("npx", ["tsx", "src/bin.ts", "--vault=./tests/fixtures/test-vault", "list-wikis"], { encoding: "utf8", shell: true });
     // Need to reindex the fixture first or the result is empty — handled by being tolerant here
