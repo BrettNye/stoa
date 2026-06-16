@@ -4,15 +4,13 @@ import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import { trainerInitTool } from './trainer-init.js';
 import { profileRegisterTool } from './profile-register.js';
-import { realSkillRegisterTool } from './real-skill-register.js';
-import { realSkillRefreshTool } from './real-skill-refresh.js';
+import { realSkillTool } from './real-skill.js';
 import { moveFuseTool } from './move-fuse.js';
 import { telemetryPushTool } from './telemetry-push.js';
 import { trainerQueueMatchTool } from './trainer-queue-match.js';
 import { trainerAcceptMatchTool } from './trainer-accept-match.js';
 import { trainerGetStateTool } from './trainer-get-state.js';
-import { trainerSubmitDraftTool } from './trainer-submit-draft.js';
-import { trainerSubmitMoveTool } from './trainer-submit-move.js';
+import { trainerSubmitTool } from './trainer-submit.js';
 import { matchWatchTool } from './match-watch.js';
 import type { ToolScope } from '../auth/types.js';
 
@@ -34,8 +32,7 @@ describe('stadium tools — scope declarations', () => {
     const adminTools = [
       { name: 'vault_trainer-init', tool: trainerInitTool },
       { name: 'vault_profile-register', tool: profileRegisterTool },
-      { name: 'vault_real-skill-register', tool: realSkillRegisterTool },
-      { name: 'vault_real-skill-refresh', tool: realSkillRefreshTool },
+      { name: 'vault_real-skill', tool: realSkillTool },
       { name: 'vault_move-fuse', tool: moveFuseTool },
     ];
 
@@ -192,8 +189,7 @@ describe('stadium tools — scope declarations', () => {
 
   describe('match-id axis tools', () => {
     const matchTools = [
-      { name: 'vault_trainer-submit-draft', tool: trainerSubmitDraftTool },
-      { name: 'vault_trainer-submit-move', tool: trainerSubmitMoveTool },
+      { name: 'vault_trainer-submit', tool: trainerSubmitTool },
       { name: 'vault_match-watch', tool: matchWatchTool },
     ];
 
@@ -208,5 +204,30 @@ describe('stadium tools — scope declarations', () => {
         expect(scope.axis({})).toBe('matches/*');
       });
     }
+  });
+
+  describe('consolidated vault_real-skill scope (modes: register | refresh)', () => {
+    it('vault_real-skill has scope axis "stadium"', () => {
+      const scope = asScope((realSkillTool as any).scope);
+      expect(scope.axis({})).toBe('stadium');
+    });
+
+    it('vault_real-skill is adminOnly', () => {
+      const scope = asScope((realSkillTool as any).scope);
+      expect(scope.adminOnly).toBeDefined();
+      expect(scope.adminOnly!({})).toBe(true);
+    });
+  });
+
+  describe('consolidated vault_trainer-submit scope (modes: draft | move)', () => {
+    it('vault_trainer-submit axis includes match_id when provided', () => {
+      const scope = asScope((trainerSubmitTool as any).scope);
+      expect(scope.axis({ match_id: 'MATCH01234567890123456789' })).toBe('matches/MATCH01234567890123456789');
+    });
+
+    it('vault_trainer-submit axis falls back to "*" when match_id absent', () => {
+      const scope = asScope((trainerSubmitTool as any).scope);
+      expect(scope.axis({})).toBe('matches/*');
+    });
   });
 });

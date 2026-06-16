@@ -15,11 +15,9 @@ import { promises as fs } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { channelPostTool } from "./channel-post.js";
+import { channelTool } from "./channel.js";
 import { agentJournalTool } from "./agent-journal.js";
-import { taskClaimTool } from "./task-claim.js";
-import { taskUpdateTool } from "./task-update.js";
-import { taskCreateTool } from "./task-create.js";
+import { taskTool } from "./task.js";
 import { claimTool } from "./claim.js";
 import { agentMemoryTool } from "./agent-memory.js";
 
@@ -43,11 +41,9 @@ function schemaShape(tool: AnyTool): Record<string, unknown> {
 
 describe("agent_id removed from all 7 tool inputSchemas", () => {
   const toolsUnderTest: [string, AnyTool][] = [
-    ["vault_channel-post", channelPostTool],
+    ["vault_channel (post/tail)", channelTool],
     ["vault_agent-journal", agentJournalTool],
-    ["vault_task-claim", taskClaimTool],
-    ["vault_task-update", taskUpdateTool],
-    ["vault_task-create", taskCreateTool],
+    ["vault_task (create/list/update/claim)", taskTool],
     ["vault_claim", claimTool],
     ["vault_agent-memory", agentMemoryTool],
   ];
@@ -83,8 +79,8 @@ describe("authored_by removed from claim.ts inputSchema", () => {
 describe("each tool declares a scope object with an axis function", () => {
   const toolsWithExpectedAxes: [string, AnyTool, (input: Record<string, string>) => string][] = [
     [
-      "vault_channel-post",
-      channelPostTool,
+      "vault_channel (post/tail)",
+      channelTool,
       (i) => `channels/${i.channel}`,
     ],
     [
@@ -93,19 +89,9 @@ describe("each tool declares a scope object with an axis function", () => {
       (i) => `wikis/${i.wiki}/journal`,
     ],
     [
-      "vault_task-claim",
-      taskClaimTool,
-      (i) => `tasks/${i.task_id}`,
-    ],
-    [
-      "vault_task-update",
-      taskUpdateTool,
-      (i) => `tasks/${i.task_id}`,
-    ],
-    [
-      "vault_task-create",
-      taskCreateTool,
-      (i) => `wikis/${i.wiki}`,
+      "vault_task (create/list/update/claim)",
+      taskTool,
+      (i) => `wikis/${i.wiki ?? "*"}`,
     ],
     [
       "vault_claim",
@@ -132,24 +118,24 @@ describe("each tool declares a scope object with an axis function", () => {
   }
 
   // Spot-check axis return values for tools with deterministic inputs
-  it("vault_channel-post axis returns channels/<channel>", () => {
-    const t = channelPostTool as { scope: { axis: (i: unknown) => string } };
+  it("vault_channel axis returns channels/<channel>", () => {
+    const t = channelTool as { scope: { axis: (i: unknown) => string } };
     expect(t.scope.axis({ channel: "ops" })).toBe("channels/ops");
   });
 
-  it("vault_task-claim axis returns tasks/<task_id>", () => {
-    const t = taskClaimTool as { scope: { axis: (i: unknown) => string } };
-    expect(t.scope.axis({ task_id: "task-foo" })).toBe("tasks/task-foo");
+  it("vault_task claim mode axis returns tasks/<task_id>", () => {
+    const t = taskTool as { scope: { axis: (i: unknown) => string } };
+    expect(t.scope.axis({ mode: "claim", task_id: "task-foo" })).toBe("tasks/task-foo");
   });
 
-  it("vault_task-update axis returns tasks/<task_id>", () => {
-    const t = taskUpdateTool as { scope: { axis: (i: unknown) => string } };
-    expect(t.scope.axis({ task_id: "task-bar" })).toBe("tasks/task-bar");
+  it("vault_task update mode axis returns tasks/<task_id>", () => {
+    const t = taskTool as { scope: { axis: (i: unknown) => string } };
+    expect(t.scope.axis({ mode: "update", task_id: "task-bar" })).toBe("tasks/task-bar");
   });
 
-  it("vault_task-create axis returns wikis/<wiki>", () => {
-    const t = taskCreateTool as { scope: { axis: (i: unknown) => string } };
-    expect(t.scope.axis({ wiki: "stoa" })).toBe("wikis/stoa");
+  it("vault_task create mode axis returns wikis/<wiki>", () => {
+    const t = taskTool as { scope: { axis: (i: unknown) => string } };
+    expect(t.scope.axis({ mode: "create", wiki: "stoa" })).toBe("wikis/stoa");
   });
 
   it("vault_agent-journal axis returns wikis/<wiki>/journal", () => {

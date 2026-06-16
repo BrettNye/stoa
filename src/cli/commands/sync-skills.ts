@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { syncSkillsTool } from "../../tools/sync-skills.js";
+import { syncTool } from "../../tools/sync.js";
 import { getCtx } from "../_ctx.js";
 
 export function registerSyncSkills(p: Command) {
@@ -28,14 +28,15 @@ export function registerSyncSkills(p: Command) {
 
       const continueOnError = opts.continueOnError ?? Boolean(opts.all);
 
-      const result = await syncSkillsTool.handler(
+      const result = await syncTool.handler(
         {
+          surface: "skills",
           repo_path: repoPath,
           pokemon: opts.pokemon,
           all: Boolean(opts.all),
           exclude: opts.exclude ? opts.exclude.split(",").map((s: string) => s.trim()) : [],
           pokemon_type: opts.type ? opts.type.split(",").map((s: string) => s.trim()) : [],
-          target: opts.target as "claude-code" | "openclaw" | "codex",
+          runtime: opts.target as "claude-code" | "openclaw" | "codex",
           mode: opts.mode as "copy" | "symlink",
           reverify: Boolean(opts.reverify),
           fix: Boolean(opts.fix),

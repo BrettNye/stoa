@@ -283,83 +283,63 @@ Append a first-person agent journal entry under `wikis/<wiki>/journal/`. Auto-fi
 
 ---
 
-### vault_channel-post
+### vault_channel
 
-Post a message to a coordination channel. Writes a journal entry with `channel:` set so `channel-tail` can pick it up.
+`mode: post | tail`. Consolidates the former channel-post and channel-tail tools.
 
-**Params:**
+- **post**: Post a message to a coordination channel. Writes a journal entry with `channel:` set so subsequent tail calls can pick it up.
+- **tail**: Pull recent journal entries on a channel since a timestamp.
+
+**Params (post):**
+- `mode` (`"post"`, required).
 - `channel` (string, required, regex `^[a-z0-9]+(-[a-z0-9]+)*$`): Channel slug.
 - `content` (string, required, min 1): Message body.
 - `wiki` (string, optional): Destination wiki for the underlying journal.
 - `agent_id` (string, default `"claude-code"`).
 - `session_id` (string, optional).
 
-**Returns:** `{ id, path, created }` from the underlying journal write.
+**Returns (post):** `{ id, path, created }` from the underlying journal write.
 
-**Errors:** `WikiRequiredError`; regex failures on `channel`.
+**Errors (post):** `WikiRequiredError`; regex failures on `channel`.
 
-**Example:**
+**Example (post):**
 ```json
-{ "tool": "vault_channel-post", "args": { "channel": "stoa-progress", "content": "shipped 1.7.1 push primitives" } }
+{ "tool": "vault_channel", "args": { "mode": "post", "channel": "stoa-progress", "content": "shipped 1.7.1 push primitives" } }
 ```
 
-**Source:** `src/tools/channel-post.ts`
-
----
-
-### vault_channel-tail
-
-Pull recent journal entries on a channel since a timestamp.
-
-**Params:**
+**Params (tail):**
+- `mode` (`"tail"`, required).
 - `channel` (string, required, regex `^[a-z0-9]+(-[a-z0-9]+)*$`): Channel slug.
 - `since` (string, optional): ISO timestamp; entries before this are skipped.
 - `limit` (positive int, default `50`): Cap on returned entries.
 - `wiki` (string, optional): Restrict to a single wiki's journal.
 
-**Returns:** `{ entries: TailEntry[], cursor }`.
+**Returns (tail):** `{ entries: TailEntry[], cursor }`.
 
-**Errors:** Regex failure on `channel`.
+**Errors (tail):** Regex failure on `channel`.
 
-**Example:**
+**Example (tail):**
 ```json
-{ "tool": "vault_channel-tail", "args": { "channel": "stoa-progress", "limit": 20 } }
+{ "tool": "vault_channel", "args": { "mode": "tail", "channel": "stoa-progress", "limit": 20 } }
 ```
 
-**Source:** `src/tools/channel-tail.ts`
+**Source:** `src/tools/channel.ts`
 
 ---
 
 ## Tasks
 
-### vault_task-claim
+### vault_task
 
-Atomic claim on a `pending` task via mtime optimistic concurrency. If the task has `required_pokemon_type`, the claimant's profile must match.
+`mode: create | list | update | claim`. Consolidates the former task-create, task-list, task-update, and task-claim tools.
 
-**Params:**
-- `task_id` (string, required).
-- `agent_id` (string, required): The claimant's bare profile id.
-- `expected_updated` (string, required): OCC handle from the prior read.
-- `wiki` (string, optional).
+- **create**: Create a new task in a wiki's task queue. Status starts as `pending` and the page is write-through-upserted into the index.
+- **list**: List tasks vault-wide or filtered. Alias-aware on `claimed_by`.
+- **update**: Update a task's status, notes, or segregation. Uses mtime OCC and write-through-upserts the index.
+- **claim**: Atomic claim on a `pending` task via mtime optimistic concurrency. If the task has `required_pokemon_type`, the claimant's profile must match.
 
-**Returns:** `{ task_id, claimed_by, updated, ... }` on success.
-
-**Errors:** `AlreadyClaimedError` when another agent won the race; OCC mismatch on stale `expected_updated`; type mismatch when `required_pokemon_type` set and the claimant doesn't match.
-
-**Example:**
-```json
-{ "tool": "vault_task-claim", "args": { "task_id": "task-refresh-syntheses", "agent_id": "pidgey", "expected_updated": "2026-05-12" } }
-```
-
-**Source:** `src/tools/task-claim.ts`
-
----
-
-### vault_task-create
-
-Create a new task in a wiki's task queue. Status starts as `pending` and the page is write-through-upserted into the index.
-
-**Params:**
+**Params (create):**
+- `mode` (`"create"`, required).
 - `title` (string, required, min 1).
 - `wiki` (string, required).
 - `description` (string, optional).
@@ -369,24 +349,17 @@ Create a new task in a wiki's task queue. Status starts as `pending` and the pag
 - `required_pokemon_type` (string, optional): Restrict claim to a Pokemon type.
 - `estimate_minutes` (non-negative int, optional).
 
-**Returns:** `{ id, path, ... }`.
+**Returns (create):** `{ id, path, ... }`.
 
-**Errors:** Filesystem errors on write.
+**Errors (create):** Filesystem errors on write.
 
-**Example:**
+**Example (create):**
 ```json
-{ "tool": "vault_task-create", "args": { "title": "Refresh stale syntheses", "wiki": "_meta" } }
+{ "tool": "vault_task", "args": { "mode": "create", "title": "Refresh stale syntheses", "wiki": "_meta" } }
 ```
 
-**Source:** `src/tools/task-create.ts`
-
----
-
-### vault_task-list
-
-List tasks vault-wide or filtered. Alias-aware on `claimed_by` — historical agent ids surface tasks claimed under their current id.
-
-**Params:**
+**Params (list):**
+- `mode` (`"list"`, required).
 - `wiki` (string, optional).
 - `status` (`"pending" | "claimed" | "in_progress" | "completed" | "failed" | "blocked"`, optional).
 - `claimed_by` (string, optional): Agent id (`agent:<bare>` or bare).
@@ -394,24 +367,17 @@ List tasks vault-wide or filtered. Alias-aware on `claimed_by` — historical ag
 - `pokemon_type` (string, optional).
 - `limit` (positive int, default `50`).
 
-**Returns:** `{ tasks: TaskSummary[] }`.
+**Returns (list):** `{ tasks: TaskSummary[] }`.
 
-**Errors:** None routine.
+**Errors (list):** None routine.
 
-**Example:**
+**Example (list):**
 ```json
-{ "tool": "vault_task-list", "args": { "status": "pending", "wiki": "_meta" } }
+{ "tool": "vault_task", "args": { "mode": "list", "status": "pending", "wiki": "_meta" } }
 ```
 
-**Source:** `src/tools/task-list.ts`
-
----
-
-### vault_task-update
-
-Update a task's status, notes, or segregation. Uses mtime OCC and write-through-upserts the index.
-
-**Params:**
+**Params (update):**
+- `mode` (`"update"`, required).
 - `task_id` (string, required).
 - `wiki` (string, required).
 - `expected_updated` (string, required): OCC handle.
@@ -420,16 +386,32 @@ Update a task's status, notes, or segregation. Uses mtime OCC and write-through-
 - `segregation` (array of strings, optional).
 - `agent_id` (string, optional).
 
-**Returns:** Updated task summary.
+**Returns (update):** Updated task summary.
 
-**Errors:** OCC mismatch throws.
+**Errors (update):** OCC mismatch throws.
 
-**Example:**
+**Example (update):**
 ```json
-{ "tool": "vault_task-update", "args": { "task_id": "task-refresh-syntheses", "wiki": "_meta", "expected_updated": "2026-05-12", "status": "completed" } }
+{ "tool": "vault_task", "args": { "mode": "update", "task_id": "task-refresh-syntheses", "wiki": "_meta", "expected_updated": "2026-05-12", "status": "completed" } }
 ```
 
-**Source:** `src/tools/task-update.ts`
+**Params (claim):**
+- `mode` (`"claim"`, required).
+- `task_id` (string, required).
+- `agent_id` (string, required): The claimant's bare profile id.
+- `expected_updated` (string, required): OCC handle from the prior read.
+- `wiki` (string, optional).
+
+**Returns (claim):** `{ task_id, claimed_by, updated, ... }` on success.
+
+**Errors (claim):** `AlreadyClaimedError` when another agent won the race; OCC mismatch on stale `expected_updated`; type mismatch when `required_pokemon_type` set and the claimant doesn't match.
+
+**Example (claim):**
+```json
+{ "tool": "vault_task", "args": { "mode": "claim", "task_id": "task-refresh-syntheses", "agent_id": "pidgey", "expected_updated": "2026-05-12" } }
+```
+
+**Source:** `src/tools/task.ts`
 
 ---
 
@@ -589,11 +571,12 @@ Two-phase profile evolution. `commit: false` returns a proposal (eligibility, pr
 
 ---
 
-### vault_list-platform-profiles
+### vault_stadium-list (`mode: platform-profiles`)
 
-List Stadium-registered profiles in the resolved wiki — the draft pool. Hydrates `real_skill_levels` from each move's SKILL.md.
+`mode: platform-profiles`. List Stadium-registered profiles in the resolved wiki — the draft pool. Hydrates `real_skill_levels` from each move's SKILL.md. (For `mode: invites`, see the [Stadium](#stadium) section.)
 
 **Params:**
+- `mode` (`"platform-profiles"`, required).
 - `wiki` (string, optional): Falls back to resolved trainer context.
 - `owner_trainer_id` (string, optional, regex `^[0-9A-Z]{26}$`): Filter by ULID trainer.
 
@@ -603,10 +586,10 @@ List Stadium-registered profiles in the resolved wiki — the draft pool. Hydrat
 
 **Example:**
 ```json
-{ "tool": "vault_list-platform-profiles", "args": {} }
+{ "tool": "vault_stadium-list", "args": { "mode": "platform-profiles" } }
 ```
 
-**Source:** `src/tools/list-platform-profiles.ts`
+**Source:** `src/tools/stadium-list.ts`
 
 ---
 
@@ -700,13 +683,42 @@ Suggest Pokemon names matching a type or dev specialty (e.g. `"backend"` → fir
 
 ---
 
-### vault_sync-agents
+### vault_sync
 
-Deploy a Pokemon (or list, or `all: true`) as runtime subagent definitions in the target repo. Builds a `SubagentIntent` per profile, hands to the per-runtime adapter, writes `<target>/.claude/agents/<pokemon-id>.md` plus optional moveset SKILL.md files. Idempotent on `source_revision`.
+`surface: skills | agents`. Consolidates the former sync-skills and sync-agents tools. NOTE: the discriminator is `surface`, not `mode`, because both surfaces retain their own `mode: copy | symlink` field.
 
-**Params:**
-- `target` (string, required): Target repo path.
-- `runtime` (`"claude-code"`, default `"claude-code"`).
+- **skills**: Deploy a Pokemon's moveset into a target repo's local skills directory. With `reverify: true`, scans existing deployments for drift instead of deploying. Accepts `runtime: claude-code | openclaw | codex`.
+- **agents**: Deploy a Pokemon (or list, or `all: true`) as runtime subagent definitions in the target repo. Builds a `SubagentIntent` per profile, writes `<target>/.claude/agents/<pokemon-id>.md` plus optional moveset SKILL.md files. Idempotent on `source_revision`. Accepts only `runtime: claude-code`.
+
+**Common fields:**
+- `surface` (`"skills" | "agents"`, required): Which deployment surface to target.
+- `mode` (`"copy" | "symlink"`, default `"symlink"` for skills, `"copy"` for agents): Write strategy.
+
+**Params (surface: skills):**
+- `repo_path` (string, required): Filesystem path to the target repo.
+- `runtime` (`"claude-code" | "openclaw" | "codex"`, default `"claude-code"`): Output format.
+- `mode` (`"copy" | "symlink"`, default `"symlink"`).
+- `pokemon` (string, optional): Required unless `reverify: true` or `all: true`.
+- `all` (boolean, default `false`): Deploy every matching profile; mutually exclusive with `pokemon`.
+- `exclude` (array of strings, default `[]`).
+- `pokemon_type` (array of strings, default `[]`).
+- `reverify` (boolean, default `false`): Scan deployments for drift.
+- `fix` (boolean, default `false`): Re-deploy drifted moves; requires `reverify: true`.
+- `continue_on_error` (boolean, default `false`).
+- `wiki` (string, optional): Layers `wikis/<wiki>/moves/<id>/SKILL.md` specialist moves at deploy time. **CLI surface gap:** the `vault sync-skills` CLI subcommand does not currently expose `--wiki=`; use `vault bootstrap-repo --wiki=` from the terminal, or invoke the MCP tool directly.
+
+**Returns (skills):** Single-pokemon flat shape `{ skills_dir, moves_synced, moves_skipped_unsupported }`; multi-profile envelope `{ results, summary }`; reverify shape `{ drift, drift_fixed }`.
+
+**Errors (skills):** `pokemon and all are mutually exclusive`; `deploy mode requires pokemon or all: true`; `fix: true requires reverify: true`.
+
+**Example (skills):**
+```json
+{ "tool": "vault_sync", "args": { "surface": "skills", "repo_path": "/abs/path/repo", "pokemon": "pidgey" } }
+```
+
+**Params (surface: agents):**
+- `repo_path` (string, required): Filesystem path to the target repo.
+- `runtime` (`"claude-code"`, default `"claude-code"`): Agents only supports claude-code.
 - `mode` (`"copy" | "symlink"`, default `"copy"`).
 - `overwrite` (boolean, default `true`).
 - `include_moveset` (boolean, default `true`).
@@ -716,46 +728,16 @@ Deploy a Pokemon (or list, or `all: true`) as runtime subagent definitions in th
 - `exclude` (array of strings, default `[]`): Only valid with `all: true`.
 - `pokemon_type` (array of strings, default `[]`): Only valid with `all: true`.
 
-**Returns:** `{ results: PerPokemonResult[], summary: { requested, deployed, skipped, failed } }`.
+**Returns (agents):** `{ results: PerPokemonResult[], summary: { requested, deployed, skipped, failed } }`.
 
-**Errors:** `pokemon and all are mutually exclusive`; `one of pokemon or all: true is required`; `exclude and pokemon_type are only valid with all: true`.
+**Errors (agents):** `pokemon and all are mutually exclusive`; `one of pokemon or all: true is required`; `exclude and pokemon_type are only valid with all: true`.
 
-**Example:**
+**Example (agents):**
 ```json
-{ "tool": "vault_sync-agents", "args": { "target": "/abs/path/repo", "pokemon": "pidgey" } }
+{ "tool": "vault_sync", "args": { "surface": "agents", "repo_path": "/abs/path/repo", "pokemon": "pidgey" } }
 ```
 
-**Source:** `src/tools/sync-agents.ts`
-
----
-
-### vault_sync-skills
-
-Deploy a Pokemon's moveset into a target repo's local skills directory. With `reverify: true`, scans existing deployments for drift instead of deploying.
-
-**Params:**
-- `repo_path` (string, required).
-- `pokemon` (string, optional): Required unless `reverify: true` or `all: true`.
-- `all` (boolean, default `false`): Deploy every matching profile; mutually exclusive with `pokemon`.
-- `exclude` (array of strings, default `[]`).
-- `pokemon_type` (array of strings, default `[]`).
-- `target` (`"claude-code" | "openclaw" | "codex"`, default `"claude-code"`).
-- `mode` (`"copy" | "symlink"`, default `"symlink"`).
-- `reverify` (boolean, default `false`): Scan deployments for drift.
-- `fix` (boolean, default `false`): Re-deploy drifted moves; requires `reverify: true`.
-- `continue_on_error` (boolean, default `false`).
-- `wiki` (string, optional): When set, layers every `wikis/<wiki>/moves/<id>/SKILL.md` onto the portable moveset at deploy time and emits a `### Specialist moves (<wiki>)` subsection in the rendered CLAUDE.md fragment alongside the portable subsection. On id collision, portable wins (with a `MOVE_ID_SHADOWS_PORTABLE` lint warning). **CLI surface gap:** the `vault sync-skills` CLI subcommand does not currently expose `--wiki=`; use `vault bootstrap-repo --wiki=` from the terminal, or invoke `vault.sync-skills` via the MCP tool directly.
-
-**Returns:** Single-pokemon flat shape `{ skills_dir, moves_synced, moves_skipped_unsupported }`; multi-profile envelope `{ results, summary }`; reverify shape `{ drift, drift_fixed }`.
-
-**Errors:** `pokemon and all are mutually exclusive`; `deploy mode requires pokemon or all: true`; `fix: true requires reverify: true`.
-
-**Example:**
-```json
-{ "tool": "vault_sync-skills", "args": { "repo_path": "/abs/path/repo", "pokemon": "pidgey" } }
-```
-
-**Source:** `src/tools/sync-skills.ts`
+**Source:** `src/tools/sync.ts`
 
 ---
 
@@ -763,87 +745,63 @@ Deploy a Pokemon's moveset into a target repo's local skills directory. With `re
 
 ### vault_wait-for
 
-Wait for the next event matching `filter`. Returns immediately if `since` cursor reveals a matching event.
+`mode: next | any | all | many`. Consolidates the former wait-for-any, wait-for-all, and wait-for-many tools under a single `mode` discriminator.
 
-**Params:**
-- `filter` (object, required): `{ source, wiki?, channel?, id? }`.
+- **next**: single `filter`. Resolves on the first matching event. Returns immediately if the `since` cursor reveals a matching event.
+- **any**: `filters[]`. Resolves on the first event matching any filter (first-of-N).
+- **all**: `filters[]`. Resolves once every filter has been satisfied (fan-in).
+- **many**: `filter` + `max`. Collects up to `max` events matching the filter (bounded batch).
+
+**Common params:**
+- `mode` (`"next" | "any" | "all" | "many"`, required).
 - `since` (string, optional): Prior cursor (ISO with seq).
 - `timeout_ms` (positive int, max 120000, default `25000`).
 
-**Returns:** `{ events, cursor, timed_out }`.
+**Params (mode: next):**
+- `filter` (object, required): `{ source, wiki?, channel?, id? }`.
 
-**Errors:** None routine; max timeout is 120s.
+**Returns (next):** `{ events, cursor, timed_out }`.
 
-**Example:**
+**Errors (next):** None routine; max timeout is 120s.
+
+**Example (next):**
 ```json
-{ "tool": "vault_wait-for", "args": { "filter": { "source": "vault_channel-post", "channel": "stoa-progress" } } }
+{ "tool": "vault_wait-for", "args": { "mode": "next", "filter": { "source": "journal", "channel": "stoa-progress" } } }
+```
+
+**Params (mode: any / all):**
+- `filters` (array of filter objects, required, min 1 max 32).
+
+**Returns (any):** `{ events, cursor, timed_out }`.
+
+**Returns (all):** `{ events, cursor, timed_out }`.
+
+**Errors (any / all):** Array length out-of-range fails Zod.
+
+**Example (any):**
+```json
+{ "tool": "vault_wait-for", "args": { "mode": "any", "filters": [{ "source": "vault_match-watch" }, { "source": "journal", "channel": "stadium-alerts" }] } }
+```
+
+**Example (all):**
+```json
+{ "tool": "vault_wait-for", "args": { "mode": "all", "filters": [{ "source": "task", "id": "task-a" }, { "source": "task", "id": "task-b" }] } }
+```
+
+**Params (mode: many):**
+- `filter` (object, required).
+- `max` (positive int, max 1000, required).
+
+**Returns (many):** `{ events, cursor, timed_out }`.
+
+**Errors (many):** Zod range failures.
+
+**Example (many):**
+```json
+{ "tool": "vault_wait-for", "args": { "mode": "many", "filter": { "source": "journal" }, "max": 50 } }
 ```
 
 **Source:** `src/tools/wait-for.ts`
-
----
-
-### vault_wait-for-all
-
-Wait until every filter has been satisfied (fan-in).
-
-**Params:**
-- `filters` (array of filter objects, required, min 1 max 32).
-- `since` (string, optional).
-- `timeout_ms` (positive int, max 120000, default `25000`).
-
-**Returns:** `{ events, cursor, timed_out }`.
-
-**Errors:** Array length out-of-range fails Zod.
-
-**Example:**
-```json
-{ "tool": "vault_wait-for-all", "args": { "filters": [{ "source": "vault_task-update", "id": "task-a" }, { "source": "vault_task-update", "id": "task-b" }] } }
-```
-
-**Source:** `src/tools/wait-for-all.ts`
-
----
-
-### vault_wait-for-any
-
-Wait for the first event matching any filter (first-of-N).
-
-**Params:** Same as `wait-for-all`.
-
-**Returns:** `{ events, cursor, timed_out }`.
-
-**Errors:** Same as `wait-for-all`.
-
-**Example:**
-```json
-{ "tool": "vault_wait-for-any", "args": { "filters": [{ "source": "vault_match-watch" }, { "source": "vault_channel-post", "channel": "stadium-alerts" }] } }
-```
-
-**Source:** `src/tools/wait-for-any.ts`
-
----
-
-### vault_wait-for-many
-
-Collect up to `max` events matching `filter` (bounded batch).
-
-**Params:**
-- `filter` (object, required).
-- `max` (positive int, max 1000, required).
-- `since` (string, optional).
-- `timeout_ms` (positive int, max 120000, default `25000`).
-
-**Returns:** `{ events, cursor, timed_out }`.
-
-**Errors:** Zod range failures.
-
-**Example:**
-```json
-{ "tool": "vault_wait-for-many", "args": { "filter": { "source": "vault_agent-journal" }, "max": 50 } }
-```
-
-**Source:** `src/tools/wait-for-many.ts`
 
 ---
 
@@ -851,22 +809,40 @@ Collect up to `max` events matching `filter` (bounded batch).
 
 All Stadium tools authenticate via `resolveStadiumConfig` and require an active trainer context (see top of file). Server errors propagate as `StadiumApiError`; callers see the platform's `error_code` directly.
 
-### vault_list-invites
+### vault_stadium-list
 
-List pending match invites for the calling trainer.
+`mode: invites | platform-profiles`. Consolidates the former list-invites and list-platform-profiles tools.
 
-**Params:** None.
+- **invites**: List pending match invites for the calling trainer.
+- **platform-profiles**: List Stadium-registered profiles in the resolved wiki — the draft pool. (Also documented in [Agent substrate](#agent-substrate) for discovery.)
 
-**Returns:** Platform `listInvites` response.
+**Params (invites):**
+- `mode` (`"invites"`, required).
 
-**Errors:** `StadiumApiError`.
+**Returns (invites):** Platform `listInvites` response.
 
-**Example:**
+**Errors (invites):** `StadiumApiError`.
+
+**Example (invites):**
 ```json
-{ "tool": "vault_list-invites", "args": {} }
+{ "tool": "vault_stadium-list", "args": { "mode": "invites" } }
 ```
 
-**Source:** `src/tools/list-invites.ts`
+**Params (platform-profiles):**
+- `mode` (`"platform-profiles"`, required).
+- `wiki` (string, optional): Falls back to resolved trainer context.
+- `owner_trainer_id` (string, optional, regex `^[0-9A-Z]{26}$`): Filter by ULID trainer.
+
+**Returns (platform-profiles):** `{ profiles: PlatformProfileRow[], caller_trainer_id }`.
+
+**Errors (platform-profiles):** `TrainerContextError` when neither `wiki:` nor trainer context resolves.
+
+**Example (platform-profiles):**
+```json
+{ "tool": "vault_stadium-list", "args": { "mode": "platform-profiles" } }
+```
+
+**Source:** `src/tools/stadium-list.ts`
 
 ---
 
@@ -935,45 +911,42 @@ Register a profile with the Stadium platform; persist `platform_profile_id` + `p
 
 ---
 
-### vault_real-skill-refresh
+### vault_real-skill
 
-Re-derive a registered real-skill's modifier function from the current SKILL.md content.
+`mode: register | refresh`. Consolidates the former real-skill-register and real-skill-refresh tools.
 
-**Params:**
+- **register**: Register a real-skill (`move-*/SKILL.md`) with Stadium; persist returned `real_skill_id` + advisory `combat:` block.
+- **refresh**: Re-derive a registered real-skill's modifier function from the current SKILL.md content.
+
+**Params (register):**
+- `mode` (`"register"`, required).
 - `skill_id` (string, required, regex `^move-`).
 - `wiki` (string, optional).
 
-**Returns:** `{ real_skill_id, modifier_function }`.
+**Returns (register):** `{ real_skill_id, modifier_function }`.
 
-**Errors:** `<id> has no real_skill_id — register first via vault_real-skill-register`; `StadiumApiError`.
+**Errors (register):** `StadiumApiError` (`modifier_clamped`, `derivation_failed`, etc.); `WikiRequiredError`.
 
-**Example:**
+**Example (register):**
 ```json
-{ "tool": "vault_real-skill-refresh", "args": { "skill_id": "move-tdd-cycle" } }
+{ "tool": "vault_real-skill", "args": { "mode": "register", "skill_id": "move-tdd-cycle" } }
 ```
 
-**Source:** `src/tools/real-skill-refresh.ts`
-
----
-
-### vault_real-skill-register
-
-Register a real-skill (`move-*/SKILL.md`) with Stadium; persist returned `real_skill_id` + advisory `combat:` block.
-
-**Params:**
+**Params (refresh):**
+- `mode` (`"refresh"`, required).
 - `skill_id` (string, required, regex `^move-`).
 - `wiki` (string, optional).
 
-**Returns:** `{ real_skill_id, modifier_function }`.
+**Returns (refresh):** `{ real_skill_id, modifier_function }`.
 
-**Errors:** `StadiumApiError` (`modifier_clamped`, `derivation_failed`, etc.); `WikiRequiredError`.
+**Errors (refresh):** `<id> has no real_skill_id — register first via vault_real-skill with mode: register`; `StadiumApiError`.
 
-**Example:**
+**Example (refresh):**
 ```json
-{ "tool": "vault_real-skill-register", "args": { "skill_id": "move-tdd-cycle" } }
+{ "tool": "vault_real-skill", "args": { "mode": "refresh", "skill_id": "move-tdd-cycle" } }
 ```
 
-**Source:** `src/tools/real-skill-register.ts`
+**Source:** `src/tools/real-skill.ts`
 
 ---
 
@@ -1084,98 +1057,92 @@ Create a match invite against an opponent trainer; returns `match_id` in `pendin
 
 ---
 
-### vault_trainer-submit-draft
+### vault_trainer-submit
 
-Submit 6 picks (platform_profile_ids as ULIDs) during a match's drafting phase.
+`mode: draft | move`. Consolidates the former trainer-submit-draft and trainer-submit-move tools.
 
-**Params:**
+- **draft**: Submit 6 picks (platform_profile_ids as ULIDs) during a match's drafting phase.
+- **move**: Submit a move for the current turn; the server resolves the turn once both trainers submit.
+
+**Params (draft):**
+- `mode` (`"draft"`, required).
 - `match_id` (string, required, regex `^[0-9A-Z]{26}$`).
 - `picks` (array of strings, required, length exactly 6, each regex `^[0-9A-Z]{26}$`).
 
-**Returns:** Platform response merged with `{ caller_trainer_id }`.
+**Returns (draft):** Platform response merged with `{ caller_trainer_id }`.
 
-**Errors:** `InvalidPicksShapeError` (`INVALID_PICKS_SHAPE`) on any Zod failure (wraps the ZodError); `StadiumApiError`.
+**Errors (draft):** `InvalidPicksShapeError` (`INVALID_PICKS_SHAPE`) on any Zod failure (wraps the ZodError); `StadiumApiError`.
 
-**Example:**
+**Example (draft):**
 ```json
-{ "tool": "vault_trainer-submit-draft", "args": { "match_id": "01H...", "picks": ["01H...","01H...","01H...","01H...","01H...","01H..."] } }
+{ "tool": "vault_trainer-submit", "args": { "mode": "draft", "match_id": "01H...", "picks": ["01H...","01H...","01H...","01H...","01H...","01H..."] } }
 ```
 
-**Source:** `src/tools/trainer-submit-draft.ts`
-
----
-
-### vault_trainer-submit-move
-
-Submit a move for the current turn; the server resolves the turn once both trainers submit.
-
-**Params:**
+**Params (move):**
+- `mode` (`"move"`, required).
 - `match_id` (string, required, min 1).
 - `turn` (non-negative int, required).
 - `move_id` (string, required, min 1).
 - `target` (string, optional).
 
-**Returns:** Platform response merged with `{ caller_trainer_id }`.
+**Returns (move):** Platform response merged with `{ caller_trainer_id }`.
 
-**Errors:** `submitMove: unexpected non-object response`; `StadiumApiError`.
+**Errors (move):** `submitMove: unexpected non-object response`; `StadiumApiError`.
 
-**Example:**
+**Example (move):**
 ```json
-{ "tool": "vault_trainer-submit-move", "args": { "match_id": "01H...", "turn": 3, "move_id": "ember-rs_..." } }
+{ "tool": "vault_trainer-submit", "args": { "mode": "move", "match_id": "01H...", "turn": 3, "move_id": "ember-rs_..." } }
 ```
 
-**Source:** `src/tools/trainer-submit-move.ts`
+**Source:** `src/tools/trainer-submit.ts`
 
 ---
 
 ## Misc
 
-### vault_merge-queue
+### vault_merge
 
-Surface the bulk merge queue for a coordination channel: ready PRs parsed from `ready: branch=...` journal signals, unready tasks, and a topo-sorted dependency order keyed by `task.blocking`. Pure read; `ci_status` is always `"unknown"`.
+`mode: queue | record`. Consolidates the former merge-queue and merge-record tools.
 
-**Params:**
+- **queue**: READ the bulk merge queue for a coordination channel. Pure read; `ci_status` is always `"unknown"`.
+- **record**: WRITE a merge outcome for a PR: write a journal entry, and when `status === "merged"` with a `task_id`, transition the source task to `completed`. Halt/fail statuses write the journal but do NOT touch the task.
+
+**Params (queue):**
+- `mode` (`"queue"`, required).
 - `channel` (string, required).
 - `wiki` (string, optional).
 - `family` (string, optional).
 - `since` (string, optional, ISO datetime): Defaults to 7 days ago.
 
-**Returns:** `MergeQueueOutput` (ready_prs, unready_prs, ordered, etc.).
+**Returns (queue):** `MergeQueueOutput` (ready_prs, unready_prs, ordered, etc.).
 
-**Errors:** None routine; family/wiki resolution may yield an empty queue.
+**Errors (queue):** None routine; family/wiki resolution may yield an empty queue.
 
-**Example:**
+**Example (queue):**
 ```json
-{ "tool": "vault_merge-queue", "args": { "channel": "stoa-progress" } }
+{ "tool": "vault_merge", "args": { "mode": "queue", "channel": "stoa-progress" } }
 ```
 
-**Source:** `src/tools/merge-queue.ts`
-
----
-
-### vault_merge-record
-
-Record a merge outcome for a PR: write a journal entry under `wikis/_agents/journal/`, and when `status === "merged"` with a `task_id`, transition the source task to `completed`. Halt/fail statuses write the journal but do NOT touch the task. `agent_id` is alias-resolved.
-
-**Params:**
+**Params (record):**
+- `mode` (`"record"`, required).
 - `pr_number` (int, required).
 - `channel` (string, required).
-- `agent_id` (string, required): Bare or `agent:<bare>` or `profile-<bare>`.
+- `agent_id` (string, required): Bare or `agent:<bare>` or `profile-<bare>`. Alias-resolved.
 - `merge_commit_sha` (string, optional).
 - `status` (`"merged" | "failed" | "halted-conflict" | "halted-red-ci"`, required).
 - `notes` (string, optional).
 - `task_id` (string, optional).
 
-**Returns:** `{ journal_id, recorded_at, task_updated }`.
+**Returns (record):** `{ journal_id, recorded_at, task_updated }`.
 
-**Errors:** `UnknownAgentError` when `agent_id` cannot be resolved to a profile (no journal written); missing task surfaces as `task_updated: false` silently.
+**Errors (record):** `UnknownAgentError` when `agent_id` cannot be resolved to a profile (no journal written); missing task surfaces as `task_updated: false` silently.
 
-**Example:**
+**Example (record):**
 ```json
-{ "tool": "vault_merge-record", "args": { "pr_number": 42, "channel": "stoa-progress", "agent_id": "pidgey", "status": "merged", "task_id": "task-ship-doc" } }
+{ "tool": "vault_merge", "args": { "mode": "record", "pr_number": 42, "channel": "stoa-progress", "agent_id": "pidgey", "status": "merged", "task_id": "task-ship-doc" } }
 ```
 
-**Source:** `src/tools/merge-record.ts`
+**Source:** `src/tools/merge.ts`
 
 ---
 

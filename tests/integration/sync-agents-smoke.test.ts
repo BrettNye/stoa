@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
-import { syncAgentsTool } from "../../src/tools/sync-agents.js";
+import { syncTool } from "../../src/tools/sync.js";
 
 let vault: string;
 let target: string;
@@ -46,13 +46,13 @@ afterEach(() => {
   rmSync(target, { recursive: true, force: true });
 });
 
-describe("vault_sync-agents — single-Pokemon path (v1.7 §7.1)", () => {
+describe("vault_sync surface=agents — single-Pokemon path (v1.7 §7.1)", () => {
   it("deploys the agent def and records the registry entry", async () => {
     seedProfile(vault, "profile-charmander", { pokemon_type: "fire" }, "Backend specialist.\n");
     execSync("git add . && git commit -q -m seed", { cwd: vault });
 
-    const result = await syncAgentsTool.handler(
-      { pokemon: "charmander", target, runtime: "claude-code" },
+    const result = await syncTool.handler(
+      { surface: "agents", pokemon: "charmander", repo_path: target, runtime: "claude-code" },
       { vaultPath: vault }
     );
     expect(result.results).toHaveLength(1);

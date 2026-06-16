@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { taskCreateTool } from "../../src/tools/task-create.js";
+import { taskTool } from "../../src/tools/task.js";
 
 describe("vault_task-create", () => {
   let vaultPath: string;
@@ -17,7 +17,8 @@ describe("vault_task-create", () => {
   });
 
   it("creates a task with all options", async () => {
-    const r = await taskCreateTool.handler({
+    const r = await taskTool.handler({
+      mode: "create",
       title: "feat-x: API",
       wiki: "alpha",
       segregation: ["packages/api/**"],
@@ -34,7 +35,8 @@ describe("vault_task-create", () => {
   // wikis/_meta/tasks/task-vault-task-create-truncates-id-slug-mid-word-at-60-chars.md
   describe("regression: word-boundary id truncation (bug-2026-05-15-slug-mid-word)", () => {
     it("never produces a single-letter trailing fragment", async () => {
-      const r = await taskCreateTool.handler({
+      const r = await taskTool.handler({
+        mode: "create",
         title: "Fix vault.process-inbox default suggested_id regression on Windows",
         wiki: "alpha",
       }, { vaultPath });
@@ -48,7 +50,8 @@ describe("vault_task-create", () => {
     });
 
     it("never produces a trailing dash from the slug", async () => {
-      const r = await taskCreateTool.handler({
+      const r = await taskTool.handler({
+        mode: "create",
         title: "Audit existing wikis for missing type subdirectories; ensure new-wiki scaffolds all 8",
         wiki: "alpha",
       }, { vaultPath });

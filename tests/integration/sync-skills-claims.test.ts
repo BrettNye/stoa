@@ -11,7 +11,7 @@
 // Hermetic: every fixture under `os.tmpdir()` via `mkTempVault`; nothing
 // touches the live vault root.
 //
-// Invocation pattern (per the task brief): we invoke `syncSkillsTool.handler`
+// Invocation pattern (per the task brief): we invoke `syncTool.handler`
 // directly with an explicit ctx instead of going through `callTool`, because
 // `callTool` bypasses Zod (no schema validation) AND hard-codes
 // `rawConfig: {}` and never injects `today`. Direct handler invocation gives
@@ -48,7 +48,7 @@ import { promises as fs } from "node:fs";
 import { rmSync } from "node:fs";
 import path from "node:path";
 import { mkTempVault, writeClaimFile } from "../helpers.js";
-import { syncSkillsTool } from "../../src/tools/sync-skills.js";
+import { syncTool } from "../../src/tools/sync.js";
 import {
   buildClaimsIndex,
   writeClaimsIndex,
@@ -104,11 +104,12 @@ async function runSync(
 ): Promise<void> {
   const repoPath = repo ?? path.join(vault, "tmp-repo");
   await fs.mkdir(repoPath, { recursive: true });
-  await syncSkillsTool.handler(
+  await syncTool.handler(
     {
+      surface: "skills",
       repo_path: repoPath,
       pokemon: profileId,
-      target: "claude-code",
+      runtime: "claude-code",
       mode: "copy",
       reverify: false,
       fix: false,
@@ -128,7 +129,7 @@ function skillPath(vault: string, moveId: string): string {
   );
 }
 
-describe("vault_sync-skills claims integration (§8.2)", () => {
+describe("vault_sync surface=skills claims integration (§8.2)", () => {
   // Track temp vaults for cleanup so a failing test doesn't leak temp dirs.
   const created: string[] = [];
   afterEach(() => {

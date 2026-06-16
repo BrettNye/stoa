@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { resolveStadiumConfig } from '../core/stadium-config.js';
 import { StadiumClient } from '../core/stadium-client.js';
 import { resolveTrainerContext } from '../core/resolve-trainer-context.js';
-import { listPlatformProfiles, type PlatformProfileRow } from './list-platform-profiles.js';
+import { listPlatformProfiles, type PlatformProfileRow } from './stadium-list.js';
 import type { ToolScope } from '../auth/types.js';
 
 const Input = z.object({

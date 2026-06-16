@@ -10,7 +10,7 @@ This doc covers profiles, moves, courses, trainers, and evolution. For the claim
 
 **Profile.** A `profile-<pokemon>.md` page in `wikis/_agents/profiles/`. It declares the agent's name, evolution stage, moveset, and autonomy level. The profile is the stable identity — the same Pokemon everywhere, even when deployed to different repos.
 
-**Move.** A skill or procedure described in a `SKILL.md` file under `wikis/_agents/moves/<id>/` (portable) or `wikis/<wiki>/moves/<id>/` (specialist). Moves tell the agent *how* to do specific things — TDD cycles, PR creation, channel coordination. `vault_sync-agents` assembles a profile's moveset into a `CLAUDE.md` fragment baked into the target repo.
+**Move.** A skill or procedure described in a `SKILL.md` file under `wikis/_agents/moves/<id>/` (portable) or `wikis/<wiki>/moves/<id>/` (specialist). Moves tell the agent *how* to do specific things — TDD cycles, PR creation, channel coordination. `vault_sync` (`surface: agents`) assembles a profile's moveset into a `CLAUDE.md` fragment baked into the target repo.
 
 **Course.** A `guide` page (`guide-course-<slug>.md`) with a structured lesson format: Read / Do / Claim to author on completion. Courses bootstrap fresh profiles past the cold-start problem by producing a set of curricular claims before the agent touches a real task.
 
@@ -62,13 +62,14 @@ vault_list-claims  profile: "charmander"  source_type: "curricular"
 
 Confirm the expected claims landed and their content is coherent. Promote the profile's course claims from `draft` to `active` if they read correctly — this makes them available to `vault_agent-memory` at task time.
 
-### 5. Deploy with vault_sync-agents
+### 5. Deploy with vault_sync (surface: agents)
 
 Once the profile is ready to work in a repo, deploy it:
 
 ```
-vault_sync-agents
-  target: "/path/to/your/repo"
+vault_sync
+  surface: "agents"
+  repo_path: "/path/to/your/repo"
   pokemon: "charmander"
 ```
 
@@ -146,8 +147,9 @@ The fastest way to bootstrap a profile on a new domain is to write the documenta
 Use a documentation profile (e.g. profile-pidgey) to write user-facing docs covering the domain the target agent needs to understand. These become the reading material for the course:
 
 ```
-vault_sync-agents
-  target: "/path/to/your/repo"
+vault_sync
+  surface: "agents"
+  repo_path: "/path/to/your/repo"
   pokemon: "pidgey"
 ```
 
@@ -179,9 +181,9 @@ Open a session as the target profile, point it at the course page, and let it wa
 
 | Tool | What it does |
 |---|---|
-| `vault_sync-agents` | Deploy a profile's moveset (portable + specialist) to a target repo. |
+| `vault_sync` (`surface: agents`) | Deploy a profile's moveset (portable + specialist) to a target repo. |
 | `vault_evolve-profile` | Propose or commit a profile stage transition based on claim clusters. |
 | `vault_profile-stats` | Return current claim counts, task counts, and specialty cluster summary for a profile. |
 | `vault_suggest-pokemon` | Recommend a Pokemon name fitting a given specialty tag set. |
-| `vault_real-skill-register` | Register a lived claim from a completed real task (writes + reindexes). |
-| `vault_real-skill-refresh` | Revalidate an existing lived claim, resetting its decay clock. |
+| `vault_real-skill` (`mode: register`) | Register a lived claim from a completed real task (writes + reindexes). |
+| `vault_real-skill` (`mode: refresh`) | Revalidate an existing lived claim, resetting its decay clock. |

@@ -1,7 +1,7 @@
 // vault-mcp/tests/unit/sync-skills-claim-render.test.ts
 //
 // task-sync-skills-claim-rendering (Claims Plan 3, Wave 2). Verifies that
-// `vault_sync-skills` renders the §8.2 claim section into each move's vault
+// `vault_sync surface=skills` renders the §8.2 claim section into each move's vault
 // SKILL.md *before* `syncMoveset` deploys, so the deployed copy carries the
 // freshly-rendered `## Learned` block. Reverify path is unchanged — no
 // claim rendering on reverify.
@@ -11,7 +11,7 @@
 // render-date is deterministic.
 //
 // Test surface:
-//   1. After sync-skills, the vault's wikis/_agents/moves/<id>/SKILL.md
+//   1. After sync surface=skills, the vault's wikis/_agents/moves/<id>/SKILL.md
 //      contains the vault-claims:start..end block with a single bullet for
 //      the seeded active claim.
 //   2. The pre-render loop iterates every move in the deploying profile's
@@ -21,15 +21,15 @@
 //   5. `claimsConfig` defaults to `getClaimsConfig({})` when ctx.rawConfig
 //      is omitted (smoke — render still happens with default thresholds).
 //   6. `reverify: true` does NOT mutate vault SKILL.md (no rendering).
-//   7. Idempotency: running sync-skills twice with the same `today` produces
+//   7. Idempotency: running sync twice with the same `today` produces
 //      a byte-identical vault SKILL.md.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync, statSync } from "node:fs";
+import { mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { syncSkillsTool } from "../../src/tools/sync-skills.js";
+import { syncTool } from "../../src/tools/sync.js";
 import { writeClaimFile } from "../helpers.js";
 
 const TODAY = new Date("2026-05-03T00:00:00Z");
@@ -86,7 +86,7 @@ function mkTempVaultWithAgentsTree(): string {
   return dir;
 }
 
-describe("vault_sync-skills — claim rendering pre-pass", () => {
+describe("vault_sync surface=skills — claim rendering pre-pass", () => {
   let vaultPath: string;
   let repoPath: string;
 
@@ -114,11 +114,12 @@ describe("vault_sync-skills — claim rendering pre-pass", () => {
       evidence: ["ev-1"],
     });
 
-    await syncSkillsTool.handler(
+    await syncTool.handler(
       {
+        surface: "skills",
         repo_path: repoPath,
         pokemon: "profile-charmander",
-        target: "claude-code",
+        runtime: "claude-code",
         mode: "copy",
         reverify: false,
         fix: false,
@@ -166,11 +167,12 @@ describe("vault_sync-skills — claim rendering pre-pass", () => {
       move: ["move-create-pr"],
     });
 
-    await syncSkillsTool.handler(
+    await syncTool.handler(
       {
+        surface: "skills",
         repo_path: repoPath,
         pokemon: "profile-charmander",
-        target: "claude-code",
+        runtime: "claude-code",
         mode: "copy",
         reverify: false,
         fix: false,
@@ -205,11 +207,12 @@ describe("vault_sync-skills — claim rendering pre-pass", () => {
 
     // Should not throw despite the missing SKILL.md.
     await expect(
-      syncSkillsTool.handler(
+      syncTool.handler(
         {
+          surface: "skills",
           repo_path: repoPath,
           pokemon: "profile-charmander",
-          target: "claude-code",
+          runtime: "claude-code",
           mode: "copy",
           reverify: false,
           fix: false,
@@ -239,11 +242,12 @@ describe("vault_sync-skills — claim rendering pre-pass", () => {
     });
 
     // No `today` in ctx — handler should default to new Date() and still render.
-    await syncSkillsTool.handler(
+    await syncTool.handler(
       {
+        surface: "skills",
         repo_path: repoPath,
         pokemon: "profile-charmander",
-        target: "claude-code",
+        runtime: "claude-code",
         mode: "copy",
         reverify: false,
         fix: false,
@@ -273,11 +277,12 @@ describe("vault_sync-skills — claim rendering pre-pass", () => {
       move: ["move-tdd-cycle"],
     });
 
-    await syncSkillsTool.handler(
+    await syncTool.handler(
       {
+        surface: "skills",
         repo_path: repoPath,
         pokemon: "profile-charmander",
-        target: "claude-code",
+        runtime: "claude-code",
         mode: "copy",
         reverify: false,
         fix: false,
@@ -307,11 +312,12 @@ describe("vault_sync-skills — claim rendering pre-pass", () => {
     const skillPath = join(vaultPath, "wikis", "_agents", "moves", "move-tdd-cycle", "SKILL.md");
     const before = readFileSync(skillPath, "utf8");
 
-    await syncSkillsTool.handler(
+    await syncTool.handler(
       {
+        surface: "skills",
         repo_path: repoPath,
         pokemon: "profile-charmander",
-        target: "claude-code",
+        runtime: "claude-code",
         mode: "copy",
         reverify: true,
         fix: false,
@@ -325,7 +331,7 @@ describe("vault_sync-skills — claim rendering pre-pass", () => {
     expect(after).not.toContain("vault-claims:start");
   });
 
-  it("is idempotent: running sync-skills twice with the same today yields byte-identical SKILL.md", async () => {
+  it("is idempotent: running sync twice with the same today yields byte-identical SKILL.md", async () => {
     seedProfile(vaultPath, "profile-charmander", ["move-tdd-cycle"]);
     seedMoveSkillMd(vaultPath, "move-tdd-cycle");
     await writeClaimFile(vaultPath, {
@@ -339,20 +345,21 @@ describe("vault_sync-skills — claim rendering pre-pass", () => {
     });
 
     const args = {
+      surface: "skills" as const,
       repo_path: repoPath,
       pokemon: "profile-charmander",
-      target: "claude-code" as const,
+      runtime: "claude-code" as const,
       mode: "copy" as const,
       reverify: false,
       fix: false,
     };
     const ctx = { vaultPath, today: TODAY } as any;
 
-    await syncSkillsTool.handler(args, ctx);
+    await syncTool.handler(args, ctx);
     const skillPath = join(vaultPath, "wikis", "_agents", "moves", "move-tdd-cycle", "SKILL.md");
     const first = readFileSync(skillPath, "utf8");
 
-    await syncSkillsTool.handler(args, ctx);
+    await syncTool.handler(args, ctx);
     const second = readFileSync(skillPath, "utf8");
 
     expect(second).toBe(first);

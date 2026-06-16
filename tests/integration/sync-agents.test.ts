@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
-import { syncAgentsTool } from "../../src/tools/sync-agents.js";
+import { syncTool } from "../../src/tools/sync.js";
 import { claudeCodeAdapter } from "../../src/core/runtime-adapters/claude-code.js";
 import { buildIntent } from "../../src/core/subagent-intent.js";
 import { readDeployments } from "../../src/core/deployments.js";
@@ -49,14 +49,14 @@ afterEach(() => {
   rmSync(target, { recursive: true, force: true });
 });
 
-describe("vault_sync-agents — full lifecycle (v1.7 §7.3)", () => {
+describe("vault_sync surface=agents — full lifecycle (v1.7 §7.3)", () => {
   it("deploys → verifies → removes → re-deploys idempotently → re-deploys on profile edit", async () => {
     seedProfile(vault, "profile-charmander", { pokemon_type: "fire" }, "Backend specialist v1.\n");
     execSync("git add . && git commit -q -m seed", { cwd: vault });
 
     // Step 1: initial deploy.
-    const r1 = await syncAgentsTool.handler(
-      { pokemon: "charmander", target, runtime: "claude-code" },
+    const r1 = await syncTool.handler(
+      { surface: "agents", pokemon: "charmander", repo_path: target, runtime: "claude-code" },
       { vaultPath: vault }
     );
     expect(r1.results[0].status).toBe("deployed");
@@ -69,8 +69,8 @@ describe("vault_sync-agents — full lifecycle (v1.7 §7.3)", () => {
     expect(v.ok).toBe(true);
 
     // Step 3: re-deploy at the same source_revision → skipped-no-change.
-    const r2 = await syncAgentsTool.handler(
-      { pokemon: "charmander", target, runtime: "claude-code" },
+    const r2 = await syncTool.handler(
+      { surface: "agents", pokemon: "charmander", repo_path: target, runtime: "claude-code" },
       { vaultPath: vault }
     );
     expect(r2.results[0].status).toBe("skipped-no-change");
@@ -80,8 +80,8 @@ describe("vault_sync-agents — full lifecycle (v1.7 §7.3)", () => {
     const orig = readFileSync(profilePath, "utf8");
     writeFileSync(profilePath, orig.replace("v1", "v2"));
     execSync("git add . && git commit -q -m edit", { cwd: vault });
-    const r3 = await syncAgentsTool.handler(
-      { pokemon: "charmander", target, runtime: "claude-code" },
+    const r3 = await syncTool.handler(
+      { surface: "agents", pokemon: "charmander", repo_path: target, runtime: "claude-code" },
       { vaultPath: vault }
     );
     expect(r3.results[0].status).toBe("deployed");
@@ -105,8 +105,8 @@ describe("vault_sync-agents — full lifecycle (v1.7 §7.3)", () => {
       join(target, ".claude", "settings.json"),
       JSON.stringify({ permissions: { deny: ["mcp__vault__vault_channel-post"] } })
     );
-    const r = await syncAgentsTool.handler(
-      { pokemon: "charmander", target, runtime: "claude-code" },
+    const r = await syncTool.handler(
+      { surface: "agents", pokemon: "charmander", repo_path: target, runtime: "claude-code" },
       { vaultPath: vault }
     );
     expect(r.results[0].status).toBe("deployed");  // not failed
@@ -121,8 +121,8 @@ describe("vault_sync-agents — full lifecycle (v1.7 §7.3)", () => {
     writeFileSync(profilePath, orig.replace("applies_to: [claude-code]", "applies_to: []"));
     execSync("git add . && git commit -q -m seed", { cwd: vault });
 
-    const r = await syncAgentsTool.handler(
-      { pokemon: "openclawonly", target, runtime: "claude-code" },
+    const r = await syncTool.handler(
+      { surface: "agents", pokemon: "openclawonly", repo_path: target, runtime: "claude-code" },
       { vaultPath: vault }
     );
     expect(r.results[0].status).toBe("failed");

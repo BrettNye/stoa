@@ -140,6 +140,7 @@ describe("Multi-process — two independent stacks watching the same vault", () 
     // Both stacks register a wait-for
     const waitA = waitForTool.handler(
       waitForTool.inputSchema.parse({
+        mode: "next",
         filter: { source: "journal", channel: "mp-test-chan" },
         timeout_ms: 6000,
       }),
@@ -148,6 +149,7 @@ describe("Multi-process — two independent stacks watching the same vault", () 
 
     const waitB = waitForTool.handler(
       waitForTool.inputSchema.parse({
+        mode: "next",
         filter: { source: "journal", channel: "mp-test-chan" },
         timeout_ms: 6000,
       }),
@@ -247,6 +249,7 @@ describe("Multi-process — two independent stacks watching the same vault", () 
     const [resultA, resultB] = await Promise.all([
       waitForTool.handler(
         waitForTool.inputSchema.parse({
+          mode: "next",
           filter: { source: "journal", channel: "mp-timeout-a" },
           timeout_ms: 250,
         }),
@@ -254,6 +257,7 @@ describe("Multi-process — two independent stacks watching the same vault", () 
       ),
       waitForTool.handler(
         waitForTool.inputSchema.parse({
+          mode: "next",
           filter: { source: "journal", channel: "mp-timeout-b" },
           timeout_ms: 250,
         }),
@@ -275,6 +279,7 @@ describe("Multi-process — two independent stacks watching the same vault", () 
     // Stack A waits for chan-alpha; Stack B waits for chan-beta
     const waitA = waitForTool.handler(
       waitForTool.inputSchema.parse({
+        mode: "next",
         filter: { source: "journal", channel: "chan-alpha" },
         timeout_ms: 1000,
       }),
@@ -283,6 +288,7 @@ describe("Multi-process — two independent stacks watching the same vault", () 
 
     const waitB = waitForTool.handler(
       waitForTool.inputSchema.parse({
+        mode: "next",
         filter: { source: "journal", channel: "chan-beta" },
         timeout_ms: 400,
       }),

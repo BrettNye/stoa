@@ -25,13 +25,14 @@ vi.mock("../../src/core/stadium-client.js", () => {
   return { StadiumClient, _getMatchStateMock: getMatchState };
 });
 
-vi.mock("../../src/tools/list-platform-profiles.js", () => ({
+vi.mock("../../src/tools/stadium-list.js", () => ({
   listPlatformProfiles: vi.fn(),
+  stadiumListTool: { name: "vault_stadium-list", handler: vi.fn(), inputSchema: {}, scope: {} },
 }));
 
 import { trainerGetStateTool } from "../../src/tools/trainer-get-state.js";
 import * as stadiumClientModule from "../../src/core/stadium-client.js";
-import * as listPlatformProfilesModule from "../../src/tools/list-platform-profiles.js";
+import * as listPlatformProfilesModule from "../../src/tools/stadium-list.js";
 
 describe("vault_trainer-get-state handler — new fields", () => {
   let getMatchStateMock: ReturnType<typeof vi.fn>;

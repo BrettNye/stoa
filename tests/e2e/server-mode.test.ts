@@ -202,7 +202,8 @@ describe("server-mode e2e: construction-GC dispatch shape", () => {
       // Operator creates the task. Body intentionally contains all four
       // readiness signals (files, scope, out_of_scope, verification) so the
       // downstream claim does not need `force: true`.
-      const createResp = await mcpCallTool(port, operator, sessionId, "vault_task-create", {
+      const createResp = await mcpCallTool(port, operator, sessionId, "vault_task", {
+        mode: "create",
         wiki: "alpha",
         title: `review the building plan ${randomUUID().slice(0, 8)}`,
         description: [
@@ -227,8 +228,7 @@ describe("server-mode e2e: construction-GC dispatch shape", () => {
       const worker = await mintToken({
         sub: "fargate-worker-abc123",
         scopes: [
-          `vault_task-claim:tasks/${taskId}`,
-          `vault_task-update:tasks/${taskId}`,
+          `vault_task:tasks/${taskId}`,
           "vault_recall:*",
         ],
       });
@@ -236,7 +236,8 @@ describe("server-mode e2e: construction-GC dispatch shape", () => {
       // Worker reuses the same MCP session but presents its own bearer.
       // The middleware verifies per-request, so the principal threaded
       // into `authorize()` reflects the worker token, not the operator.
-      const claimResp = await mcpCallTool(port, worker, sessionId, "vault_task-claim", {
+      const claimResp = await mcpCallTool(port, worker, sessionId, "vault_task", {
+        mode: "claim",
         task_id: taskId,
         expected_updated: taskResult.updated,
         wiki: "alpha",
@@ -248,7 +249,8 @@ describe("server-mode e2e: construction-GC dispatch shape", () => {
       // Audit trail check: the operator lists claimed tasks for this
       // specific id; the entry should be recorded under the worker's
       // principal-derived agent_id (NOT the operator's).
-      const listResp = await mcpCallTool(port, operator, sessionId, "vault_task-list", {
+      const listResp = await mcpCallTool(port, operator, sessionId, "vault_task", {
+        mode: "list",
         wiki: "alpha",
         status: "claimed",
       });
@@ -290,12 +292,14 @@ describe("server-mode e2e: construction-GC dispatch shape", () => {
         "- [ ] B done",
       ].join("\n");
 
-      const createA = await mcpCallTool(port, operator, sessionId, "vault_task-create", {
+      const createA = await mcpCallTool(port, operator, sessionId, "vault_task", {
+        mode: "create",
         wiki: "alpha",
         title: `scope task A ${tag}`,
         description: bodyA,
       });
-      const createB = await mcpCallTool(port, operator, sessionId, "vault_task-create", {
+      const createB = await mcpCallTool(port, operator, sessionId, "vault_task", {
+        mode: "create",
         wiki: "alpha",
         title: `scope task B ${tag}`,
         description: bodyB,
@@ -309,7 +313,7 @@ describe("server-mode e2e: construction-GC dispatch shape", () => {
       // Worker token narrow to task A ONLY.
       const worker = await mintToken({
         sub: "worker-narrow",
-        scopes: [`vault_task-claim:tasks/${taskA.id}`],
+        scopes: [`vault_task:tasks/${taskA.id}`],
       });
 
       // Attempt to claim task B → must be refused by the scope dispatcher
@@ -318,7 +322,8 @@ describe("server-mode e2e: construction-GC dispatch shape", () => {
       // `result.content` field for tool calls with `isError: true`, or
       // into the top-level `error` for protocol-level failures — both
       // shapes are checked below).
-      const denialResp = await mcpCallTool(port, worker, sessionId, "vault_task-claim", {
+      const denialResp = await mcpCallTool(port, worker, sessionId, "vault_task", {
+        mode: "claim",
         task_id: taskB.id,
         expected_updated: taskB.updated,
         wiki: "alpha",

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { syncSkillsTool } from "../../src/tools/sync-skills.js";
+import { syncTool } from "../../src/tools/sync.js";
 
 function writeProfile(vaultPath: string, id: string, pokemon_type: string, moveset: string[] = []) {
   const profilesDir = join(vaultPath, "wikis", "_agents", "profiles");
@@ -32,7 +32,7 @@ function writeMove(vaultPath: string, id: string) {
     `---\nid: ${id}\ntype: move\ntitle: ${id}\ncreated: 2026-05-12\nname: ${id}\ndescription: x\napplies_to: [claude-code]\n---\n# ${id}\n`);
 }
 
-describe("sync-skills --all integration", () => {
+describe("vault_sync surface=skills --all integration", () => {
   let vaultPath: string;
   let repoPath: string;
   beforeEach(() => {
@@ -51,8 +51,8 @@ describe("sync-skills --all integration", () => {
     writeProfile(vaultPath, "profile-squirtle", "water", ["move-tdd-cycle"]);
     writeProfile(vaultPath, "profile-charmander", "fire", ["move-tdd-cycle"]);
 
-    const result: any = await syncSkillsTool.handler(
-      { repo_path: repoPath, all: true, exclude: [], pokemon_type: [], reverify: false, fix: false, target: "claude-code", mode: "copy", continue_on_error: false } as any,
+    const result: any = await syncTool.handler(
+      { surface: "skills", repo_path: repoPath, all: true, exclude: [], pokemon_type: [], reverify: false, fix: false, runtime: "claude-code", mode: "copy", continue_on_error: false } as any,
       { vaultPath }
     );
 
@@ -63,8 +63,8 @@ describe("sync-skills --all integration", () => {
   it("preserves single-pokemon flat output shape (back-compat)", async () => {
     writeProfile(vaultPath, "profile-squirtle", "water", ["move-tdd-cycle"]);
 
-    const result: any = await syncSkillsTool.handler(
-      { repo_path: repoPath, pokemon: "profile-squirtle", reverify: false, fix: false, target: "claude-code", mode: "copy" } as any,
+    const result: any = await syncTool.handler(
+      { surface: "skills", repo_path: repoPath, pokemon: "profile-squirtle", reverify: false, fix: false, runtime: "claude-code", mode: "copy" } as any,
       { vaultPath }
     );
 

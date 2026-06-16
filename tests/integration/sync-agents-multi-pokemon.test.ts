@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
-import { syncAgentsTool } from "../../src/tools/sync-agents.js";
+import { syncTool } from "../../src/tools/sync.js";
 
 let vault: string;
 let target: string;
@@ -34,15 +34,15 @@ afterEach(() => {
   rmSync(target, { recursive: true, force: true });
 });
 
-describe("vault_sync-agents — multi-Pokemon halt-on-first-error (v1.7 §7.1)", () => {
+describe("vault_sync surface=agents — multi-Pokemon halt-on-first-error (v1.7 §7.1)", () => {
   it("deploys [charmander, broken, squirtle]: charmander deployed, broken failed, squirtle not attempted", async () => {
     seedProfile(vault, "profile-charmander", ["claude-code"]);
     seedProfile(vault, "profile-broken", []);  // applies_to empty → invariant 3 fail
     seedProfile(vault, "profile-squirtle", ["claude-code"]);
     execSync("git add . && git commit -q -m seed", { cwd: vault });
 
-    const r = await syncAgentsTool.handler(
-      { pokemon: ["charmander", "broken", "squirtle"], target, runtime: "claude-code" },
+    const r = await syncTool.handler(
+      { surface: "agents", pokemon: ["charmander", "broken", "squirtle"], repo_path: target, runtime: "claude-code" },
       { vaultPath: vault }
     );
     expect(r.results).toHaveLength(2);  // charmander + broken; squirtle NOT in results
@@ -64,8 +64,8 @@ describe("vault_sync-agents — multi-Pokemon halt-on-first-error (v1.7 §7.1)",
     seedProfile(vault, "profile-bulbasaur", ["claude-code"]);
     execSync("git add . && git commit -q -m seed", { cwd: vault });
 
-    const r = await syncAgentsTool.handler(
-      { pokemon: ["charmander", "squirtle", "bulbasaur"], target, runtime: "claude-code" },
+    const r = await syncTool.handler(
+      { surface: "agents", pokemon: ["charmander", "squirtle", "bulbasaur"], repo_path: target, runtime: "claude-code" },
       { vaultPath: vault }
     );
     expect(r.results).toHaveLength(3);

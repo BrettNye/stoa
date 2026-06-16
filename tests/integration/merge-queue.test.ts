@@ -8,13 +8,16 @@
 //
 // Each test seeds a fixture vault from scratch (no shared `copyFixtureVault`),
 // then exercises the tool through its handler — same path the MCP server takes.
+//
+// Migrated from merge-queue.ts → calls mergeTool with mode: "queue".
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { reindex } from "../../src/core/reindex.js";
-import { mergeQueueTool } from "../../src/tools/merge-queue.js";
+import { mergeTool } from "../../src/tools/merge.js";
+import type { MergeQueueOutput } from "../../src/core/merge-queue.js";
 
 let vault: string;
 
@@ -128,10 +131,10 @@ describe("phase-3 T3-1 — vault_merge-queue tool", () => {
 
     await reindex(vault);
 
-    const result = await mergeQueueTool.handler(
-      { channel, wiki: "alpha", since: "2026-01-01T00:00:00Z" },
+    const result = await mergeTool.handler(
+      { mode: "queue", channel, wiki: "alpha", since: "2026-01-01T00:00:00Z" },
       { vaultPath: vault }
-    );
+    ) as MergeQueueOutput;
 
     expect(result.feature).toBe("foo");
     expect(result.ready_prs).toHaveLength(3);
@@ -162,10 +165,10 @@ describe("phase-3 T3-1 — vault_merge-queue tool", () => {
 
     await reindex(vault);
 
-    const result = await mergeQueueTool.handler(
-      { channel, wiki: "alpha", since: "2026-01-01T00:00:00Z" },
+    const result = await mergeTool.handler(
+      { mode: "queue", channel, wiki: "alpha", since: "2026-01-01T00:00:00Z" },
       { vaultPath: vault }
-    );
+    ) as MergeQueueOutput;
 
     expect(result.ready_prs).toHaveLength(2);
     const orphan = result.ready_prs.find(p => p.pr_number === 99);
@@ -198,10 +201,10 @@ describe("phase-3 T3-1 — vault_merge-queue tool", () => {
 
     await reindex(vault);
 
-    const result = await mergeQueueTool.handler(
-      { channel, wiki: "alpha", since: "2026-01-01T00:00:00Z" },
+    const result = await mergeTool.handler(
+      { mode: "queue", channel, wiki: "alpha", since: "2026-01-01T00:00:00Z" },
       { vaultPath: vault }
-    );
+    ) as MergeQueueOutput;
 
     expect(result.ready_prs).toHaveLength(2);
     expect(result.dependency_order).toContain(10);
@@ -234,10 +237,10 @@ describe("phase-3 T3-1 — vault_merge-queue tool", () => {
 
     await reindex(vault);
 
-    const result = await mergeQueueTool.handler(
-      { channel, wiki: "alpha", since: "2026-01-01T00:00:00Z" },
+    const result = await mergeTool.handler(
+      { mode: "queue", channel, wiki: "alpha", since: "2026-01-01T00:00:00Z" },
       { vaultPath: vault }
-    );
+    ) as MergeQueueOutput;
 
     expect(result.ready_prs).toHaveLength(1);
     expect(result.ready_prs[0].pr_number).toBe(10);
@@ -264,10 +267,10 @@ describe("phase-3 T3-1 — vault_merge-queue tool", () => {
       "agent:charmander", "2026-05-01T12:00:00Z",
       "ready: branch=feat/fallback/fallback PR-42");
 
-    const result = await mergeQueueTool.handler(
-      { channel, wiki: "alpha", since: "2026-01-01T00:00:00Z" },
+    const result = await mergeTool.handler(
+      { mode: "queue", channel, wiki: "alpha", since: "2026-01-01T00:00:00Z" },
       { vaultPath: vault }
-    );
+    ) as MergeQueueOutput;
 
     // With findOnDisk fallback: the on-disk journal is recovered, the ready
     // signal is parsed, and the PR shows up in ready_prs with author resolved.
@@ -315,10 +318,10 @@ describe("phase-3 T3-1 — vault_merge-queue tool", () => {
 
     await reindex(vault);
 
-    const result = await mergeQueueTool.handler(
-      { channel, family: "rastate", since: "2026-01-01T00:00:00Z" },
+    const result = await mergeTool.handler(
+      { mode: "queue", channel, family: "rastate", since: "2026-01-01T00:00:00Z" },
       { vaultPath: vault }
-    );
+    ) as MergeQueueOutput;
 
     expect(result.feature).toBe("shared");
     expect(result.ready_prs).toHaveLength(2);
