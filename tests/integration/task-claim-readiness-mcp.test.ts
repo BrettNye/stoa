@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { taskClaimTool } from "../../src/tools/task-claim.js";
+import { taskTool } from "../../src/tools/task.js";
 
 // An ungroomed body that fails all four readiness signals
 const UNGROOMED_BODY = "one-line body";
@@ -63,8 +63,8 @@ describe("vault_task-claim — readiness gate at MCP boundary", () => {
   it("MCP claim surfaces TASK_NOT_READY with structured missing array on ungroomed task", async () => {
     const expected_updated = writeTaskPage(vaultPath, "task-bare", UNGROOMED_BODY);
     await expect(
-      taskClaimTool.handler(
-        { task_id: "task-bare", expected_updated },
+      taskTool.handler(
+        { mode: "claim", task_id: "task-bare", expected_updated },
         { vaultPath, defaultWiki: "alpha", principal: { agent_id: "charmander" } }
       )
     ).rejects.toMatchObject({
@@ -77,8 +77,8 @@ describe("vault_task-claim — readiness gate at MCP boundary", () => {
     const expected_updated = writeTaskPage(vaultPath, "task-bare2", UNGROOMED_BODY);
     let thrown: unknown;
     try {
-      await taskClaimTool.handler(
-        { task_id: "task-bare2", expected_updated },
+      await taskTool.handler(
+        { mode: "claim", task_id: "task-bare2", expected_updated },
         { vaultPath, defaultWiki: "alpha", principal: { agent_id: "charmander" } }
       );
     } catch (e) {
@@ -92,8 +92,8 @@ describe("vault_task-claim — readiness gate at MCP boundary", () => {
 
   it("MCP claim with force: true bypasses readiness and returns claimed_by", async () => {
     const expected_updated = writeTaskPage(vaultPath, "task-bare-force", UNGROOMED_BODY);
-    const r = await taskClaimTool.handler(
-      { task_id: "task-bare-force", expected_updated, force: true },
+    const r = await taskTool.handler(
+      { mode: "claim", task_id: "task-bare-force", expected_updated, force: true },
       { vaultPath, defaultWiki: "alpha", principal: { agent_id: "charmander" } }
     );
     expect(r.claimed_by).toBe("agent:charmander");
@@ -102,8 +102,8 @@ describe("vault_task-claim — readiness gate at MCP boundary", () => {
 
   it("MCP claim on groomed task (no force) succeeds without TASK_NOT_READY", async () => {
     const expected_updated = writeTaskPage(vaultPath, "task-groomed", GROOMED_BODY);
-    const r = await taskClaimTool.handler(
-      { task_id: "task-groomed", expected_updated },
+    const r = await taskTool.handler(
+      { mode: "claim", task_id: "task-groomed", expected_updated },
       { vaultPath, defaultWiki: "alpha", principal: { agent_id: "charmander" } }
     );
     expect(r.claimed_by).toBe("agent:charmander");
@@ -111,8 +111,9 @@ describe("vault_task-claim — readiness gate at MCP boundary", () => {
 
   it("input schema accepts optional force boolean (Zod parse)", () => {
     // Zod parse — ensures the field is declared optional in the schema
-    const schema = (taskClaimTool as any).inputSchema;
+    const schema = (taskTool as any).inputSchema;
     const withForce = schema.parse({
+      mode: "claim",
       task_id: "t1",
       expected_updated: "2026-05-13",
       force: true,
@@ -120,13 +121,14 @@ describe("vault_task-claim — readiness gate at MCP boundary", () => {
     expect(withForce.force).toBe(true);
 
     const withoutForce = schema.parse({
+      mode: "claim",
       task_id: "t1",
       expected_updated: "2026-05-13",
     });
     expect(withoutForce.force).toBeUndefined();
   });
 
-  it("tool description mentions gate semantics", () => {
-    expect(taskClaimTool.description).toMatch(/force/i);
+  it("tool description mentions claim mode", () => {
+    expect(taskTool.description).toMatch(/claim/i);
   });
 });

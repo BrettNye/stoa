@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { reindexTool } from "./reindex.js";
-import { syncAgentsTool } from "./sync-agents.js";
-import { syncSkillsTool } from "./sync-skills.js";
+import { syncTool } from "./sync.js";
 import { bootstrapRepoTool } from "./bootstrap-repo.js";
 import { seedSubstrateTool } from "./seed-substrate.js";
 import { evolveProfileTool } from "./evolve-profile.js";
@@ -18,8 +17,7 @@ describe("admin/forbidden tool flags", () => {
     expect(newWikiTool.scope!.adminOnly!({ name: "x" })).toBe(true);
   });
   it("http-forbidden tools carry httpForbidden=true", () => {
-    expect(syncAgentsTool.scope!.httpForbidden).toBe(true);
-    expect(syncSkillsTool.scope!.httpForbidden).toBe(true);
+    expect(syncTool.scope!.httpForbidden).toBe(true);
     expect(bootstrapRepoTool.scope!.httpForbidden).toBe(true);
     expect(seedSubstrateTool.scope!.httpForbidden).toBe(true);
   });

@@ -6,8 +6,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Command } from "commander";
 
-// We'll spy on the taskUpdateTool handler to capture how it's called
-import * as taskUpdateModule from "../../tools/task-update.js";
+// We'll spy on the taskTool handler to capture how it's called
+import * as taskModule from "../../tools/task.js";
 import * as ctxModule from "../_ctx.js";
 import * as resolveWikiModule from "../../tools/_resolve-wiki.js";
 
@@ -21,7 +21,7 @@ describe("task-update CLI: v0.4 principal calling convention", () => {
 
   beforeEach(() => {
     // Mock handler to avoid real filesystem calls
-    handlerSpy = vi.spyOn(taskUpdateModule.taskUpdateTool, "handler").mockResolvedValue({
+    handlerSpy = vi.spyOn(taskModule.taskTool, "handler").mockResolvedValue({
       task_id: "task-foo",
       updated: "2026-05-21T00:00:00.000Z",
       status: "in_progress",
