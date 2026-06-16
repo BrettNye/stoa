@@ -7,6 +7,8 @@
 //   3. conditional task transition for `status === "merged"` only
 //
 // Each test seeds a fresh fixture vault from scratch.
+//
+// Migrated from merge-record.ts → calls mergeTool with mode: "record".
 
 import { describe, it, expect, afterEach } from "vitest";
 import {
@@ -17,8 +19,9 @@ import { join } from "node:path";
 import { reindex } from "../../src/core/reindex.js";
 import { recordRename } from "../../src/core/aliases.js";
 import { parseFrontmatter } from "../../src/core/frontmatter.js";
-import { mergeRecordTool, __setNowFnForTests } from "../../src/tools/merge-record.js";
+import { mergeTool, __setNowFnForTests } from "../../src/tools/merge.js";
 import { UnknownAgentError } from "../../src/core/merge-record.js";
+import type { MergeRecordResult } from "../../src/tools/merge.js";
 
 let vault: string;
 
@@ -110,8 +113,9 @@ describe("phase-3 T3-2 — vault_merge-record tool", () => {
     });
     await reindex(vault);
 
-    const result = await mergeRecordTool.handler(
+    const result = await mergeTool.handler(
       {
+        mode: "record",
         pr_number: 42,
         channel: "feat-charmander-progress",
         agent_id: "charmander",
@@ -120,7 +124,7 @@ describe("phase-3 T3-2 — vault_merge-record tool", () => {
         task_id: "task-do-thing"
       },
       { vaultPath: vault }
-    );
+    ) as MergeRecordResult;
 
     expect(result.journal_id).toMatch(/^journal-\d{4}-\d{2}-\d{2}-\d{4}-merge-42-merged$/);
     expect(result.task_updated).toBe(true);
@@ -147,15 +151,16 @@ describe("phase-3 T3-2 — vault_merge-record tool", () => {
     writeProfile(vault, "profile-charmander");
     await reindex(vault);
 
-    const result = await mergeRecordTool.handler(
+    const result = await mergeTool.handler(
       {
+        mode: "record",
         pr_number: 7,
         channel: "feat-charmander-progress",
         agent_id: "charmander",
         status: "merged"
       },
       { vaultPath: vault }
-    );
+    ) as MergeRecordResult;
 
     expect(result.task_updated).toBe(false);
     const journalPath = join(vault, "wikis", "_agents", "journal", `${result.journal_id}.md`);
@@ -172,8 +177,9 @@ describe("phase-3 T3-2 — vault_merge-record tool", () => {
     });
     await reindex(vault);
 
-    const result = await mergeRecordTool.handler(
+    const result = await mergeTool.handler(
       {
+        mode: "record",
         pr_number: 13,
         channel: "feat-charmander-progress",
         agent_id: "charmander",
@@ -182,7 +188,7 @@ describe("phase-3 T3-2 — vault_merge-record tool", () => {
         notes: "build broke"
       },
       { vaultPath: vault }
-    );
+    ) as MergeRecordResult;
 
     expect(result.task_updated).toBe(false);
     const journalPath = join(vault, "wikis", "_agents", "journal", `${result.journal_id}.md`);
@@ -206,8 +212,9 @@ describe("phase-3 T3-2 — vault_merge-record tool", () => {
     });
     await reindex(vault);
 
-    const result = await mergeRecordTool.handler(
+    const result = await mergeTool.handler(
       {
+        mode: "record",
         pr_number: 14,
         channel: "feat-charmander-progress",
         agent_id: "charmander",
@@ -215,7 +222,7 @@ describe("phase-3 T3-2 — vault_merge-record tool", () => {
         task_id: "task-do-thing"
       },
       { vaultPath: vault }
-    );
+    ) as MergeRecordResult;
 
     expect(result.task_updated).toBe(false);
     const taskPath = join(vault, "wikis", "alpha", "tasks", "task-do-thing.md");
@@ -233,8 +240,9 @@ describe("phase-3 T3-2 — vault_merge-record tool", () => {
     });
     await reindex(vault);
 
-    const result = await mergeRecordTool.handler(
+    const result = await mergeTool.handler(
       {
+        mode: "record",
         pr_number: 15,
         channel: "feat-charmander-progress",
         agent_id: "charmander",
@@ -242,7 +250,7 @@ describe("phase-3 T3-2 — vault_merge-record tool", () => {
         task_id: "task-do-thing"
       },
       { vaultPath: vault }
-    );
+    ) as MergeRecordResult;
 
     expect(result.task_updated).toBe(false);
     const journalPath = join(vault, "wikis", "_agents", "journal", `${result.journal_id}.md`);
@@ -259,15 +267,16 @@ describe("phase-3 T3-2 — vault_merge-record tool", () => {
     recordRename(vault, "profile-charmander", "profile-charmeleon");
     await reindex(vault);
 
-    const result = await mergeRecordTool.handler(
+    const result = await mergeTool.handler(
       {
+        mode: "record",
         pr_number: 1,
         channel: "feat-fire-progress",
         agent_id: "charmander", // historical name
         status: "merged"
       },
       { vaultPath: vault }
-    );
+    ) as MergeRecordResult;
 
     const journalPath = join(vault, "wikis", "_agents", "journal", `${result.journal_id}.md`);
     expect(existsSync(journalPath)).toBe(true);
@@ -281,8 +290,9 @@ describe("phase-3 T3-2 — vault_merge-record tool", () => {
     await reindex(vault);
 
     await expect(
-      mergeRecordTool.handler(
+      mergeTool.handler(
         {
+          mode: "record",
           pr_number: 99,
           channel: "feat-ghost-progress",
           agent_id: "ghost-agent",
@@ -313,8 +323,9 @@ describe("phase-3 T3-2 — vault_merge-record tool", () => {
     });
     // Deliberately do NOT reindex.
 
-    const result = await mergeRecordTool.handler(
+    const result = await mergeTool.handler(
       {
+        mode: "record",
         pr_number: 77,
         channel: "feat-charmander-progress",
         agent_id: "charmander",
@@ -323,7 +334,7 @@ describe("phase-3 T3-2 — vault_merge-record tool", () => {
         task_id: "task-disk-only"
       },
       { vaultPath: vault }
-    );
+    ) as MergeRecordResult;
 
     expect(result.task_updated).toBe(true);
 
@@ -338,8 +349,9 @@ describe("phase-3 T3-2 — vault_merge-record tool", () => {
     writeProfile(vault, "profile-charmander");
     await reindex(vault);
 
-    const result = await mergeRecordTool.handler(
+    const result = await mergeTool.handler(
       {
+        mode: "record",
         pr_number: 78,
         channel: "feat-charmander-progress",
         agent_id: "charmander",
@@ -347,7 +359,7 @@ describe("phase-3 T3-2 — vault_merge-record tool", () => {
         task_id: "task-does-not-exist"
       },
       { vaultPath: vault }
-    );
+    ) as MergeRecordResult;
 
     expect(result.task_updated).toBe(false);
     // Journal IS still written — the journal is the rule of record.
@@ -364,28 +376,84 @@ describe("phase-3 T3-2 — vault_merge-record tool", () => {
     const fixedNow = "2026-04-30T15:55:27.000Z";
     __setNowFnForTests(() => fixedNow);
 
-    const r1 = await mergeRecordTool.handler(
+    const r1 = await mergeTool.handler(
       {
+        mode: "record",
         pr_number: 50,
         channel: "feat-charmander-progress",
         agent_id: "charmander",
         status: "merged"
       },
       { vaultPath: vault }
-    );
-    const r2 = await mergeRecordTool.handler(
+    ) as MergeRecordResult;
+    const r2 = await mergeTool.handler(
       {
+        mode: "record",
         pr_number: 50,
         channel: "feat-charmander-progress",
         agent_id: "charmander",
         status: "merged"
       },
       { vaultPath: vault }
-    );
+    ) as MergeRecordResult;
 
     expect(r1.journal_id).toBe(r2.journal_id);
     expect(r1.recorded_at).toBe(r2.recorded_at);
     const journalPath = join(vault, "wikis", "_agents", "journal", `${r1.journal_id}.md`);
     expect(existsSync(journalPath)).toBe(true);
+  });
+
+  it("mode=record missing pr_number → requireField error", async () => {
+    vault = seedVault();
+    await reindex(vault);
+
+    await expect(
+      mergeTool.handler(
+        {
+          mode: "record",
+          channel: "feat-charmander-progress",
+          agent_id: "charmander",
+          status: "merged"
+          // pr_number intentionally omitted
+        },
+        { vaultPath: vault }
+      )
+    ).rejects.toThrow("pr_number");
+  });
+
+  it("mode=record missing agent_id → requireField error", async () => {
+    vault = seedVault();
+    await reindex(vault);
+
+    await expect(
+      mergeTool.handler(
+        {
+          mode: "record",
+          pr_number: 1,
+          channel: "feat-charmander-progress",
+          status: "merged"
+          // agent_id intentionally omitted
+        },
+        { vaultPath: vault }
+      )
+    ).rejects.toThrow("agent_id");
+  });
+
+  it("mode=record missing status → requireField error", async () => {
+    vault = seedVault();
+    await reindex(vault);
+
+    await expect(
+      mergeTool.handler(
+        {
+          mode: "record",
+          pr_number: 1,
+          channel: "feat-charmander-progress",
+          agent_id: "charmander"
+          // status intentionally omitted
+        },
+        { vaultPath: vault }
+      )
+    ).rejects.toThrow("status");
   });
 });
