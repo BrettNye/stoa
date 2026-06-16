@@ -1,6 +1,6 @@
 # wait-for: push primitives
 
-Cross-process event coordination over the local filesystem. Four MCP tools — `vault_wait-for`, `vault_wait-for-any`, `vault_wait-for-all`, `vault_wait-for-many` — let an agent register a single bounded wait that resolves on the next matching journal or task event, instead of polling `vault_channel-tail` on a timer.
+Cross-process event coordination over the local filesystem. The `vault_wait-for` tool (with `mode: next | any | all | many`) lets an agent register a single bounded wait that resolves on the next matching journal or task event, instead of polling `vault_channel` (`mode: tail`) on a timer.
 
 This doc is for developers integrating with `@stoa-mcp/cli` who need cross-process push coordination. It assumes you already have stoa installed and an MCP client attached.
 
@@ -42,16 +42,17 @@ The non-obvious win: push makes deploy-and-walk-away multi-day async coordinatio
 - **Deletes.** `change_kind` is `"add" | "change" | "internal"` (`stoa/src/core/eventbus/types.ts:6`). Deletes are not in the v1.7.1 union — no initial source emits them. If your flow depends on observing a file deletion, this isn't the tool.
 - **Body-content matching.** The filter shape is `{source, wiki?, channel?, id?}` (`stoa/src/core/eventbus/types.ts:13`). There is no `body_contains`, no regex, no frontmatter-field predicate beyond `channel`. Wake on the event, then read the page and match the body yourself.
 
-## The four tools
+## The four modes
 
-Every tool returns a `WaitResult` with a fresh `cursor` and a `timed_out` boolean. Default `timeout_ms` is `25_000`; max is `120_000` (`stoa/src/tools/wait-for.ts:16`). For longer waits, loop with the returned cursor.
+`vault_wait-for` accepts a required `mode` field and returns a `WaitResult` with a fresh `cursor` and a `timed_out` boolean. Default `timeout_ms` is `25_000`; max is `120_000` (`stoa/src/tools/wait-for.ts:16`). For longer waits, loop with the returned cursor.
 
-### `vault_wait-for` — single event
+### `vault_wait-for` `mode: next` — single event
 
 `stoa/src/tools/wait-for.ts:19`
 
 ```typescript
 {
+  mode: "next",
   filter: Filter,
   since?: string,           // opaque cursor or ISO timestamp
   timeout_ms?: number,      // default 25000, max 120000
@@ -67,6 +68,7 @@ Resolves on the first matching event. If catch-up returns a hit (the file alread
 ```typescript
 // Block until a journal lands on channel "push-test".
 const result = await callTool("vault_wait-for", {
+  mode: "next",
   filter: { source: "journal", channel: "push-test" },
   timeout_ms: 5000,
 });
@@ -75,12 +77,13 @@ const result = await callTool("vault_wait-for", {
 ```
 (`stoa/tests/integration/wait-for.test.ts:176`)
 
-### `vault_wait-for-any` — first of N
+### `vault_wait-for` `mode: any` — first of N
 
-`stoa/src/tools/wait-for-any.ts:19`
+`stoa/src/tools/wait-for.ts:19`
 
 ```typescript
 {
+  mode: "any",
   filters: Filter[],        // 1–32 filters
   since?: string,
   timeout_ms?: number,
@@ -95,7 +98,8 @@ const result = await callTool("vault_wait-for", {
 Resolves on the first event that matches any filter. `matched_filter_index` tells you which filter fired (`stoa/src/core/eventbus/kinds/any.ts:6`).
 
 ```typescript
-const result = await callTool("vault_wait-for-any", {
+const result = await callTool("vault_wait-for", {
+  mode: "any",
   filters: [
     { source: "journal", channel: "any-chan-0" },
     { source: "journal", channel: "any-chan-1" },
@@ -106,12 +110,13 @@ const result = await callTool("vault_wait-for-any", {
 ```
 (`stoa/tests/integration/wait-for.test.ts:404`)
 
-### `vault_wait-for-all` — fan-in
+### `vault_wait-for` `mode: all` — fan-in
 
-`stoa/src/tools/wait-for-all.ts:19`
+`stoa/src/tools/wait-for.ts:19`
 
 ```typescript
 {
+  mode: "all",
   filters: Filter[],        // 1–32 filters
   since?: string,
   timeout_ms?: number,
@@ -126,7 +131,8 @@ const result = await callTool("vault_wait-for-any", {
 Resolves once every filter has been satisfied at least once, or `timeout_ms` elapses. On partial timeout, `events` contains only the resolved filters' events, and `missing_filter_indices` enumerates the unresolved indices (`stoa/src/core/eventbus/kinds/all.ts:38`).
 
 ```typescript
-const result = await callTool("vault_wait-for-all", {
+const result = await callTool("vault_wait-for", {
+  mode: "all",
   filters: [
     { source: "journal", channel: "feat-X" },
     { source: "journal", channel: "feat-Y" },
@@ -137,12 +143,13 @@ const result = await callTool("vault_wait-for-all", {
 ```
 (`stoa/tests/integration/wait-for.test.ts:473`)
 
-### `vault_wait-for-many` — bounded batch
+### `vault_wait-for` `mode: many` — bounded batch
 
-`stoa/src/tools/wait-for-many.ts:20`
+`stoa/src/tools/wait-for.ts:19`
 
 ```typescript
 {
+  mode: "many",
   filter: Filter,
   max: number,              // 1–1000
   since?: string,
@@ -157,7 +164,8 @@ const result = await callTool("vault_wait-for-all", {
 Collects up to `max` events matching the filter. Resolves with `timed_out: false` when `max` is reached, or with `timed_out: true` and however many events arrived before the deadline (`stoa/src/core/eventbus/kinds/many.ts:6`).
 
 ```typescript
-const result = await callTool("vault_wait-for-many", {
+const result = await callTool("vault_wait-for", {
+  mode: "many",
   filter: { source: "journal", channel: "many-chan" },
   max: 3,
   timeout_ms: 1000,
