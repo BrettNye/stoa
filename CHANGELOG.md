@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.5.0 — 2026-06-15
+
+Tool-surface family consolidation. 19 tool names retire; 8 consolidated names take their place. The advertised surface drops from 55 → 43 tools.
+
+### Changed (BREAKING) — 8 tool-family consolidations
+
+Each family now exposes a single tool name that accepts a `mode:` (or `surface:`) discriminator instead of a separate tool per operation.
+
+| Retired names | Consolidated name | Discriminator |
+|---|---|---|
+| `vault_wait-for-any`, `vault_wait-for-all`, `vault_wait-for-many` | `vault_wait-for` | `mode: next\|any\|all\|many` |
+| `vault_trainer-submit-draft`, `vault_trainer-submit-move` | `vault_trainer-submit` | `mode: draft\|move` |
+| `vault_merge-queue`, `vault_merge-record` | `vault_merge` | `mode: queue\|record` |
+| `vault_list-invites`, `vault_list-platform-profiles` | `vault_stadium-list` | `mode: invites\|platform-profiles` |
+| `vault_task-create`, `vault_task-list`, `vault_task-update`, `vault_task-claim` | `vault_task` | `mode: create\|list\|update\|claim` |
+| `vault_channel-post`, `vault_channel-tail` | `vault_channel` | `mode: post\|tail` |
+| `vault_real-skill-register`, `vault_real-skill-refresh` | `vault_real-skill` | `mode: register\|refresh` |
+| `vault_sync-skills`, `vault_sync-agents` | `vault_sync` | `surface: skills\|agents` |
+
+**Migration.** Replace every call site: drop the old name, use the consolidated name, and add the appropriate `mode:` or `surface:` field. E.g. `vault_task-create { ... }` → `vault_task { mode: "create", ... }`.
+
 ## 0.4.0 — 2026-05-26
 
 Server mode. Networked HTTP transport with JWT-based bearer auth and capability scoping. Lets operators run Stoa as a hosted MCP endpoint reachable from dispatched workers (Fargate tasks, Agora-dispatched sub-agents, CI fleets) without sharing a process boundary with Stoa. Solo-laptop `stoa --mcp` stdio mode continues to work unchanged. Full deployment walkthrough at `docs/server-mode.md`; design rationale at `docs/superpowers/specs/2026-05-21-stoa-server-mode-design.md`.

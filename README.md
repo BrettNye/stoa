@@ -55,13 +55,10 @@ Restart Claude Code. You now have `vault_recall`, `vault_inbox`, `vault_synthesi
 - `vault_read` — fetch a page by id or path
 - `vault_list-wikis` — list wikis with mode, scope, and summary stats
 - `vault_lint` — read-only health check (orphans, schema violations, channel format, claim invariants, synthesis debt, missing curation priority)
-- `vault_channel-tail` — pull recent entries on a coordination channel
+- `vault_channel` — pull recent entries on a coordination channel or post to one; `mode: tail|post`
 
 **Wait (push primitives):** block until vault events occur instead of polling
-- `vault_wait-for` — block until one matching event lands; cursor-based catch-up
-- `vault_wait-for-any` — wake on first match across N filters (race semantics)
-- `vault_wait-for-all` — wake when all N filters have matched at least once
-- `vault_wait-for-many` — bounded batch over a window
+- `vault_wait-for` — block until a matching event lands; `mode: next|any|all|many` controls fan-out semantics (race, all-matched, bounded batch)
 
 **Write — content:**
 - `vault_inbox` — capture a fleeting thought to the active wiki's `inbox/`
@@ -77,9 +74,8 @@ Restart Claude Code. You now have `vault_recall`, `vault_inbox`, `vault_synthesi
 - `vault_curate` — autonomously promote/archive/resolve pages on checkable evidence; one digest-journal audit trail; git-reversible; admin-scoped over HTTP
 
 **Coordination:**
-- `vault_channel-post` — post to a coordination channel (cross-instance comms)
-- `vault_task-claim` — atomically claim a pending task; race-loser sees `AlreadyClaimedError`
-- `vault_task-create`, `vault_task-list`, `vault_task-update` — task lifecycle
+- `vault_channel` — post to or tail a coordination channel; `mode: post|tail`
+- `vault_task` — full task lifecycle: `mode: create|list|update|claim` (claim is atomic; race-loser sees `AlreadyClaimedError`)
 - `vault_bootstrap-repo` — wire a consuming repo with `.mcp.json` and a `CLAUDE.md` fragment
 
 **Agent memory:**
@@ -89,15 +85,14 @@ Restart Claude Code. You now have `vault_recall`, `vault_inbox`, `vault_synthesi
 
 **Agent substrate:**
 - `vault_start` — cold-start brief: active pages, channel unread counts, in-flight tasks
-- `vault_sync-agents` — build a SubagentIntent from a profile + moveset and dispatch to the runtime adapter
-- `vault_sync-skills` — deploy an agent profile's moveset as local skills
+- `vault_sync` — deploy agent skills or dispatch a subagent intent; `surface: skills|agents`
 - `vault_profile-stats` — compute evolution metrics and move-mastery scores for a profile
 
-> **v0.4 server-mode note.** A handful of these tools — `vault_sync-skills`, `vault_sync-agents`, `vault_bootstrap-repo`, `vault_seed-substrate`, and map writes via `vault_new` — are HTTP-forbidden and only callable in stdio mode. Admin-shaped tools (`vault_reindex`, `vault_set-active`, `vault_new-wiki`, `vault_evolve-profile`, `vault_lint --scope=full`) require an explicit `admin:*` scope on HTTP tokens. Stdio invocations remain unrestricted. See [`docs/server-mode.md`](docs/server-mode.md) for the full scope grammar.
+> **v0.4 server-mode note.** A handful of these tools — `vault_sync` (both surfaces), `vault_bootstrap-repo`, `vault_seed-substrate`, and map writes via `vault_new` — are HTTP-forbidden and only callable in stdio mode. Admin-shaped tools (`vault_reindex`, `vault_set-active`, `vault_new-wiki`, `vault_evolve-profile`, `vault_lint --scope=full`) require an explicit `admin:*` scope on HTTP tokens. Stdio invocations remain unrestricted. See [`docs/server-mode.md`](docs/server-mode.md) for the full scope grammar.
 
 ## Agent coordination
 
-Multiple AI instances — different repos, different machines — can share the same vault and coordinate without copy-paste. Agents post and tail named channels (`vault_channel-post`, `vault_channel-tail`) to pass work between sessions. Tasks are queued as typed pages and claimed atomically (`vault_task-claim`), so two racing sessions can never silently double-claim the same work. Agents also accumulate persistent memory across sessions: a non-obvious invariant discovered during debugging becomes a `vault_claim`; the next session pulls it back via `vault_agent-memory` before starting work.
+Multiple AI instances — different repos, different machines — can share the same vault and coordinate without copy-paste. Agents post and tail named channels (`vault_channel` with `mode: post|tail`) to pass work between sessions. Tasks are queued as typed pages and claimed atomically (`vault_task` with `mode: claim`), so two racing sessions can never silently double-claim the same work. Agents also accumulate persistent memory across sessions: a non-obvious invariant discovered during debugging becomes a `vault_claim`; the next session pulls it back via `vault_agent-memory` before starting work.
 
 See [docs/agent-memory.md](docs/agent-memory.md) for the claim authoring and retrieval protocol, and [docs/task-coordination.md](docs/task-coordination.md) for the full task lifecycle and channel conventions.
 
@@ -175,7 +170,7 @@ Set `STOA_VAULT_PATH` to skip `--vault=` on every call.
 - [Common workflows](docs/common-workflows.md) — task-driven recipes for the things you'll actually do
 - [Tool reference](docs/tool-reference.md) — alphabetical reference for every `vault_*` MCP tool
 - [Manual smoke test](docs/manual-smoke-test.md) — verify your setup
-- [wait-for: push primitives](docs/wait-for.md) — `vault_wait-for{,-any,-all,-many}` over the local FS-watch event bus
+- [wait-for: push primitives](docs/wait-for.md) — `vault_wait-for` (mode: next|any|all|many) over the local FS-watch event bus
 - [Server mode](docs/server-mode.md) — operator deployment guide for the HTTP transport (v0.4+); Day-zero install, Fargate task definitions, two-tier credentials, troubleshooting
 
 ## Tests
@@ -201,14 +196,14 @@ Networked HTTP transport with JWT-based bearer auth and capability scoping. Lets
 
 - **HS256 JWTs**, integrator-minted, Stoa verifier-only. No token issuance endpoint. Signing secret in `STOA_TOKEN_SIGNING_SECRET` env var, shared between Stoa and the orchestrator process. RS256 / JWKS path-of-record; HMAC only in v0.4.
 - **Bearer tokens** carry `sub` (becomes `agent_id`), `scopes`, `exp`, `iat`, `jti`. Verified once at session `initialize`; principal binds to the MCP session for subsequent tool calls.
-- **Hybrid scope grammar**: closed tool-prefix + open `picomatch` glob over a per-tool axis. Examples: `vault_recall:wikis/project-acme/**`, `vault_task-claim:tasks/review-abc`, `vault_channel-post:channels/build-coord`.
+- **Hybrid scope grammar**: closed tool-prefix + open `picomatch` glob over a per-tool axis. Examples: `vault_recall:wikis/project-acme/**`, `vault_task:tasks/review-abc`, `vault_channel:channels/build-coord`.
 - **Three-gate dispatcher** per tool call: HTTP-forbidden → admin → axis. Stdio principals carry `*:*` and bypass every gate. HTTP tokens with `admin:*` subsume the axis check for that tool. Scope denials raise `ScopeDeniedError` with the rejected axis string for client diagnostics.
 - **Admin-required tools** (`vault_reindex`, `vault_evolve-profile`, `vault_set-active`, `vault_new-wiki`, map writes via `vault_new`, `vault_lint --scope=full`) refuse HTTP calls without `admin:*` or `admin:<tool>`.
-- **HTTP-forbidden tools** (`vault_sync-skills`, `vault_sync-agents`, `vault_bootstrap-repo`, `vault_seed-substrate`) are refused over HTTP regardless of scopes — stdio-only.
+- **HTTP-forbidden tools** (`vault_sync` (both surfaces), `vault_bootstrap-repo`, `vault_seed-substrate`) are refused over HTTP regardless of scopes — stdio-only.
 
 ### Added — concurrency
 
-- **Per-task locking on `vault_task-claim`.** `claimTask` now wraps its read-check-write in `withSerializedIndexWrite([\`task-${id}\`], ...)`. Closes the documented same-day race where two concurrent claimants could both pass the frontmatter-date OCC and double-claim. `claimTask` is now `async`; existing callers already await it.
+- **Per-task locking on `vault_task` (mode: claim).** `claimTask` now wraps its read-check-write in `withSerializedIndexWrite([\`task-${id}\`], ...)`. Closes the documented same-day race where two concurrent claimants could both pass the frontmatter-date OCC and double-claim. `claimTask` is now `async`; existing callers already await it.
 - **Stale-lock detection** on lock acquisition: 60s threshold, capped at 3 stale-unlink retries per lock to bound the loop under adversarial mtime (clock skew, antivirus interruption, crashed writers). Replaces the orphaned-lock failure mode where five zero-byte locks once blocked every subsequent write.
 
 ### Added — vault config
@@ -225,8 +220,8 @@ Missing file → all defaults. Partial config merges over defaults at the key le
 
 The following tools no longer accept `agent_id` in their Zod input schemas. The server now stamps `agent_id` from the verified principal — clients passing it explicitly will fail Zod parse with a clear error:
 
-- `vault_channel-post`, `vault_agent-journal`
-- `vault_task-claim`, `vault_task-update`, `vault_task-create`
+- `vault_channel` (mode: post), `vault_agent-journal`
+- `vault_task` (mode: claim|update|create)
 - `vault_claim` (`authored_by` also dropped — retract authorization compares against `ctx.principal.agent_id`)
 - `vault_agent-memory`
 
@@ -257,7 +252,7 @@ Substrate additions landed 2026-05-19 that let agents develop deep domain compet
 - `vault_claim --source-type=lived|curricular|retro` — claim provenance. Default `lived`. `lived` cites real journal/task/PR evidence; `curricular` cites a course guide page; `retro` cites older artifacts a pattern was extracted from.
 - `vault_list-claims --source-type=<value>` — filter the claim list by source_type. Parallel surface to the existing `--profile=` / `--move=` filters.
 - `vault_bootstrap-repo --wiki=<name>` — now layers every `wikis/<wiki>/moves/<id>/SKILL.md` on top of the resolved profile's portable moveset. Deployed CLAUDE.md fragment renders `### Portable moves` and `### Specialist moves (<wiki>)` subsections.
-- `vault_sync-skills` — same wiki-local layering when called from a context that passes the wiki through. (The CLI `sync-skills` subcommand does not currently expose `--wiki=` — use `bootstrap-repo --wiki=` from the terminal, or call the MCP tool directly.)
+- `vault_sync` (surface: skills) — same wiki-local layering when called from a context that passes the wiki through. (The CLI `sync-skills` subcommand does not currently expose `--wiki=` — use `bootstrap-repo --wiki=` from the terminal, or call `vault_sync` with `surface: "skills"` directly via the MCP tool.)
 
 ### Sidecar schema bump
 
