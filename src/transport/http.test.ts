@@ -135,6 +135,48 @@ describe("HTTP transport", () => {
     });
     expect(headersAlreadySent, "ERR_HTTP_HEADERS_SENT crash detected via console.error").toBe(false);
   });
+
+  it("supports two concurrent client sessions (per-session transports)", async () => {
+    const key = new TextEncoder().encode(SECRET);
+    const token = await new SignJWT({ scopes: ["admin"] })
+      .setProtectedHeader({ alg: "HS256" })
+      .setSubject("multi-client")
+      .setIssuedAt()
+      .setExpirationTime("1h")
+      .sign(key);
+    const initBody = JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2024-11-05",
+        capabilities: {},
+        clientInfo: { name: "c", version: "1.0.0" },
+      },
+    });
+    const init = () =>
+      fetch(`http://127.0.0.1:${port}/mcp`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json, text/event-stream",
+          Authorization: `Bearer ${token}`,
+        },
+        body: initBody,
+      });
+
+    // Before the per-session fix, the SECOND initialize failed with
+    // "Server already initialized" (400) on the single shared transport.
+    const a = await init();
+    const b = await init();
+    expect(a.status).toBe(200);
+    expect(b.status).toBe(200);
+    const sidA = a.headers.get("mcp-session-id");
+    const sidB = b.headers.get("mcp-session-id");
+    expect(sidA).toBeTruthy();
+    expect(sidB).toBeTruthy();
+    expect(sidA).not.toBe(sidB);
+  });
 });
 
 describe("startHttp configuration", () => {

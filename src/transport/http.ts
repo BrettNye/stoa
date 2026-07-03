@@ -56,43 +56,49 @@ export async function startHttp(
   }
   const verifier = new JwtVerifier(secret);
 
-  // MCP server + Streamable HTTP transport in stateful mode.
-  const mcp = new Server(
-    { name: "stoa", version: "0.4.0" },
-    { capabilities: { tools: {} } },
-  );
+  // One StreamableHTTPServerTransport + Server PER client session. The SDK's
+  // stateful transport is single-session (a second `initialize` on the same
+  // transport is rejected with "Server already initialized"), so a single shared
+  // transport cannot serve two concurrent clients — e.g. a read-scoped worker and
+  // a write-scoped worker each opening their own MCP client. Keyed by session id.
+  const transports = new Map<string, StreamableHTTPServerTransport>();
 
-  mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: allTools.map((t) => ({
-      name: t.name,
-      description: t.description,
-      inputSchema: zodToJsonSchema(t.inputSchema as any) as any,
-    })),
-  }));
+  const buildServer = (): Server => {
+    const mcp = new Server(
+      { name: "stoa", version: "0.4.0" },
+      { capabilities: { tools: {} } },
+    );
 
-  mcp.setRequestHandler(CallToolRequestSchema, async (req, extra) => {
-    const tool = allTools.find((t) => t.name === req.params.name);
-    if (!tool) throw new Error(`unknown tool: ${req.params.name}`);
-    const parsed = tool.inputSchema.parse(req.params.arguments ?? {});
-    // Principal arrives via the SDK's AuthInfo plumbing — we stash it under
-    // `authInfo.extra.principal` from the middleware boundary. Fall back to
-    // a top-level `principal` field for forward-compat.
-    const authInfo: any = extra?.authInfo;
-    const principal: Principal | undefined =
-      authInfo?.extra?.principal ?? authInfo?.principal;
-    if (!principal) {
-      throw new Error("no principal on request (auth middleware misconfigured)");
-    }
-    const ctx = buildCtx(config, undefined, principal);
-    authorize(tool as any, parsed, ctx.principal);
-    const result = await (tool as any).handler(parsed as any, ctx as any);
-    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-  });
+    mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
+      tools: allTools.map((t) => ({
+        name: t.name,
+        description: t.description,
+        inputSchema: zodToJsonSchema(t.inputSchema as any) as any,
+      })),
+    }));
 
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: () => randomUUID(),
-  });
-  await mcp.connect(transport);
+    mcp.setRequestHandler(CallToolRequestSchema, async (req, extra) => {
+      const tool = allTools.find((t) => t.name === req.params.name);
+      if (!tool) throw new Error(`unknown tool: ${req.params.name}`);
+      const parsed = tool.inputSchema.parse(req.params.arguments ?? {});
+      // Principal arrives via the SDK's AuthInfo plumbing — we stash it under
+      // `authInfo.extra.principal` from the middleware boundary. Fall back to
+      // a top-level `principal` field for forward-compat. Auth is per-request
+      // (each request carries its own bearer), independent of the session.
+      const authInfo: any = extra?.authInfo;
+      const principal: Principal | undefined =
+        authInfo?.extra?.principal ?? authInfo?.principal;
+      if (!principal) {
+        throw new Error("no principal on request (auth middleware misconfigured)");
+      }
+      const ctx = buildCtx(config, undefined, principal);
+      authorize(tool as any, parsed, ctx.principal);
+      const result = await (tool as any).handler(parsed as any, ctx as any);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    });
+
+    return mcp;
+  };
 
   const app = new Hono<{ Variables: { principal: Principal } }>();
 
@@ -133,6 +139,41 @@ export async function startHttp(
       expiresAt: principal.exp,
       extra: { principal },
     };
+    // Route to the client's session transport, or create one on `initialize`.
+    const sessionId = c.req.header("mcp-session-id");
+    const existing = sessionId ? transports.get(sessionId) : undefined;
+    let transport: StreamableHTTPServerTransport;
+    if (existing) {
+      transport = existing;
+    } else if (sessionId) {
+      // A session id was presented but we have no transport for it (expired or
+      // never existed) — reject rather than silently opening a fresh session.
+      nodeRes.statusCode = 404;
+      nodeRes.setHeader("content-type", "application/json");
+      nodeRes.end(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          error: { code: -32001, message: "session not found" },
+          id: null,
+        }),
+      );
+      return new Response(null, { headers: { "x-hono-already-sent": "1" } });
+    } else {
+      // No session id ⇒ a fresh `initialize`. Stand up a new transport + server,
+      // register it once the SDK assigns a session id, and drop it on close.
+      const created: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => randomUUID(),
+        onsessioninitialized: (sid: string) => {
+          transports.set(sid, created);
+        },
+      });
+      created.onclose = () => {
+        if (created.sessionId) transports.delete(created.sessionId);
+      };
+      await buildServer().connect(created);
+      transport = created;
+    }
+
     await transport.handleRequest(nodeReq, nodeRes);
     // The transport writes directly to nodeRes and fully ends the response.
     // Return the @hono/node-server "already-sent" sentinel so the Hono pipeline
