@@ -54,7 +54,8 @@ export function renderFourSection(c: Concern): string {
 
 /** Extract a named `## ` section's body text. Returns "" when absent. */
 export function parseFourSection(body: string, heading: string): string {
-  const re = new RegExp(`(?:^|\\n)##\\s+${heading}\\s*\\n([\\s\\S]*?)(?=\\n##\\s|$)`, "i");
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`(?:^|\\n)##[ \\t]+${escaped}[ \\t]*\\r?\\n([\\s\\S]*?)(?=\\n##[ \\t]|$)`, "i");
   const m = re.exec(body);
   return m ? m[1].trim() : "";
 }

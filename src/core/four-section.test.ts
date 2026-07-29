@@ -66,4 +66,27 @@ describe("four-section", () => {
     const errs = validateEnvelope({ schemaVersion: 1, concerns: "nope" });
     expect(errs.length).toBeGreaterThan(0);
   });
+
+  it("parses an empty non-last section as '' without bleeding into the next section", () => {
+    const body = renderFourSection({ ...concern, out_of_scope: "" });
+    expect(parseFourSection(body, "Out of scope")).toBe("");
+    expect(parseFourSection(body, "Verification")).toBe(concern.verification);
+  });
+
+  it("parses a whitespace-only non-last section as '' without bleeding into the next section", () => {
+    const body = renderFourSection({ ...concern, out_of_scope: "   " });
+    expect(parseFourSection(body, "Out of scope")).toBe("");
+    expect(parseFourSection(body, "Verification")).toBe(concern.verification);
+  });
+
+  it("still parses the last section correctly, including trailing whitespace handling", () => {
+    const body = renderFourSection(concern);
+    expect(parseFourSection(body, "Verification")).toBe(concern.verification);
+  });
+
+  it("matches a heading containing regex metacharacters literally instead of throwing", () => {
+    const body = "## Foo (unterminated\nbar\n";
+    expect(() => parseFourSection(body, "Foo (unterminated")).not.toThrow();
+    expect(parseFourSection(body, "Foo (unterminated")).toBe("bar");
+  });
 });
