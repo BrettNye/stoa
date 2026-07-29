@@ -51,4 +51,35 @@ describe("buildFollowUpPlan", () => {
     const plan = buildFollowUpPlan({ taskId: "task-x", body, segregation: [], date: "2026-07-29" });
     expect(plan.id).toBe("followup-task-x-2026-07-29");
   });
+
+  it("wires impl instructions from Scope + Out of scope, and verify/fixTemplate from Verification", () => {
+    const plan = buildFollowUpPlan({ taskId: "task-x", body, segregation: [], date: "2026-07-29" });
+    expect((plan.items[0].inputs.workerInput as any).instructions).toBe(
+      "do the thing\n\nOut of scope:\nnot that"
+    );
+    expect((plan.items[1].inputs.workerInput as any).instructions).toBe("npm test passes");
+    const gate = plan.items[1].inputs.gate as { fixTemplate: { inputs: { workerInput: { instructions: string } } } };
+    expect(gate.fixTemplate.inputs.workerInput.instructions).toBe("npm test passes");
+  });
+
+  it("throws naming the missing section when Scope is absent", () => {
+    const bodyMissingScope = "# T\n\n## Out of scope\nnot that\n\n## Verification\nnpm test passes\n";
+    expect(() =>
+      buildFollowUpPlan({ taskId: "task-x", body: bodyMissingScope, segregation: [], date: "2026-07-29" })
+    ).toThrow(/Scope/);
+  });
+
+  it("throws naming the missing section when Out of scope is absent", () => {
+    const bodyMissingOutOfScope = "# T\n\n## Scope\ndo the thing\n\n## Verification\nnpm test passes\n";
+    expect(() =>
+      buildFollowUpPlan({ taskId: "task-x", body: bodyMissingOutOfScope, segregation: [], date: "2026-07-29" })
+    ).toThrow(/Out of scope/);
+  });
+
+  it("throws naming the missing section when Verification is absent", () => {
+    const bodyMissingVerification = "# T\n\n## Scope\ndo the thing\n\n## Out of scope\nnot that\n";
+    expect(() =>
+      buildFollowUpPlan({ taskId: "task-x", body: bodyMissingVerification, segregation: [], date: "2026-07-29" })
+    ).toThrow(/Verification/);
+  });
 });

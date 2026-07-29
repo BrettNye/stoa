@@ -31,12 +31,26 @@ export interface FollowUpPlan {
   items: PlanItem[];
 }
 
+/**
+ * Extract a required `## ` section's body text. Throws if the section is
+ * absent or blank, mirroring the throw-on-refusal pattern `canonicalizeLockPath`
+ * uses for lock paths: a structurally-valid plan with empty instructions would
+ * otherwise be submitted for unattended execution with nothing for the agent to do.
+ */
+function requireSection(body: string, heading: string): string {
+  const value = parseFourSection(body, heading);
+  if (value.trim().length === 0) {
+    throw new Error(`follow-up plan: task body is missing a non-empty "## ${heading}" section`);
+  }
+  return value;
+}
+
 /** Build the lane-B plan.json object. Throws if a segregation entry is a glob or absolute. */
 export function buildFollowUpPlan(input: FollowUpPlanInput): FollowUpPlan {
   const locks = input.segregation.map(canonicalizeLockPath);
-  const scope = parseFourSection(input.body, "Scope");
-  const outOfScope = parseFourSection(input.body, "Out of scope");
-  const verification = parseFourSection(input.body, "Verification");
+  const scope = requireSection(input.body, "Scope");
+  const outOfScope = requireSection(input.body, "Out of scope");
+  const verification = requireSection(input.body, "Verification");
 
   return {
     id: `followup-${input.taskId}-${input.date}`,
@@ -50,7 +64,7 @@ export function buildFollowUpPlan(input: FollowUpPlanInput): FollowUpPlan {
           workerInput: { instructions: `${scope}\n\nOut of scope:\n${outOfScope}` },
         },
         depends_on: [],
-        resourceLocks: locks,
+        resourceLocks: [...locks],
       },
       {
         id: "verify",
@@ -65,7 +79,7 @@ export function buildFollowUpPlan(input: FollowUpPlanInput): FollowUpPlan {
             fixTemplate: {
               executor: "dispatch",
               inputs: { subagent: "follow-up-fixer", workerInput: { instructions: verification } },
-              resourceLocks: locks,
+              resourceLocks: [...locks],
             },
           },
         },
