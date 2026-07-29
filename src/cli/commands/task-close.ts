@@ -43,7 +43,7 @@ export function registerTaskClose(p: Command) {
       const r = updateTask(ctx.vaultPath, {
         task_id: opts.taskId,
         wiki,
-        expected_updated: page.frontmatter.updated,
+        expected_updated: page.updated,
         status,
         notes,
         agent_id: "pangolin-followup",
