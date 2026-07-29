@@ -4,6 +4,7 @@ import { renderFourSection, validateEnvelope, type ConcernsEnvelope } from "../.
 import { canonicalizeLockPath } from "../../core/lock-path.js";
 import { checkTaskReadiness } from "../../core/task-readiness.js";
 import { createTask, findTaskOnDisk } from "../../core/tasks.js";
+import { slugify } from "../../core/ids.js";
 import { resolveWiki } from "../../tools/_resolve-wiki.js";
 import { getCtx } from "../_ctx.js";
 
@@ -42,7 +43,11 @@ export function registerTaskImport(p: Command) {
               skipped.push({ id: c.title, why: `not ready: ${readiness.missing.join(", ")}` });
               continue;
             }
-            const id = `task-${c.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+            // Must agree exactly with createTask's id derivation (src/core/tasks.ts,
+            // which calls sharedSlugify(title, 80)) — otherwise this pre-check looks
+            // up an id that will never exist on disk, and re-running the import
+            // creates duplicates under the id createTask actually assigns.
+            const id = `task-${slugify(c.title, 80)}`;
             if (findTaskOnDisk(ctx.vaultPath, id)) { skipped.push({ id, why: "already exists" }); continue; }
             const r = createTask(ctx.vaultPath, {
               title: c.title, wiki, body,
