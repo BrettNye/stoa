@@ -23,11 +23,26 @@ export function readBundleItems(bundlePath: string): BundleItem[] {
  * `pangolin://<ns>/<type>/<name>/<hash>` -> `<root>/<ns>/<type>/<name>/<hash>.blob`
  * Returns null for a ref that is not in that form (e.g. a dispatch-record URI).
  */
+/**
+ * A ref segment is unsafe when it can make `resolve()` produce a path outside the
+ * documented <root>/<ns>/<type>/<name>/<hash>.blob layout. Each branch closes a
+ * distinct, separately-discovered escape:
+ *   - "." / ".."  : exact tokens; "." is a resolve() no-op that stays contained,
+ *                   so the structural containment check alone does not catch it.
+ *   - contains \  : the [^/]+ capture excludes "/" but not "\", which win32
+ *                   resolve() treats as a separator (can fold back inside root).
+ *   - ^[A-Za-z]:  : Windows drive-letter / drive-relative form, silently collapsed
+ *                   by resolve(), dropping a whole level. NOTE: must not match a
+ *                   legitimate hash like "sha256:abc" — anchor to the start only.
+ */
+const isUnsafePathSegment = (s: string): boolean =>
+  s === "." || s === ".." || s.includes("\\") || /^[A-Za-z]:/.test(s);
+
 export function resolveBlobPath(ref: string, storageRoot: string): string | null {
   const m = /^pangolin:\/\/([^/]+)\/([^/]+)\/([^/]+)\/([^/]+)$/.exec(ref);
   if (!m) return null;
   const [, ns, type, name, hash] = m;
-  if ([ns, type, name, hash].some((s) => s === "." || s === ".." || s.includes("\\"))) return null;
+  if ([ns, type, name, hash].some(isUnsafePathSegment)) return null;
   const root = resolve(storageRoot);
   const candidate = resolve(root, ns, type, name, `${hash}.blob`);
   if (candidate !== root && !candidate.startsWith(root + sep)) return null;

@@ -50,6 +50,22 @@ describe("pangolin-bundle", () => {
     ).toBeNull();
   });
 
+  it("returns null for a bare drive-letter segment that silently collapses the ns level", () => {
+    const dir = mkdtempSync(join(tmpdir(), "bundle-storage-"));
+    expect(resolveBlobPath("pangolin://C:/artifact/concerns/sha256:abc", dir)).toBeNull();
+  });
+
+  it("returns null for a drive-relative segment that silently collapses the ns level", () => {
+    const dir = mkdtempSync(join(tmpdir(), "bundle-storage-"));
+    expect(resolveBlobPath("pangolin://C:evil/artifact/concerns/sha256:abc", dir)).toBeNull();
+  });
+
+  it("still resolves a legitimate hash segment containing a non-drive colon", () => {
+    const dir = mkdtempSync(join(tmpdir(), "bundle-storage-"));
+    expect(resolveBlobPath("pangolin://ns/artifact/concerns/sha256:abc", dir))
+      .toBe(resolve(dir, "ns", "artifact", "concerns", "sha256:abc.blob"));
+  });
+
   it("reads items out of an audit bundle", () => {
     const dir = mkdtempSync(join(tmpdir(), "bundle-"));
     const p = join(dir, "bundle.json");
