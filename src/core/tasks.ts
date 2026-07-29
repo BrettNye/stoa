@@ -114,6 +114,9 @@ export interface CreateTaskInput {
   title: string;
   wiki: string;
   description?: string;
+  /** Full page body. When present it wins over `description` for the body only —
+   *  `description` still populates the frontmatter field when supplied. */
+  body?: string;
   segregation?: string[];
   blocking?: string[];
   channel?: string;
@@ -160,7 +163,7 @@ export function createTask(vaultPath: string, input: CreateTaskInput): CreateTas
   const result = writePage(vaultPath, {
     id, type: "task", wiki: input.wiki,
     frontmatter: fm,
-    body: input.description ?? [
+    body: input.body ?? input.description ?? [
       `# ${input.title}`,
       ``,
       `## Scope`,

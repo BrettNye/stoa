@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, mkdirSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { claimTask, createTask, AlreadyClaimedError } from "./tasks.js";
@@ -71,5 +71,31 @@ describe("claimTask concurrency", () => {
     const resolved = await result;
     expect(resolved.task_id).toBe(taskId);
     expect(resolved.claimed_by).toBe("agent:charlie");
+  });
+});
+
+describe("createTask body field", () => {
+  let vault: string;
+
+  beforeEach(() => {
+    vault = mkdtempSync(join(tmpdir(), "stoa-body-"));
+    mkdirSync(join(vault, "wikis", "alpha", "tasks"), { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(vault, { recursive: true, force: true });
+  });
+
+  it("uses body for the page body while description stays in frontmatter", () => {
+    const r = createTask(vault, {
+      title: "Body precedence",
+      wiki: "alpha",
+      description: "short summary",
+      body: "# Body precedence\n\n## Scope\nfull text\n",
+    });
+    const raw = readFileSync(r.path, "utf8");
+    expect(raw).toContain("description: short summary");
+    expect(raw).toContain("## Scope");
+    expect(raw).not.toContain("description: '# Body precedence");
   });
 });
