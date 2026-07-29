@@ -29,6 +29,27 @@ describe("pangolin-bundle", () => {
     expect(resolveBlobPath("pangolin://..\\evil/artifact/concerns/sha256:abc", dir)).toBeNull();
   });
 
+  it("returns null for a multi-hop backslash traversal that folds back inside storageRoot", () => {
+    const dir = mkdtempSync(join(tmpdir(), "bundle-storage-"));
+    expect(
+      resolveBlobPath("pangolin://ns/artifact/concerns/..\\..\\..\\secrets", dir)
+    ).toBeNull();
+  });
+
+  it("returns null for a backslash-bearing segment embedded in the type slot (non-leading position)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "bundle-storage-"));
+    expect(
+      resolveBlobPath("pangolin://ns/artifact..\\..\\other/concerns/sha256:abc", dir)
+    ).toBeNull();
+  });
+
+  it("returns null for a multi-hop backslash traversal embedded in the hash slot that stays within root", () => {
+    const dir = mkdtempSync(join(tmpdir(), "bundle-storage-"));
+    expect(
+      resolveBlobPath("pangolin://ns/artifact/concerns/name..\\..\\sha256:abc", dir)
+    ).toBeNull();
+  });
+
   it("reads items out of an audit bundle", () => {
     const dir = mkdtempSync(join(tmpdir(), "bundle-"));
     const p = join(dir, "bundle.json");

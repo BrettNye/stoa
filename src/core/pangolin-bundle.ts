@@ -27,7 +27,7 @@ export function resolveBlobPath(ref: string, storageRoot: string): string | null
   const m = /^pangolin:\/\/([^/]+)\/([^/]+)\/([^/]+)\/([^/]+)$/.exec(ref);
   if (!m) return null;
   const [, ns, type, name, hash] = m;
-  if ([ns, type, name, hash].some((s) => s === "." || s === "..")) return null;
+  if ([ns, type, name, hash].some((s) => s === "." || s === ".." || s.includes("\\"))) return null;
   const root = resolve(storageRoot);
   const candidate = resolve(root, ns, type, name, `${hash}.blob`);
   if (candidate !== root && !candidate.startsWith(root + sep)) return null;
