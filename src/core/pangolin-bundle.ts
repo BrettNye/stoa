@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { resolve, sep } from "node:path";
 
 /** One item as it appears in a pangolin audit export. */
 export interface BundleItem {
@@ -28,7 +28,10 @@ export function resolveBlobPath(ref: string, storageRoot: string): string | null
   if (!m) return null;
   const [, ns, type, name, hash] = m;
   if ([ns, type, name, hash].some((s) => s === "." || s === "..")) return null;
-  return join(storageRoot, ns, type, name, `${hash}.blob`);
+  const root = resolve(storageRoot);
+  const candidate = resolve(root, ns, type, name, `${hash}.blob`);
+  if (candidate !== root && !candidate.startsWith(root + sep)) return null;
+  return candidate;
 }
 
 /** Read a ref's bytes as UTF-8. Returns null when unresolvable or unreadable — never throws. */

@@ -2,12 +2,13 @@ import { describe, it, expect } from "vitest";
 import { resolveBlobPath, readBundleItems, readBlob } from "./pangolin-bundle.js";
 import { mkdtempSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 describe("pangolin-bundle", () => {
   it("maps a content-addressed ref to its blob path", () => {
-    expect(resolveBlobPath("pangolin://ns/artifact/concerns/sha256:abc", "/root"))
-      .toBe(join("/root", "ns", "artifact", "concerns", "sha256:abc.blob"));
+    const dir = mkdtempSync(join(tmpdir(), "bundle-storage-"));
+    expect(resolveBlobPath("pangolin://ns/artifact/concerns/sha256:abc", dir))
+      .toBe(resolve(dir, "ns", "artifact", "concerns", "sha256:abc.blob"));
   });
 
   it("returns null for a non-content-addressed ref", () => {
@@ -21,6 +22,11 @@ describe("pangolin-bundle", () => {
   it("returns null when a segment is '.' or '..'", () => {
     expect(resolveBlobPath("pangolin://../artifact/concerns/sha256:abc", "/root")).toBeNull();
     expect(resolveBlobPath("pangolin://ns/./concerns/sha256:abc", "/root")).toBeNull();
+  });
+
+  it("returns null for a backslash-bearing segment that escapes storageRoot", () => {
+    const dir = mkdtempSync(join(tmpdir(), "bundle-storage-"));
+    expect(resolveBlobPath("pangolin://..\\evil/artifact/concerns/sha256:abc", dir)).toBeNull();
   });
 
   it("reads items out of an audit bundle", () => {
