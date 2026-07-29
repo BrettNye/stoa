@@ -8,6 +8,38 @@ import { slugify } from "../../core/ids.js";
 import { resolveWiki } from "../../tools/_resolve-wiki.js";
 import { getCtx } from "../_ctx.js";
 
+const nonEmptyString = (v: unknown): v is string => typeof v === "string" && v.trim().length > 0;
+
+/**
+ * `validateEnvelope` (core/four-section.ts) only checks `schemaVersion` and that
+ * `concerns` is an array — it does not validate individual concerns, so a
+ * concern missing `scope`/`out_of_scope`/`verification` renders via
+ * `renderFourSection` with those headings present but empty underneath
+ * (Array.join coerces `undefined` to `""`, so nothing throws), passes
+ * `checkTaskReadiness` (which only pattern-matches on the static headings),
+ * and would otherwise become a live backlog task with no error and no log
+ * line. Every producer-supplied concern must pass this field check before it
+ * ever reaches the renderer.
+ * Returns the name of the first missing/empty field, or null if the concern
+ * is well-formed.
+ */
+function findConcernFieldError(c: unknown): string | null {
+  const rec = c as Record<string, unknown> | null | undefined;
+  if (!rec || typeof rec !== "object") return "concern is not an object";
+  if (!nonEmptyString(rec.title)) return "missing or empty field: title";
+  if (
+    !Array.isArray(rec.files) ||
+    rec.files.length === 0 ||
+    !rec.files.every((f) => nonEmptyString(f))
+  ) {
+    return "missing or empty field: files";
+  }
+  if (!nonEmptyString(rec.scope)) return "missing or empty field: scope";
+  if (!nonEmptyString(rec.out_of_scope)) return "missing or empty field: out_of_scope";
+  if (!nonEmptyString(rec.verification)) return "missing or empty field: verification";
+  return null;
+}
+
 export function registerTaskImport(p: Command) {
   p.command("task-import")
     .description("Harvest implementer concerns from a pangolin audit bundle into the task backlog")
@@ -35,7 +67,15 @@ export function registerTaskImport(p: Command) {
         if (errs.length) { skipped.push({ id: item.id, why: errs.join("; ") }); continue; }
 
         const envelope = parsed as ConcernsEnvelope;
-        for (const c of envelope.concerns) {
+        for (const [i, c] of envelope.concerns.entries()) {
+          const fieldErr = findConcernFieldError(c);
+          if (fieldErr) {
+            const label = nonEmptyString((c as { title?: unknown } | null)?.title)
+              ? (c as { title: string }).title
+              : `${item.id}[${i}]`;
+            skipped.push({ id: label, why: fieldErr });
+            continue;
+          }
           try {
             const body = renderFourSection(c);
             const readiness = checkTaskReadiness(body);
@@ -55,7 +95,7 @@ export function registerTaskImport(p: Command) {
             });
             created.push(r.id);
           } catch (e) {
-            skipped.push({ id: c.title ?? item.id, why: (e as Error).message });
+            skipped.push({ id: c.title ?? `${item.id}[${i}]`, why: (e as Error).message });
           }
         }
       }
