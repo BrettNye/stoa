@@ -21,11 +21,11 @@ export function registerTaskMaterialize(p: Command) {
       const skipped: { id: string; why: string }[] = [];
 
       for (const t of listTasks(ctx.vaultPath, { status: "pending", wiki: opts.wiki })) {
-        const page = readPage(ctx.vaultPath, t.id, t.wiki);
-        const readiness = checkTaskReadiness(page.body);
-        if (!readiness.ready) { skipped.push({ id: t.id, why: `not ready: ${readiness.missing.join(", ")}` }); continue; }
-        if (!t.segregation?.length) { skipped.push({ id: t.id, why: "no segregation paths" }); continue; }
         try {
+          const page = readPage(ctx.vaultPath, t.id, t.wiki);
+          const readiness = checkTaskReadiness(page.body);
+          if (!readiness.ready) { skipped.push({ id: t.id, why: `not ready: ${readiness.missing.join(", ")}` }); continue; }
+          if (!t.segregation?.length) { skipped.push({ id: t.id, why: "no segregation paths" }); continue; }
           const plan = buildFollowUpPlan({ taskId: t.id, body: page.body, segregation: t.segregation, date });
           const out = join(opts.outDir, `plan-${t.id}.json`);
           writeFileSync(out, JSON.stringify(plan, null, 2));
